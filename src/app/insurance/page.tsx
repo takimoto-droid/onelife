@@ -5,13 +5,32 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
-import { InsuranceCard } from '@/components/InsuranceCard';
-import { InsuranceRecommendation } from '@/types';
+
+interface InsuranceRecommendation {
+  name: string;
+  company: string;
+  monthlyPrice: number;
+  coveragePercent: number;
+  features: string[];
+  pros: string;
+  cons: string;
+  reason: string;
+  url: string;
+  recommended?: boolean;
+}
+
+interface DogInfo {
+  name: string;
+  breed: string | null;
+  age: string;
+}
 
 export default function InsurancePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [recommendations, setRecommendations] = useState<InsuranceRecommendation[]>([]);
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [dogInfo, setDogInfo] = useState<DogInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,6 +40,12 @@ export default function InsurancePage() {
         const data = await res.json();
         if (data.recommendations) {
           setRecommendations(data.recommendations);
+        }
+        if (data.aiAnalysis) {
+          setAiAnalysis(data.aiAnalysis);
+        }
+        if (data.dogInfo) {
+          setDogInfo(data.dogInfo);
         }
       } catch (error) {
         console.error('Failed to fetch insurance:', error);
@@ -64,9 +89,28 @@ export default function InsurancePage() {
         <h2 className="text-2xl font-bold text-primary-900 mb-2">
           保険のご案内
         </h2>
-        <p className="text-gray-600 mb-6">
-          ワンちゃんに合った保険をAIがご提案します
-        </p>
+        {dogInfo && (
+          <p className="text-gray-600 mb-6">
+            {dogInfo.name}ちゃん（{dogInfo.breed || '犬種未設定'}・{dogInfo.age}）に合った保険をご提案
+          </p>
+        )}
+
+        {/* AIからのアドバイス */}
+        {aiAnalysis && (
+          <Card className="mb-6 bg-gradient-to-r from-primary-50 to-warm-100 border-primary-200">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">🤖</span>
+              <div>
+                <h3 className="font-bold text-primary-900 mb-2">
+                  AIからのアドバイス
+                </h3>
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  {aiAnalysis}
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* 重要な注意 */}
         <Card variant="warm" className="mb-6">
@@ -87,38 +131,125 @@ export default function InsurancePage() {
         {/* 保険リスト */}
         <div className="space-y-6 mb-8">
           {recommendations.map((insurance, index) => (
-            <InsuranceCard key={index} insurance={insurance} />
+            <Card
+              key={index}
+              className={`hover:shadow-md transition-shadow ${
+                insurance.recommended ? 'ring-2 ring-primary-400' : ''
+              }`}
+            >
+              {insurance.recommended && (
+                <div className="inline-block bg-primary-500 text-white text-xs font-bold px-3 py-1 rounded-full mb-4">
+                  おすすめ
+                </div>
+              )}
+
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="font-bold text-primary-900 text-lg">
+                    {insurance.name}
+                  </h3>
+                  <p className="text-sm text-gray-500">{insurance.company}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-primary-600">
+                    ¥{insurance.monthlyPrice.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-500">/ 月〜</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 mb-4">
+                <span className="bg-primary-100 text-primary-700 text-sm font-medium px-3 py-1 rounded-full">
+                  補償 {insurance.coveragePercent}%
+                </span>
+              </div>
+
+              {/* おすすめ理由 */}
+              <div className="p-3 bg-warm-100 rounded-lg mb-4">
+                <p className="text-sm text-primary-800">
+                  <span className="font-medium">選んだ理由: </span>
+                  {insurance.reason}
+                </p>
+              </div>
+
+              {/* 特徴 */}
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">特徴</h4>
+                <ul className="space-y-1">
+                  {insurance.features.map((feature, i) => (
+                    <li
+                      key={i}
+                      className="flex items-start gap-2 text-sm text-gray-600"
+                    >
+                      <svg
+                        className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* メリット・デメリット */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="text-sm">
+                  <p className="font-medium text-green-700 mb-1">メリット</p>
+                  <p className="text-gray-600">{insurance.pros}</p>
+                </div>
+                <div className="text-sm">
+                  <p className="font-medium text-orange-700 mb-1">注意点</p>
+                  <p className="text-gray-600">{insurance.cons}</p>
+                </div>
+              </div>
+
+              {/* 公式サイトリンク */}
+              <a
+                href={insurance.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full text-center py-3 border-2 border-primary-400 text-primary-600 rounded-xl hover:bg-primary-50 transition-colors font-medium"
+              >
+                公式サイトで詳細を見る →
+              </a>
+            </Card>
           ))}
         </div>
 
         {/* ペット保険について */}
         <Card className="mb-6">
           <h3 className="font-bold text-primary-900 mb-4">
-            ペット保険について
+            ペット保険の選び方
           </h3>
           <div className="space-y-4 text-sm text-gray-700">
             <div>
-              <p className="font-medium mb-1">ペット保険とは？</p>
+              <p className="font-medium mb-1">補償割合をチェック</p>
               <p className="text-gray-600">
-                ペットの病気やケガの治療費を補償する保険です。
-                犬の医療費は全額自己負担が基本のため、
-                急な出費に備える手段として検討される方が増えています。
+                50%・70%・100%などがあります。割合が高いほど自己負担が減りますが、
+                保険料も上がります。バランスを考えて選びましょう。
               </p>
             </div>
             <div>
-              <p className="font-medium mb-1">加入のタイミング</p>
+              <p className="font-medium mb-1">窓口精算 vs 後日請求</p>
               <p className="text-gray-600">
-                一般的に、若いうちに加入するほど保険料が安くなります。
-                また、既往症がある場合は加入できないこともあるため、
-                健康なうちの検討がおすすめです。
+                窓口精算対応なら、病院で保険証を見せるだけで補償分を差し引いた金額のみ支払い。
+                後日請求の場合は一旦全額支払い、後で請求が必要です。
               </p>
             </div>
             <div>
-              <p className="font-medium mb-1">選ぶポイント</p>
+              <p className="font-medium mb-1">補償対象を確認</p>
               <p className="text-gray-600">
-                補償割合、月々の保険料、補償対象（通院・入院・手術）、
-                待機期間、免責事項などを比較して、
-                ご自身の状況に合ったプランを選びましょう。
+                通院・入院・手術のどれが補償されるか確認を。
+                歯科治療や予防接種は対象外のことが多いです。
               </p>
             </div>
           </div>
@@ -127,12 +258,10 @@ export default function InsurancePage() {
         {/* 注意書き */}
         <div className="disclaimer">
           <p>
-            ※ 表示されている保険情報は参考情報です。
-            実際の保険料や補償内容は、年齢・犬種・地域などによって異なります。
-            詳細は各保険会社の公式サイトをご確認ください。
+            ※ 表示されている保険料は目安であり、犬種・年齢・プランによって異なります。
+            正確な保険料は各保険会社の公式サイトでご確認ください。
+            わんサポは保険の販売・仲介を行っておらず、特定の保険を推奨するものではありません。
             保険への加入は、ご自身の判断と責任のもとで行ってください。
-            わんサポは保険の販売・仲介を行っておらず、
-            特定の保険を推奨するものではありません。
           </p>
         </div>
       </main>

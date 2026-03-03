@@ -39,4 +39,14 @@ export interface InsuranceRecommendation {
   coveragePercent: number;
   features: string[];
   reason: string;
+  pros: string;
+  cons: string;
+  url: string;
+  recommended?: boolean;
+}
+
+export interface DogInfo {
+  name: string;
+  breed: string | null;
+  age: string;
 }
