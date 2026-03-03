@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  createdAt     DateTime  @default(now())
+
+  // Stripe
+  stripeCustomerId    String?
+  subscriptionId      String?
+  subscriptionStatus  String  @default("trialing")
+  trialEndsAt         DateTime?
+
+  // 関連
+  dogs          Dog[]
+  onboarded     Boolean   @default(false)
+}
+
+model Dog {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+
+  name          String
+  breed         String?
+  birthDate     DateTime?
+  adoptedAt     DateTime?
+
+  // ヒアリング結果
+  hasVisitedVet Boolean?
+  mainConcern   String?
+
+  // ワクチン
+  vaccineSchedules VaccineSchedule[]
+
+  createdAt     DateTime  @default(now())
+}
+
+model VaccineSchedule {
+  id            String    @id @default(cuid())
+  dogId         String
+  dog           Dog       @relation(fields: [dogId], references: [id])
+
+  type          String
+  scheduledDate DateTime
+  notifiedWeek  Boolean   @default(false)
+  notifiedDay   Boolean   @default(false)
+  completed     Boolean   @default(false)
+
+  createdAt     DateTime  @default(now())
+}

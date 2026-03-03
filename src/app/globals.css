@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 55, 48, 43;
+  --background-rgb: 254, 253, 251;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+  min-height: 100vh;
+}
+
+/* カスタムスタイル */
+@layer components {
+  .btn-primary {
+    @apply bg-primary-500 hover:bg-primary-600 text-white font-medium py-3 px-6 rounded-xl transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-warm-200 hover:bg-warm-300 text-primary-800 font-medium py-3 px-6 rounded-xl transition-colors duration-200;
+  }
+
+  .btn-outline {
+    @apply border-2 border-primary-400 text-primary-600 hover:bg-primary-50 font-medium py-3 px-6 rounded-xl transition-colors duration-200;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 rounded-xl border border-warm-300 focus:border-primary-400 focus:ring-2 focus:ring-primary-200 outline-none transition-all duration-200 bg-white;
+  }
+
+  .card {
+    @apply bg-white rounded-2xl shadow-sm border border-warm-200 p-6;
+  }
+
+  .card-warm {
+    @apply bg-warm-100 rounded-2xl p-6;
+  }
+}
+
+/* フォント調整 */
+h1, h2, h3, h4, h5, h6 {
+  @apply font-bold text-primary-900;
+}
+
+/* ソフトなシャドウ */
+.soft-shadow {
+  box-shadow: 0 4px 20px rgba(180, 160, 140, 0.15);
+}
+
+/* アニメーション */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* チャットバブル */
+.chat-bubble-ai {
+  @apply bg-warm-200 text-primary-900 rounded-2xl rounded-tl-md px-4 py-3;
+}
+
+.chat-bubble-user {
+  @apply bg-primary-500 text-white rounded-2xl rounded-tr-md px-4 py-3;
+}
+
+/* 医療・法的注意書き */
+.disclaimer {
+  @apply text-xs text-gray-500 bg-gray-50 rounded-lg p-3 mt-4;
+}
