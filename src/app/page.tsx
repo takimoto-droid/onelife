@@ -15,20 +15,20 @@ export default function Home() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
 
   useEffect(() => {
-    // セッションがある場合、ユーザーが有効か確認
+    // セッションがある場合、ユーザーが有効か確認（自動リダイレクトしない）
     const checkUser = async () => {
       if (status === 'authenticated' && session?.user?.id) {
         try {
           const res = await fetch('/api/dogs');
           if (res.ok) {
             const data = await res.json();
-            // 犬が登録されていればダッシュボードへ
+            // 犬が登録されていればログイン状態として表示
             if (data.dogs && data.dogs.length > 0) {
-              router.push('/dashboard');
-              return;
+              setIsLoggedIn(true);
             }
           } else if (res.status === 401) {
             // セッションが無効な場合はログアウト
@@ -44,7 +44,7 @@ export default function Home() {
     if (status !== 'loading') {
       checkUser();
     }
-  }, [status, session, router]);
+  }, [status, session]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,50 +155,79 @@ export default function Home() {
             </div>
           </div>
 
-          {/* ログインフォーム */}
+          {/* ログインフォーム または ログイン済み表示 */}
           <Card className="soft-shadow">
-            <h3 className="text-xl font-bold text-primary-900 mb-6 text-center">
-              ログイン
-            </h3>
+            {isLoggedIn ? (
+              <>
+                <h3 className="text-xl font-bold text-primary-900 mb-6 text-center">
+                  おかえりなさい！
+                </h3>
+                <p className="text-gray-600 text-center mb-6">
+                  {session?.user?.email} でログイン中
+                </p>
+                <div className="space-y-4">
+                  <Link href="/dashboard">
+                    <Button className="w-full">
+                      ダッシュボードへ
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => signOut({ redirect: false }).then(() => {
+                      setIsLoggedIn(false);
+                    })}
+                  >
+                    ログアウト
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-xl font-bold text-primary-900 mb-6 text-center">
+                  ログイン
+                </h3>
 
-            <form onSubmit={handleLogin} className="space-y-4">
-              <Input
-                type="email"
-                label="メールアドレス"
-                placeholder="example@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <Input
+                    type="email"
+                    label="メールアドレス"
+                    placeholder="example@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
 
-              <Input
-                type="password"
-                label="パスワード"
-                placeholder="6文字以上"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+                  <Input
+                    type="password"
+                    label="パスワード"
+                    placeholder="6文字以上"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
 
-              {error && (
-                <p className="text-sm text-red-500 text-center">{error}</p>
-              )}
+                  {error && (
+                    <p className="text-sm text-red-500 text-center">{error}</p>
+                  )}
 
-              <Button type="submit" loading={loading} className="w-full">
-                ログイン
-              </Button>
-            </form>
+                  <Button type="submit" loading={loading} className="w-full">
+                    ログイン
+                  </Button>
+                </form>
 
-            <div className="mt-6 pt-6 border-t border-warm-200">
-              <p className="text-sm text-gray-600 text-center mb-4">
-                アカウントをお持ちでない方
-              </p>
-              <Link href="/register">
-                <Button variant="outline" className="w-full">
-                  新規登録（7日間無料）
-                </Button>
-              </Link>
-            </div>
+                <div className="mt-6 pt-6 border-t border-warm-200">
+                  <p className="text-sm text-gray-600 text-center mb-4">
+                    アカウントをお持ちでない方
+                  </p>
+                  <Link href="/register">
+                    <Button variant="outline" className="w-full">
+                      新規登録（7日間無料）
+                    </Button>
+                  </Link>
+                </div>
+              </>
+            )}
           </Card>
         </div>
 
