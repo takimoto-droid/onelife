@@ -15,6 +15,7 @@ interface Dog {
   breed?: string;
   birthDate?: string;
   adoptedAt?: string;
+  dogSize?: string;
   hasVisitedVet?: boolean;
   mainConcern?: string;
   vaccineSchedules: VaccineScheduleData[];
@@ -80,6 +81,47 @@ export default function DashboardPage() {
   const dog = dogs[0];
   const upcomingVaccines = dog?.vaccineSchedules?.filter((v) => !v.completed) || [];
 
+  // メニューアイテム
+  const menuItems = [
+    {
+      href: '/vaccine',
+      icon: '💉',
+      title: 'ワクチン',
+      description: 'スケジュール管理',
+      badge: upcomingVaccines.length > 0 ? `${upcomingVaccines.length}件` : undefined,
+    },
+    {
+      href: '/insurance',
+      icon: '🏥',
+      title: '保険',
+      description: 'AIレコメンド',
+    },
+    {
+      href: '/walk',
+      icon: '🚶',
+      title: '散歩',
+      description: 'ルート提案',
+    },
+    {
+      href: '/places',
+      icon: '📍',
+      title: '周辺施設',
+      description: '病院・ドッグラン',
+    },
+    {
+      href: '/sns',
+      icon: '📸',
+      title: 'SNS投稿',
+      description: '投稿文生成',
+    },
+    {
+      href: '/goods',
+      icon: '🎁',
+      title: 'グッズ',
+      description: 'おすすめ情報',
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-warm-50">
       {/* ヘッダー */}
@@ -121,9 +163,9 @@ export default function DashboardPage() {
                   {dog.name}ちゃんのダッシュボード
                 </h2>
                 <p className="text-sm text-gray-600">
-                  {dog.breed || '犬種未設定'}{' '}
-                  {dog.birthDate &&
-                    `・${calculateAge(new Date(dog.birthDate))}`}
+                  {dog.breed || '犬種未設定'}
+                  {dog.dogSize && ` ・ ${getSizeLabel(dog.dogSize)}`}
+                  {dog.birthDate && ` ・ ${calculateAge(new Date(dog.birthDate))}`}
                 </p>
               </div>
             </div>
@@ -142,36 +184,28 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* クイックアクション */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          <Link href="/vaccine">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-              <div className="text-center">
-                <div className="text-3xl mb-2">💉</div>
-                <h3 className="font-bold text-primary-900">ワクチン</h3>
-                <p className="text-xs text-gray-500 mt-1">
-                  スケジュール管理
-                </p>
-                {upcomingVaccines.length > 0 && (
-                  <span className="inline-block mt-2 px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-full">
-                    {upcomingVaccines.length}件の予定
-                  </span>
-                )}
-              </div>
-            </Card>
-          </Link>
-
-          <Link href="/insurance">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-              <div className="text-center">
-                <div className="text-3xl mb-2">🏥</div>
-                <h3 className="font-bold text-primary-900">保険</h3>
-                <p className="text-xs text-gray-500 mt-1">
-                  AIレコメンド
-                </p>
-              </div>
-            </Card>
-          </Link>
+        {/* メインメニュー */}
+        <div className="grid grid-cols-3 gap-3 mb-8">
+          {menuItems.map((item) => (
+            <Link key={item.href} href={item.href}>
+              <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+                <div className="text-center py-2">
+                  <div className="text-2xl mb-1">{item.icon}</div>
+                  <h3 className="font-bold text-primary-900 text-sm">
+                    {item.title}
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {item.description}
+                  </p>
+                  {item.badge && (
+                    <span className="inline-block mt-1 px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full">
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
+              </Card>
+            </Link>
+          ))}
         </div>
 
         {/* 直近のワクチン予定 */}
@@ -219,6 +253,32 @@ export default function DashboardPage() {
           </Card>
         )}
 
+        {/* クイックアクション */}
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          <Link href="/walk">
+            <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">🚶</span>
+                <div>
+                  <h3 className="font-bold text-green-800">今日の散歩</h3>
+                  <p className="text-xs text-green-600">ルートを提案</p>
+                </div>
+              </div>
+            </Card>
+          </Link>
+          <Link href="/sns">
+            <Card className="bg-gradient-to-r from-pink-50 to-purple-50 border-pink-200 hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">📸</span>
+                <div>
+                  <h3 className="font-bold text-pink-800">SNS投稿</h3>
+                  <p className="text-xs text-pink-600">AIで投稿文生成</p>
+                </div>
+              </div>
+            </Card>
+          </Link>
+        </div>
+
         {/* 不安なこと */}
         {dog?.mainConcern && (
           <Card variant="warm" className="mb-8">
@@ -265,4 +325,17 @@ function calculateAge(birthDate: Date): string {
   }
 
   return `${years}歳${remainingMonths}ヶ月`;
+}
+
+function getSizeLabel(size: string): string {
+  switch (size) {
+    case 'small':
+      return '小型犬';
+    case 'medium':
+      return '中型犬';
+    case 'large':
+      return '大型犬';
+    default:
+      return '';
+  }
 }

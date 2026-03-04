@@ -7,10 +7,13 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 
+type UserType = 'new_owner' | 'reviewing' | null;
+
 export default function OnboardingPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [step, setStep] = useState(1);
+  const [userType, setUserType] = useState<UserType>(null);
   const [dogName, setDogName] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -27,10 +30,25 @@ export default function OnboardingPage() {
     return null;
   }
 
+  const handleSelectUserType = async (type: UserType) => {
+    setUserType(type);
+    // ユーザータイプを保存
+    try {
+      await fetch('/api/user/type', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userType: type }),
+      });
+    } catch (error) {
+      console.error('Failed to save user type:', error);
+    }
+    setStep(3);
+  };
+
   const handleContinue = async () => {
     if (step === 1) {
       setStep(2);
-    } else if (step === 2) {
+    } else if (step === 3) {
       if (!dogName.trim()) return;
 
       setLoading(true);
@@ -64,9 +82,15 @@ export default function OnboardingPage() {
               step >= 2 ? 'bg-primary-500' : 'bg-warm-300'
             }`}
           />
+          <div
+            className={`w-3 h-3 rounded-full ${
+              step >= 3 ? 'bg-primary-500' : 'bg-warm-300'
+            }`}
+          />
         </div>
 
         <Card className="soft-shadow">
+          {/* Step 1: 歓迎画面 */}
           {step === 1 && (
             <div className="text-center fade-in">
               <div className="text-6xl mb-6">🎉</div>
@@ -74,30 +98,34 @@ export default function OnboardingPage() {
                 ようこそ、わんサポへ！
               </h2>
               <p className="text-gray-600 mb-6 leading-relaxed">
-                犬を飼い始めたばかりの方も、これから飼う方も、
+                犬を飼い始めたばかりの方も、
+                すでに飼っている方も、
                 わんサポが一緒にサポートします。
-                <br /><br />
-                まずは、あなたとワンちゃんのことを
-                少しだけ教えてください。
               </p>
 
               <div className="space-y-3 text-left mb-8">
                 <div className="flex items-center gap-3 p-3 bg-warm-100 rounded-lg">
                   <span className="text-2xl">💬</span>
                   <p className="text-sm text-gray-700">
-                    AIが会話形式でヒアリングします
+                    簡単な質問に答えるだけ
                   </p>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-warm-100 rounded-lg">
-                  <span className="text-2xl">⏱️</span>
+                  <span className="text-2xl">🏥</span>
                   <p className="text-sm text-gray-700">
-                    ほんの数分で完了します
+                    あなたに合った保険をAIが提案
                   </p>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-warm-100 rounded-lg">
-                  <span className="text-2xl">❓</span>
+                  <span className="text-2xl">📅</span>
                   <p className="text-sm text-gray-700">
-                    わからない質問はスキップOK
+                    ワクチン・健康管理をサポート
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-warm-100 rounded-lg">
+                  <span className="text-2xl">🚶</span>
+                  <p className="text-sm text-gray-700">
+                    散歩ルートをAIが提案
                   </p>
                 </div>
               </div>
@@ -108,7 +136,66 @@ export default function OnboardingPage() {
             </div>
           )}
 
+          {/* Step 2: ユーザータイプ選択 */}
           {step === 2 && (
+            <div className="fade-in">
+              <div className="text-center mb-8">
+                <div className="text-5xl mb-4">🐕</div>
+                <h2 className="text-xl font-bold text-primary-900">
+                  あなたの状況を教えてください
+                </h2>
+                <p className="text-sm text-gray-600 mt-2">
+                  最適なサポートをご提案するために
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <button
+                  onClick={() => handleSelectUserType('new_owner')}
+                  className="w-full p-5 text-left rounded-xl border-2 border-warm-200 hover:border-primary-400 hover:bg-primary-50 transition-all duration-200"
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="text-3xl">🐶</span>
+                    <div>
+                      <p className="font-bold text-primary-900">
+                        犬を飼い始めたばかり
+                      </p>
+                      <p className="text-sm text-gray-600 mt-1">
+                        最近お迎えした / これからお迎えする予定
+                      </p>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => handleSelectUserType('reviewing')}
+                  className="w-full p-5 text-left rounded-xl border-2 border-warm-200 hover:border-primary-400 hover:bg-primary-50 transition-all duration-200"
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="text-3xl">🔄</span>
+                    <div>
+                      <p className="font-bold text-primary-900">
+                        すでに飼っていて見直したい
+                      </p>
+                      <p className="text-sm text-gray-600 mt-1">
+                        保険や生活管理を見直したい
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              <button
+                onClick={() => setStep(1)}
+                className="w-full mt-6 text-sm text-gray-500 hover:text-gray-700"
+              >
+                戻る
+              </button>
+            </div>
+          )}
+
+          {/* Step 3: 犬の名前入力 */}
+          {step === 3 && (
             <div className="fade-in">
               <div className="text-center mb-6">
                 <div className="text-5xl mb-4">🐕</div>
@@ -138,7 +225,7 @@ export default function OnboardingPage() {
                 </Button>
 
                 <button
-                  onClick={() => setStep(1)}
+                  onClick={() => setStep(2)}
                   className="w-full text-sm text-gray-500 hover:text-gray-700"
                 >
                   戻る

@@ -13,47 +13,159 @@ model User {
   password      String
   createdAt     DateTime  @default(now())
 
-  // Stripe
+  // Stripe課金
   stripeCustomerId    String?
   subscriptionId      String?
-  subscriptionStatus  String  @default("trialing")
+  subscriptionStatus  String  @default("trialing") // trialing, active, canceling, canceled, past_due
+  trialStartDate      DateTime @default(now())
   trialEndsAt         DateTime?
+  billingStartDate    DateTime?
+  nextBillingDate     DateTime?
+  canceledAt          DateTime?
+
+  // ユーザータイプ
+  userType      String?   // new_owner, reviewing
+
+  // 設定
+  onboarded     Boolean   @default(false)
+  notificationEnabled Boolean @default(true)
 
   // 関連
   dogs          Dog[]
-  onboarded     Boolean   @default(false)
+  walkHistories WalkHistory[]
 }
 
 model Dog {
   id            String    @id @default(cuid())
   userId        String
-  user          User      @relation(fields: [userId], references: [id])
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   name          String
+  imageUrl      String?
   breed         String?
   birthDate     DateTime?
   adoptedAt     DateTime?
 
-  // ヒアリング結果
+  // 基本情報（拡張）
+  dogSize       String?   // small, medium, large, unknown
+
+  // ヒアリング結果（拡張）
+  hasDisease        Boolean?
+  diseaseDetail     String?
+  visitFrequency    String?   // none, low, high, new_owner
+  livingEnv         String?   // indoor, indoor_yard, outdoor
+  walkFrequency     String?   // daily, often, sometimes, rarely
+  isMultiDog        Boolean?  @default(false)
+  multiDogCount     Int?      @default(1)
+  anxietyLevel      Int?      // 1-5
+
+  // 既存保険情報（見直しユーザー向け）
+  hasCurrentInsurance Boolean?
+  currentInsuranceCost String?  // ~1000, 1000-2000, 2000-3000, 3000+, unknown
+  insuranceConcern    String?   // expensive, low_coverage, complicated, none
+
+  // 旧フィールド（互換性のため残す）
   hasVisitedVet Boolean?
   mainConcern   String?
 
+  // 健康管理
+  lastVaccineDate   DateTime?
+  lastRabiesDate    DateTime?
+  lastCheckupDate   DateTime?
+
   // ワクチン
   vaccineSchedules VaccineSchedule[]
+  notifications    Notification[]
+  walkHistories    WalkHistory[]
+  snsPosts         SnsPost[]
 
   createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model VaccineSchedule {
   id            String    @id @default(cuid())
   dogId         String
-  dog           Dog       @relation(fields: [dogId], references: [id])
+  dog           Dog       @relation(fields: [dogId], references: [id], onDelete: Cascade)
 
-  type          String
+  type          String    // mixed_vaccine, rabies, heartworm, checkup
   scheduledDate DateTime
+  completedAt   DateTime?
   notifiedWeek  Boolean   @default(false)
   notifiedDay   Boolean   @default(false)
   completed     Boolean   @default(false)
 
+  createdAt     DateTime  @default(now())
+}
+
+model Notification {
+  id            String    @id @default(cuid())
+  dogId         String
+  dog           Dog       @relation(fields: [dogId], references: [id], onDelete: Cascade)
+
+  type          String    // vaccine_reminder, rabies_reminder, checkup_reminder, heartworm_reminder, custom
+  title         String
+  body          String
+  scheduledAt   DateTime
+  sentAt        DateTime?
+
+  createdAt     DateTime  @default(now())
+}
+
+model WalkHistory {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dogId         String
+  dog           Dog       @relation(fields: [dogId], references: [id], onDelete: Cascade)
+
+  startedAt     DateTime
+  endedAt       DateTime?
+  durationMin   Int?
+  distanceM     Int?
+  routePolyline String?
+
+  createdAt     DateTime  @default(now())
+}
+
+model SnsPost {
+  id            String    @id @default(cuid())
+  dogId         String
+  dog           Dog       @relation(fields: [dogId], references: [id], onDelete: Cascade)
+
+  imageUrl      String
+  caption       String
+  hashtags      String    // JSON配列
+
+  postedAt      DateTime?
+  platform      String?   // instagram, twitter
+
+  createdAt     DateTime  @default(now())
+}
+
+model InsuranceClick {
+  id            String    @id @default(cuid())
+  dogId         String
+
+  insuranceId   String
+  insuranceName String
+  matchScore    Int?
+  reason        String?
+  rank          Int?
+
+  clickedAt     DateTime  @default(now())
+}
+
+model GoodsItem {
+  id            String    @id @default(cuid())
+  title         String
+  description   String
+  imageUrl      String?
+  category      String    // toy, food, care, fashion, outdoor
+  price         Int?
+  affiliateUrl  String?
+  tags          String    // JSON配列
+
+  publishedAt   DateTime  @default(now())
   createdAt     DateTime  @default(now())
 }

@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 
 interface InsuranceRecommendation {
+  id: string;
   name: string;
   company: string;
   monthlyPrice: number;
@@ -16,6 +17,8 @@ interface InsuranceRecommendation {
   cons: string;
   reason: string;
   url: string;
+  rank: number;
+  matchScore: number;
   recommended?: boolean;
 }
 
@@ -23,6 +26,7 @@ interface DogInfo {
   name: string;
   breed: string | null;
   age: string;
+  size: string | null;
 }
 
 export default function InsurancePage() {
@@ -71,6 +75,19 @@ export default function InsurancePage() {
     return null;
   }
 
+  const getSizeLabel = (size: string | null) => {
+    switch (size) {
+      case 'small':
+        return '小型犬';
+      case 'medium':
+        return '中型犬';
+      case 'large':
+        return '大型犬';
+      default:
+        return '';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-warm-50">
       {/* ヘッダー */}
@@ -86,12 +103,20 @@ export default function InsurancePage() {
       </header>
 
       <main className="max-w-2xl mx-auto p-4 py-6">
-        <h2 className="text-2xl font-bold text-primary-900 mb-2">
-          保険のご案内
-        </h2>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-2xl">🏆</span>
+          <h2 className="text-2xl font-bold text-primary-900">
+            おすすめ保険
+          </h2>
+        </div>
         {dogInfo && (
           <p className="text-gray-600 mb-6">
-            {dogInfo.name}ちゃん（{dogInfo.breed || '犬種未設定'}・{dogInfo.age}）に合った保険をご提案
+            {dogInfo.name}ちゃん
+            {dogInfo.breed && `（${dogInfo.breed}`}
+            {dogInfo.size && `・${getSizeLabel(dogInfo.size)}`}
+            {dogInfo.age && `・${dogInfo.age}`}
+            {(dogInfo.breed || dogInfo.size || dogInfo.age) && '）'}
+            に合った保険をご提案
           </p>
         )}
 
@@ -130,18 +155,36 @@ export default function InsurancePage() {
 
         {/* 保険リスト */}
         <div className="space-y-6 mb-8">
-          {recommendations.map((insurance, index) => (
+          {recommendations.map((insurance) => (
             <Card
-              key={index}
+              key={insurance.id}
               className={`hover:shadow-md transition-shadow ${
                 insurance.recommended ? 'ring-2 ring-primary-400' : ''
               }`}
             >
-              {insurance.recommended && (
-                <div className="inline-block bg-primary-500 text-white text-xs font-bold px-3 py-1 rounded-full mb-4">
-                  おすすめ
-                </div>
-              )}
+              {/* ランキングバッジ */}
+              <div className="flex items-center gap-2 mb-4">
+                {insurance.rank === 1 && (
+                  <div className="inline-flex items-center gap-1 bg-yellow-400 text-yellow-900 text-xs font-bold px-3 py-1 rounded-full">
+                    <span>🥇</span> 1位
+                  </div>
+                )}
+                {insurance.rank === 2 && (
+                  <div className="inline-flex items-center gap-1 bg-gray-300 text-gray-700 text-xs font-bold px-3 py-1 rounded-full">
+                    <span>🥈</span> 2位
+                  </div>
+                )}
+                {insurance.rank === 3 && (
+                  <div className="inline-flex items-center gap-1 bg-amber-600 text-white text-xs font-bold px-3 py-1 rounded-full">
+                    <span>🥉</span> 3位
+                  </div>
+                )}
+                {insurance.recommended && (
+                  <div className="inline-block bg-primary-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                    おすすめ
+                  </div>
+                )}
+              </div>
 
               <div className="flex items-start justify-between mb-4">
                 <div>
@@ -162,12 +205,15 @@ export default function InsurancePage() {
                 <span className="bg-primary-100 text-primary-700 text-sm font-medium px-3 py-1 rounded-full">
                   補償 {insurance.coveragePercent}%
                 </span>
+                <span className="bg-warm-200 text-warm-700 text-sm font-medium px-3 py-1 rounded-full">
+                  マッチ度 {Math.min(100, Math.round(insurance.matchScore * 1.5))}%
+                </span>
               </div>
 
               {/* おすすめ理由 */}
               <div className="p-3 bg-warm-100 rounded-lg mb-4">
                 <p className="text-sm text-primary-800">
-                  <span className="font-medium">選んだ理由: </span>
+                  <span className="font-medium">💬 </span>
                   {insurance.reason}
                 </p>
               </div>
@@ -203,11 +249,11 @@ export default function InsurancePage() {
               {/* メリット・デメリット */}
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="text-sm">
-                  <p className="font-medium text-green-700 mb-1">メリット</p>
+                  <p className="font-medium text-green-700 mb-1">👍 メリット</p>
                   <p className="text-gray-600">{insurance.pros}</p>
                 </div>
                 <div className="text-sm">
-                  <p className="font-medium text-orange-700 mb-1">注意点</p>
+                  <p className="font-medium text-orange-700 mb-1">⚠️ 注意点</p>
                   <p className="text-gray-600">{insurance.cons}</p>
                 </div>
               </div>
@@ -232,24 +278,31 @@ export default function InsurancePage() {
           </h3>
           <div className="space-y-4 text-sm text-gray-700">
             <div>
-              <p className="font-medium mb-1">補償割合をチェック</p>
+              <p className="font-medium mb-1">📊 補償割合をチェック</p>
               <p className="text-gray-600">
                 50%・70%・100%などがあります。割合が高いほど自己負担が減りますが、
                 保険料も上がります。バランスを考えて選びましょう。
               </p>
             </div>
             <div>
-              <p className="font-medium mb-1">窓口精算 vs 後日請求</p>
+              <p className="font-medium mb-1">🏥 窓口精算 vs 後日請求</p>
               <p className="text-gray-600">
                 窓口精算対応なら、病院で保険証を見せるだけで補償分を差し引いた金額のみ支払い。
                 後日請求の場合は一旦全額支払い、後で請求が必要です。
               </p>
             </div>
             <div>
-              <p className="font-medium mb-1">補償対象を確認</p>
+              <p className="font-medium mb-1">📋 補償対象を確認</p>
               <p className="text-gray-600">
                 通院・入院・手術のどれが補償されるか確認を。
                 歯科治療や予防接種は対象外のことが多いです。
+              </p>
+            </div>
+            <div>
+              <p className="font-medium mb-1">🐕 加入条件をチェック</p>
+              <p className="text-gray-600">
+                年齢制限（7歳以上は加入不可など）や持病の有無で加入できない場合があります。
+                早めの検討がおすすめです。
               </p>
             </div>
           </div>
