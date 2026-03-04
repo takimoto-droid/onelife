@@ -91,29 +91,29 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-warm-100 to-warm-50 py-8 px-4">
+    <div className="min-h-screen bg-dark-900 py-8 px-4">
       <div className="max-w-md mx-auto">
         {/* ヘッダー */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-block">
-            <h1 className="text-2xl font-bold text-primary-600">わんサポ</h1>
+            <h1 className="text-2xl font-bold gradient-text">わんライフ</h1>
           </Link>
         </div>
 
-        <Card className="soft-shadow">
+        <Card>
           {canceled && (
-            <div className="mb-6 p-4 bg-yellow-50 rounded-lg text-sm text-yellow-800">
+            <div className="mb-6 p-4 bg-accent/10 border border-accent/30 rounded-lg text-sm text-accent">
               決済がキャンセルされました。もう一度お試しください。
             </div>
           )}
 
           {step === 'form' ? (
             <>
-              <h2 className="text-xl font-bold text-primary-900 mb-2 text-center">
+              <h2 className="text-xl font-bold text-dark-50 mb-2 text-center">
                 新規登録
               </h2>
-              <p className="text-sm text-gray-600 text-center mb-6">
-                7日間無料でお試しいただけます
+              <p className="text-sm text-dark-400 text-center mb-6">
+                初月無料でお試しいただけます
               </p>
 
               <form onSubmit={handleRegister} className="space-y-4">
@@ -145,15 +145,24 @@ export default function RegisterPage() {
                 />
 
                 {error && (
-                  <p className="text-sm text-red-500 text-center">{error}</p>
+                  <p className="text-sm text-red-400 text-center">{error}</p>
                 )}
 
-                <div className="p-4 bg-warm-100 rounded-lg text-sm text-gray-700">
-                  <p className="font-medium mb-2">ご利用料金</p>
+                <div className="p-4 bg-dark-700/50 border border-dark-600 rounded-lg text-sm text-dark-300">
+                  <p className="font-medium text-dark-100 mb-2">ご利用料金</p>
                   <ul className="space-y-1">
-                    <li>• 7日間無料トライアル</li>
-                    <li>• その後 月額500円（税込）</li>
-                    <li>• いつでも解約可能</li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-accent">✓</span>
+                      初月無料トライアル
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-accent">✓</span>
+                      その後 月額500円（税込）
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-accent">✓</span>
+                      いつでも解約可能
+                    </li>
                   </ul>
                 </div>
 
@@ -162,17 +171,17 @@ export default function RegisterPage() {
                 </Button>
               </form>
 
-              <p className="mt-6 text-center text-sm text-gray-600">
+              <p className="mt-6 text-center text-sm text-dark-400">
                 すでにアカウントをお持ちの方は
-                <Link href="/" className="text-primary-600 font-medium ml-1">
+                <Link href="/" className="text-accent font-medium ml-1">
                   ログイン
                 </Link>
               </p>
             </>
           ) : (
             <div className="text-center py-8">
-              <div className="animate-spin w-12 h-12 border-4 border-primary-200 border-t-primary-500 rounded-full mx-auto mb-4" />
-              <p className="text-gray-600">決済ページへ移動中...</p>
+              <div className="spinner mx-auto mb-4" />
+              <p className="text-dark-300">決済ページへ移動中...</p>
             </div>
           )}
         </Card>
@@ -181,7 +190,7 @@ export default function RegisterPage() {
         <div className="disclaimer mt-6">
           <p>
             登録することで、利用規約およびプライバシーポリシーに同意したものとみなされます。
-            7日間の無料トライアル終了後、自動的に月額課金が開始されます。
+            初月無料トライアル終了後、自動的に月額課金が開始されます。
             課金開始前にキャンセルすれば料金は発生しません。
           </p>
         </div>

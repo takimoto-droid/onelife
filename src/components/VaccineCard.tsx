@@ -54,14 +54,14 @@ export function VaccineCard({
   return (
     <Card className="relative overflow-hidden">
       {completed && (
-        <div className="absolute top-0 right-0 bg-green-500 text-white text-xs px-3 py-1 rounded-bl-lg">
+        <div className="absolute top-0 right-0 bg-feature-health text-dark-900 text-xs font-bold px-3 py-1 rounded-bl-lg">
           完了
         </div>
       )}
       <div className="flex items-start gap-4">
-        <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
+        <div className="w-12 h-12 bg-feature-health/20 rounded-full flex items-center justify-center flex-shrink-0">
           <svg
-            className="w-6 h-6 text-primary-600"
+            className="w-6 h-6 text-feature-health"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -75,18 +75,18 @@ export function VaccineCard({
           </svg>
         </div>
         <div className="flex-1">
-          <h3 className="font-bold text-primary-900 text-lg">{vaccineInfo.name}</h3>
-          <p className="text-sm text-gray-600 mt-1">{vaccineInfo.description}</p>
+          <h3 className="font-bold text-dark-100 text-lg">{vaccineInfo.name}</h3>
+          <p className="text-sm text-dark-400 mt-1">{vaccineInfo.description}</p>
           <div className="mt-3 flex items-center gap-2">
-            <span className="text-sm text-gray-500">予定日:</span>
-            <span className="font-medium text-primary-800">
+            <span className="text-sm text-dark-400">予定日:</span>
+            <span className="font-medium text-dark-200">
               {formatDate(scheduledDate)}
             </span>
           </div>
           {!completed && daysUntil >= 0 && (
             <p
               className={`text-sm mt-2 ${
-                daysUntil <= 7 ? 'text-orange-600 font-medium' : 'text-gray-500'
+                daysUntil <= 7 ? 'text-accent font-medium' : 'text-dark-400'
               }`}
             >
               {daysUntil === 0
@@ -97,7 +97,7 @@ export function VaccineCard({
         </div>
       </div>
       {!completed && onComplete && (
-        <div className="mt-4 pt-4 border-t border-warm-200">
+        <div className="mt-4 pt-4 border-t border-dark-600">
           <Button variant="outline" onClick={onComplete} className="w-full">
             完了にする
           </Button>

@@ -207,8 +207,8 @@ export default function WalkPage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-warm-50 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary-200 border-t-primary-500 rounded-full" />
+      <div className="min-h-screen bg-dark-900 flex items-center justify-center">
+        <div className="spinner" />
       </div>
     );
   }
@@ -219,25 +219,25 @@ export default function WalkPage() {
   }
 
   return (
-    <div className="min-h-screen bg-warm-50">
+    <div className="min-h-screen bg-dark-900 pb-24">
       {/* ヘッダー */}
-      <header className="bg-white border-b border-warm-200 p-4">
+      <header className="header p-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <Link href="/dashboard">
-            <h1 className="text-xl font-bold text-primary-600">わんサポ</h1>
+            <h1 className="text-xl font-bold gradient-text">わんライフ</h1>
           </Link>
-          <Link href="/dashboard" className="text-primary-600 text-sm">
+          <Link href="/dashboard" className="text-accent text-sm">
             戻る
           </Link>
         </div>
       </header>
 
       <main className="max-w-2xl mx-auto p-4 py-6">
-        <div className="flex items-center gap-2 mb-6">
-          <span className="text-2xl">🚶</span>
-          <h2 className="text-2xl font-bold text-primary-900">
-            散歩ナビ
-          </h2>
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold text-dark-50 mb-2">散歩ナビ</h2>
+          <p className="text-dark-400">
+            {dogName}ちゃんとの散歩ルートを提案
+          </p>
         </div>
 
         {/* 散歩中の表示 */}
@@ -245,27 +245,24 @@ export default function WalkPage() {
           <div className="space-y-6">
             {/* 地図プレースホルダー */}
             {showMap && (
-              <Card className="overflow-hidden">
+              <Card className="overflow-hidden p-0">
                 <div
                   ref={mapRef}
-                  className="h-64 bg-gradient-to-br from-green-100 to-blue-100 flex items-center justify-center relative"
+                  className="h-64 bg-gradient-to-br from-feature-walk/20 to-dark-700 flex items-center justify-center relative"
                 >
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center">
                       <span className="text-4xl">🗺️</span>
-                      <p className="text-sm text-gray-600 mt-2">
+                      <p className="text-sm text-dark-300 mt-2">
                         地図表示エリア
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        Google Maps APIキー設定で表示
                       </p>
                     </div>
                   </div>
                   {/* ルート情報オーバーレイ */}
-                  <div className="absolute bottom-2 left-2 right-2 bg-white/90 rounded-lg p-2 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-blue-600">🔵 現在地</span>
-                      <span className="text-red-600">🔴 {selectedRoute?.destinations[0]?.name}</span>
+                  <div className="absolute bottom-2 left-2 right-2 bg-dark-800/90 backdrop-blur-sm rounded-lg p-2 text-sm">
+                    <div className="flex items-center justify-between text-dark-200">
+                      <span className="text-feature-walk">🔵 現在地</span>
+                      <span className="text-accent">🔴 {selectedRoute?.destinations[0]?.name}</span>
                     </div>
                   </div>
                 </div>
@@ -274,25 +271,25 @@ export default function WalkPage() {
 
             <Card className="text-center">
               <div className="py-6">
-                <p className="text-gray-600 mb-2">
+                <p className="text-dark-400 mb-2">
                   {dogName}ちゃんとお散歩中
                 </p>
-                <div className="text-5xl font-bold text-primary-600 mb-4">
+                <div className="text-5xl font-bold gradient-text mb-4">
                   {formatTime(elapsedTime)}
                 </div>
                 {selectedRoute && (
                   <div className="mb-6 space-y-2">
-                    <p className="text-lg font-medium text-primary-900">
+                    <p className="text-lg font-medium text-dark-100">
                       {selectedRoute.name}
                     </p>
-                    <div className="flex justify-center gap-4 text-sm text-gray-500">
+                    <div className="flex justify-center gap-4 text-sm text-dark-400">
                       <span>目標: {selectedRoute.totalDuration}分</span>
                       <span>{formatDistance(selectedRoute.totalDistance)}</span>
                     </div>
                     {/* 進捗バー */}
-                    <div className="w-full bg-warm-200 rounded-full h-2 mt-4">
+                    <div className="progress-bar mt-4">
                       <div
-                        className="bg-primary-500 h-2 rounded-full transition-all"
+                        className="progress-bar-fill"
                         style={{
                           width: `${Math.min(100, (elapsedTime / 60 / selectedRoute.totalDuration) * 100)}%`
                         }}
@@ -313,41 +310,41 @@ export default function WalkPage() {
             {/* ルート詳細 */}
             {selectedRoute && (
               <Card>
-                <h3 className="font-bold text-primary-900 mb-4">
+                <h3 className="font-bold text-dark-100 mb-4">
                   今日のルート詳細
                 </h3>
                 <div className="space-y-4">
                   {selectedRoute.destinations.map((dest, index) => (
                     <div
                       key={dest.id}
-                      className="flex items-start gap-3 p-3 bg-warm-50 rounded-lg"
+                      className="flex items-start gap-3 p-3 bg-dark-700/50 rounded-lg"
                     >
                       <div className="flex flex-col items-center">
                         <span className="text-2xl">{getDestinationIcon(dest.type)}</span>
                         {index < selectedRoute.destinations.length - 1 && (
-                          <div className="w-0.5 h-8 bg-warm-300 mt-1" />
+                          <div className="w-0.5 h-8 bg-dark-600 mt-1" />
                         )}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
-                          <h4 className="font-medium text-primary-900">{dest.name}</h4>
+                          <h4 className="font-medium text-dark-100">{dest.name}</h4>
                           {dest.isWithinTime ? (
-                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                              ⏱️ 往復可能
+                            <span className="text-xs bg-feature-health/20 text-feature-health px-2 py-0.5 rounded-full">
+                              往復可能
                             </span>
                           ) : (
-                            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">
-                              ⚠️ 時間超過
+                            <span className="text-xs bg-accent/20 text-accent px-2 py-0.5 rounded-full">
+                              時間超過
                             </span>
                           )}
                         </div>
-                        <div className="grid grid-cols-2 gap-2 mt-2 text-sm text-gray-600">
+                        <div className="grid grid-cols-2 gap-2 mt-2 text-sm text-dark-400">
                           <div>
-                            <span className="text-gray-400">片道:</span>{' '}
+                            <span className="text-dark-500">片道:</span>{' '}
                             {formatDistance(dest.distance.oneWay)} / {dest.duration.oneWay}分
                           </div>
                           <div>
-                            <span className="text-gray-400">往復:</span>{' '}
+                            <span className="text-dark-500">往復:</span>{' '}
                             {formatDistance(dest.distance.roundTrip)} / {dest.duration.roundTrip}分
                           </div>
                         </div>
@@ -362,25 +359,25 @@ export default function WalkPage() {
           <div className="space-y-6">
             {/* 散歩時間設定 */}
             <Card>
-              <h3 className="font-bold text-primary-900 mb-4">
+              <h3 className="font-bold text-dark-100 mb-4">
                 散歩時間を設定
               </h3>
               <div className="flex items-center justify-center gap-4 mb-4">
                 <button
                   onClick={() => setWalkTime(Math.max(10, walkTime - 5))}
-                  className="w-12 h-12 rounded-full border-2 border-warm-300 hover:border-primary-400 text-xl font-bold text-primary-900"
+                  className="w-12 h-12 rounded-full border-2 border-dark-600 hover:border-accent text-xl font-bold text-dark-200 transition-colors"
                 >
                   -
                 </button>
                 <div className="text-center">
-                  <span className="text-4xl font-bold text-primary-600">
+                  <span className="text-4xl font-bold gradient-text">
                     {walkTime}
                   </span>
-                  <span className="text-lg text-gray-500 ml-1">分</span>
+                  <span className="text-lg text-dark-400 ml-1">分</span>
                 </div>
                 <button
                   onClick={() => setWalkTime(Math.min(60, walkTime + 5))}
-                  className="w-12 h-12 rounded-full border-2 border-warm-300 hover:border-primary-400 text-xl font-bold text-primary-900"
+                  className="w-12 h-12 rounded-full border-2 border-dark-600 hover:border-accent text-xl font-bold text-dark-200 transition-colors"
                 >
                   +
                 </button>
@@ -392,8 +389,8 @@ export default function WalkPage() {
                     onClick={() => setWalkTime(time)}
                     className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                       walkTime === time
-                        ? 'bg-primary-500 text-white'
-                        : 'bg-warm-200 text-gray-700 hover:bg-warm-300'
+                        ? 'bg-accent text-dark-900'
+                        : 'bg-dark-700 text-dark-300 hover:bg-dark-600'
                     }`}
                   >
                     {time}分
@@ -402,7 +399,7 @@ export default function WalkPage() {
               </div>
 
               {/* 目的地タイプ選択 */}
-              <h4 className="font-medium text-gray-700 mb-2 mt-6">目的地</h4>
+              <h4 className="font-medium text-dark-300 mb-2 mt-6">目的地</h4>
               <div className="flex gap-2 mb-6">
                 {[
                   { value: 'any' as WalkPurpose, label: 'おまかせ', icon: '🎲' },
@@ -414,12 +411,12 @@ export default function WalkPage() {
                     onClick={() => setPurpose(option.value)}
                     className={`flex-1 py-3 rounded-xl border-2 transition-all ${
                       purpose === option.value
-                        ? 'border-primary-400 bg-primary-50'
-                        : 'border-warm-200 hover:border-warm-300'
+                        ? 'border-accent bg-accent/10'
+                        : 'border-dark-600 hover:border-dark-500'
                     }`}
                   >
                     <span className="text-xl">{option.icon}</span>
-                    <p className="text-sm font-medium text-primary-900 mt-1">
+                    <p className="text-sm font-medium text-dark-200 mt-1">
                       {option.label}
                     </p>
                   </button>
@@ -438,40 +435,38 @@ export default function WalkPage() {
             {/* 提案ルート */}
             {suggestedRoutes.length > 0 && (
               <div>
-                <h3 className="font-bold text-primary-900 mb-3">
+                <h3 className="font-bold text-dark-100 mb-3">
                   おすすめルート
                 </h3>
                 <div className="space-y-4">
                   {suggestedRoutes.map((route, index) => (
                     <Card
                       key={route.id}
-                      className={`hover:shadow-md transition-shadow ${
-                        !route.isWithinTime ? 'opacity-75' : ''
-                      }`}
+                      className={`${!route.isWithinTime ? 'opacity-75' : ''}`}
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
                           {index === 0 && route.isWithinTime && (
-                            <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-0.5 rounded-full">
+                            <span className="bg-accent text-dark-900 text-xs font-bold px-2 py-0.5 rounded-full">
                               おすすめ
                             </span>
                           )}
-                          <h4 className="font-bold text-primary-900">
+                          <h4 className="font-bold text-dark-100">
                             {route.name}
                           </h4>
                         </div>
                         {route.isWithinTime ? (
-                          <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                            ⏱️ {walkTime}分以内
+                          <span className="text-xs bg-feature-health/20 text-feature-health px-2 py-1 rounded-full">
+                            {walkTime}分以内
                           </span>
                         ) : (
-                          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
-                            ⚠️ 時間超過
+                          <span className="text-xs bg-accent/20 text-accent px-2 py-1 rounded-full">
+                            時間超過
                           </span>
                         )}
                       </div>
 
-                      <p className="text-sm text-gray-600 mb-3">
+                      <p className="text-sm text-dark-400 mb-3">
                         {route.description}
                       </p>
 
@@ -480,18 +475,18 @@ export default function WalkPage() {
                         {route.destinations.map((dest) => (
                           <div
                             key={dest.id}
-                            className="flex items-center justify-between text-sm bg-warm-50 p-2 rounded-lg"
+                            className="flex items-center justify-between text-sm bg-dark-700/50 p-2 rounded-lg"
                           >
                             <div className="flex items-center gap-2">
                               <span>{getDestinationIcon(dest.type)}</span>
-                              <span className="font-medium">{dest.name}</span>
+                              <span className="font-medium text-dark-200">{dest.name}</span>
                               {dest.rating && (
-                                <span className="text-yellow-600 text-xs">
-                                  ⭐{dest.rating}
+                                <span className="text-accent text-xs">
+                                  ★{dest.rating}
                                 </span>
                               )}
                             </div>
-                            <div className="text-gray-500 text-xs">
+                            <div className="text-dark-500 text-xs">
                               往復 {formatDistance(dest.distance.roundTrip)} / {dest.duration.roundTrip}分
                             </div>
                           </div>
@@ -499,14 +494,14 @@ export default function WalkPage() {
                       </div>
 
                       {/* 合計情報 */}
-                      <div className="flex items-center justify-between text-sm border-t border-warm-100 pt-3 mb-3">
-                        <div className="text-gray-600">
+                      <div className="flex items-center justify-between text-sm border-t border-dark-600 pt-3 mb-3">
+                        <div className="text-dark-400">
                           合計: {formatDistance(route.totalDistance)} / {route.totalDuration}分
                         </div>
                       </div>
 
                       {/* おすすめ理由 */}
-                      <p className="text-xs text-primary-700 bg-primary-50 p-2 rounded-lg mb-3">
+                      <p className="text-xs text-accent bg-accent/10 p-2 rounded-lg mb-3">
                         💡 {route.recommendReason}
                       </p>
 
@@ -526,21 +521,21 @@ export default function WalkPage() {
             {/* 散歩履歴 */}
             {history.length > 0 && (
               <Card>
-                <h3 className="font-bold text-primary-900 mb-4">
+                <h3 className="font-bold text-dark-100 mb-4">
                   最近の散歩
                 </h3>
                 <div className="space-y-3">
                   {history.slice(0, 5).map((walk) => (
                     <div
                       key={walk.id}
-                      className="flex items-center justify-between py-2 border-b border-warm-100 last:border-0"
+                      className="flex items-center justify-between py-2 border-b border-dark-600 last:border-0"
                     >
                       <div>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-dark-200">
                           {formatDate(walk.startedAt)}
                         </p>
                       </div>
-                      <div className="text-right text-sm text-gray-600">
+                      <div className="text-right text-sm text-dark-400">
                         {walk.durationMin && (
                           <span className="mr-3">{walk.durationMin}分</span>
                         )}
@@ -555,14 +550,14 @@ export default function WalkPage() {
             )}
 
             {/* ヒント */}
-            <Card variant="warm">
+            <Card variant="feature">
               <div className="flex items-start gap-3">
                 <span className="text-2xl">💡</span>
                 <div>
-                  <h3 className="font-bold text-primary-900 mb-1">
+                  <h3 className="font-bold text-dark-100 mb-1">
                     散歩のコツ
                   </h3>
-                  <ul className="text-sm text-gray-700 space-y-1">
+                  <ul className="text-sm text-dark-400 space-y-1">
                     <li>・犬種や年齢に合わせて時間を調整</li>
                     <li>・暑い日は朝晩の涼しい時間帯に</li>
                     <li>・公園では他のワンちゃんとの交流も</li>
@@ -573,6 +568,32 @@ export default function WalkPage() {
           </div>
         )}
       </main>
+
+      {/* ボトムナビゲーション */}
+      <nav className="bottom-nav">
+        <div className="max-w-4xl mx-auto flex justify-around">
+          <Link href="/dashboard" className="bottom-nav-item">
+            <span className="text-xl">🏠</span>
+            <span>ホーム</span>
+          </Link>
+          <Link href="/walk" className="bottom-nav-item bottom-nav-item-active">
+            <span className="text-xl">🚶</span>
+            <span>散歩</span>
+          </Link>
+          <Link href="/voice" className="bottom-nav-item">
+            <span className="text-xl">🎤</span>
+            <span>翻訳</span>
+          </Link>
+          <Link href="/family" className="bottom-nav-item">
+            <span className="text-xl">👨‍👩‍👧</span>
+            <span>家族</span>
+          </Link>
+          <Link href="/settings" className="bottom-nav-item">
+            <span className="text-xl">⚙️</span>
+            <span>設定</span>
+          </Link>
+        </div>
+      </nav>
     </div>
   );
 }

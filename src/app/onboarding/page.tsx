@@ -19,8 +19,8 @@ export default function OnboardingPage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-warm-50 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary-200 border-t-primary-500 rounded-full" />
+      <div className="min-h-screen bg-dark-900 flex items-center justify-center">
+        <div className="spinner" />
       </div>
     );
   }
@@ -68,63 +68,63 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-warm-100 to-warm-50 py-8 px-4">
+    <div className="min-h-screen bg-dark-900 py-8 px-4">
       <div className="max-w-md mx-auto">
         {/* プログレス */}
         <div className="flex justify-center gap-2 mb-8">
           <div
-            className={`w-3 h-3 rounded-full ${
-              step >= 1 ? 'bg-primary-500' : 'bg-warm-300'
+            className={`w-3 h-3 rounded-full transition-colors ${
+              step >= 1 ? 'bg-accent' : 'bg-dark-600'
             }`}
           />
           <div
-            className={`w-3 h-3 rounded-full ${
-              step >= 2 ? 'bg-primary-500' : 'bg-warm-300'
+            className={`w-3 h-3 rounded-full transition-colors ${
+              step >= 2 ? 'bg-accent' : 'bg-dark-600'
             }`}
           />
           <div
-            className={`w-3 h-3 rounded-full ${
-              step >= 3 ? 'bg-primary-500' : 'bg-warm-300'
+            className={`w-3 h-3 rounded-full transition-colors ${
+              step >= 3 ? 'bg-accent' : 'bg-dark-600'
             }`}
           />
         </div>
 
-        <Card className="soft-shadow">
+        <Card>
           {/* Step 1: 歓迎画面 */}
           {step === 1 && (
             <div className="text-center fade-in">
               <div className="text-6xl mb-6">🎉</div>
-              <h2 className="text-2xl font-bold text-primary-900 mb-4">
-                ようこそ、わんサポへ！
+              <h2 className="text-2xl font-bold text-dark-50 mb-4">
+                ようこそ、<span className="gradient-text">わんライフ</span>へ！
               </h2>
-              <p className="text-gray-600 mb-6 leading-relaxed">
+              <p className="text-dark-300 mb-6 leading-relaxed">
                 犬を飼い始めたばかりの方も、
                 すでに飼っている方も、
-                わんサポが一緒にサポートします。
+                わんライフが一緒にサポートします。
               </p>
 
               <div className="space-y-3 text-left mb-8">
-                <div className="flex items-center gap-3 p-3 bg-warm-100 rounded-lg">
-                  <span className="text-2xl">💬</span>
-                  <p className="text-sm text-gray-700">
-                    簡単な質問に答えるだけ
+                <div className="flex items-center gap-3 p-3 bg-dark-700/50 rounded-lg border border-dark-600">
+                  <span className="text-2xl">🎤</span>
+                  <p className="text-sm text-dark-200">
+                    鳴き声をAIが翻訳
                   </p>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-warm-100 rounded-lg">
+                <div className="flex items-center gap-3 p-3 bg-dark-700/50 rounded-lg border border-dark-600">
                   <span className="text-2xl">🏥</span>
-                  <p className="text-sm text-gray-700">
+                  <p className="text-sm text-dark-200">
                     あなたに合った保険をAIが提案
                   </p>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-warm-100 rounded-lg">
+                <div className="flex items-center gap-3 p-3 bg-dark-700/50 rounded-lg border border-dark-600">
                   <span className="text-2xl">📅</span>
-                  <p className="text-sm text-gray-700">
+                  <p className="text-sm text-dark-200">
                     ワクチン・健康管理をサポート
                   </p>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-warm-100 rounded-lg">
+                <div className="flex items-center gap-3 p-3 bg-dark-700/50 rounded-lg border border-dark-600">
                   <span className="text-2xl">🚶</span>
-                  <p className="text-sm text-gray-700">
+                  <p className="text-sm text-dark-200">
                     散歩ルートをAIが提案
                   </p>
                 </div>
@@ -141,10 +141,10 @@ export default function OnboardingPage() {
             <div className="fade-in">
               <div className="text-center mb-8">
                 <div className="text-5xl mb-4">🐕</div>
-                <h2 className="text-xl font-bold text-primary-900">
+                <h2 className="text-xl font-bold text-dark-50">
                   あなたの状況を教えてください
                 </h2>
-                <p className="text-sm text-gray-600 mt-2">
+                <p className="text-sm text-dark-400 mt-2">
                   最適なサポートをご提案するために
                 </p>
               </div>
@@ -152,15 +152,15 @@ export default function OnboardingPage() {
               <div className="space-y-4">
                 <button
                   onClick={() => handleSelectUserType('new_owner')}
-                  className="w-full p-5 text-left rounded-xl border-2 border-warm-200 hover:border-primary-400 hover:bg-primary-50 transition-all duration-200"
+                  className="w-full p-5 text-left rounded-xl border-2 border-dark-600 hover:border-accent hover:bg-dark-700 transition-all duration-200"
                 >
                   <div className="flex items-center gap-4">
                     <span className="text-3xl">🐶</span>
                     <div>
-                      <p className="font-bold text-primary-900">
+                      <p className="font-bold text-dark-100">
                         犬を飼い始めたばかり
                       </p>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-dark-400 mt-1">
                         最近お迎えした / これからお迎えする予定
                       </p>
                     </div>
@@ -169,15 +169,15 @@ export default function OnboardingPage() {
 
                 <button
                   onClick={() => handleSelectUserType('reviewing')}
-                  className="w-full p-5 text-left rounded-xl border-2 border-warm-200 hover:border-primary-400 hover:bg-primary-50 transition-all duration-200"
+                  className="w-full p-5 text-left rounded-xl border-2 border-dark-600 hover:border-accent hover:bg-dark-700 transition-all duration-200"
                 >
                   <div className="flex items-center gap-4">
                     <span className="text-3xl">🔄</span>
                     <div>
-                      <p className="font-bold text-primary-900">
+                      <p className="font-bold text-dark-100">
                         すでに飼っていて見直したい
                       </p>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-dark-400 mt-1">
                         保険や生活管理を見直したい
                       </p>
                     </div>
@@ -187,7 +187,7 @@ export default function OnboardingPage() {
 
               <button
                 onClick={() => setStep(1)}
-                className="w-full mt-6 text-sm text-gray-500 hover:text-gray-700"
+                className="w-full mt-6 text-sm text-dark-400 hover:text-accent transition-colors"
               >
                 戻る
               </button>
@@ -199,10 +199,10 @@ export default function OnboardingPage() {
             <div className="fade-in">
               <div className="text-center mb-6">
                 <div className="text-5xl mb-4">🐕</div>
-                <h2 className="text-xl font-bold text-primary-900">
+                <h2 className="text-xl font-bold text-dark-50">
                   ワンちゃんのお名前は？
                 </h2>
-                <p className="text-sm text-gray-600 mt-2">
+                <p className="text-sm text-dark-400 mt-2">
                   まずはお名前を教えてください
                 </p>
               </div>
@@ -226,7 +226,7 @@ export default function OnboardingPage() {
 
                 <button
                   onClick={() => setStep(2)}
-                  className="w-full text-sm text-gray-500 hover:text-gray-700"
+                  className="w-full text-sm text-dark-400 hover:text-accent transition-colors"
                 >
                   戻る
                 </button>

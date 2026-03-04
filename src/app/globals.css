@@ -2,52 +2,138 @@
 @tailwind components;
 @tailwind utilities;
 
+/* わんライフ ダークテーマ */
 :root {
-  --foreground-rgb: 55, 48, 43;
-  --background-rgb: 254, 253, 251;
+  --bg-primary: #0D1B2A;
+  --bg-secondary: #1B263B;
+  --bg-tertiary: #243B53;
+  --text-primary: #D9E2EC;
+  --text-secondary: #9FB3C8;
+  --text-muted: #627D98;
+  --accent: #E8AA42;
+  --accent-light: #F5C96C;
+  --border: #334E68;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-rgb));
+  background: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 100vh;
+  font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+}
+
+/* スクロールバー */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 
 /* カスタムスタイル */
 @layer components {
+  /* ボタン */
   .btn-primary {
-    @apply bg-primary-500 hover:bg-primary-600 text-white font-medium py-3 px-6 rounded-xl transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-accent text-dark-900 font-bold py-3 px-6 rounded-xl transition-all duration-200
+           hover:bg-accent-light active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
+           shadow-glow-accent;
   }
 
   .btn-secondary {
-    @apply bg-warm-200 hover:bg-warm-300 text-primary-800 font-medium py-3 px-6 rounded-xl transition-colors duration-200;
+    @apply bg-dark-700 text-dark-100 font-medium py-3 px-6 rounded-xl transition-all duration-200
+           hover:bg-dark-600 border border-dark-600;
   }
 
   .btn-outline {
-    @apply border-2 border-primary-400 text-primary-600 hover:bg-primary-50 font-medium py-3 px-6 rounded-xl transition-colors duration-200;
+    @apply border-2 border-accent text-accent hover:bg-accent hover:text-dark-900
+           font-medium py-3 px-6 rounded-xl transition-all duration-200;
   }
 
+  .btn-ghost {
+    @apply text-dark-200 hover:text-accent hover:bg-dark-700/50
+           font-medium py-2 px-4 rounded-lg transition-all duration-200;
+  }
+
+  .btn-premium {
+    @apply bg-gradient-premium text-dark-900 font-bold py-3 px-6 rounded-xl
+           transition-all duration-200 shadow-glow-premium hover:scale-105 active:scale-95;
+  }
+
+  /* 入力フィールド */
   .input-field {
-    @apply w-full px-4 py-3 rounded-xl border border-warm-300 focus:border-primary-400 focus:ring-2 focus:ring-primary-200 outline-none transition-all duration-200 bg-white;
+    @apply w-full px-4 py-3 rounded-xl bg-dark-800 border border-dark-600
+           text-dark-100 placeholder-dark-400
+           focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none
+           transition-all duration-200;
   }
 
+  .input-field-error {
+    @apply border-red-500 focus:border-red-500 focus:ring-red-500/20;
+  }
+
+  /* カード */
   .card {
-    @apply bg-white rounded-2xl shadow-sm border border-warm-200 p-6;
+    @apply bg-dark-800 rounded-2xl border border-dark-600 p-6 shadow-card-dark;
   }
 
-  .card-warm {
-    @apply bg-warm-100 rounded-2xl p-6;
+  .card-interactive {
+    @apply card cursor-pointer hover:border-accent/50 hover:shadow-glow-accent transition-all duration-200;
+  }
+
+  .card-feature {
+    @apply bg-dark-800/80 rounded-2xl border border-dark-600 p-4
+           backdrop-blur-sm transition-all duration-200;
+  }
+
+  .card-premium {
+    @apply bg-gradient-to-br from-dark-800 to-dark-700 rounded-2xl
+           border border-premium-gold/30 p-6 shadow-glow-premium;
+  }
+
+  /* ヘッダー */
+  .header {
+    @apply bg-dark-800/90 backdrop-blur-md border-b border-dark-600
+           sticky top-0 z-50;
+  }
+
+  /* ナビゲーション */
+  .nav-item {
+    @apply flex flex-col items-center gap-1 px-4 py-2 rounded-lg
+           text-dark-300 hover:text-accent transition-colors duration-200;
+  }
+
+  .nav-item-active {
+    @apply text-accent bg-dark-700;
   }
 }
 
-/* フォント調整 */
+/* タイポグラフィ */
 h1, h2, h3, h4, h5, h6 {
-  @apply font-bold text-primary-900;
+  @apply font-bold text-dark-50;
 }
 
-/* ソフトなシャドウ */
+h1 { @apply text-2xl; }
+h2 { @apply text-xl; }
+h3 { @apply text-lg; }
+
+/* リンク */
+a {
+  @apply text-accent hover:text-accent-light transition-colors duration-200;
+}
+
+/* ダークテーマのソフトシャドウ */
 .soft-shadow {
-  box-shadow: 0 4px 20px rgba(180, 160, 140, 0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
 /* アニメーション */
@@ -62,20 +148,174 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
 .fade-in {
   animation: fadeIn 0.3s ease-out;
 }
 
-/* チャットバブル */
+.slide-up {
+  animation: slideUp 0.4s ease-out;
+}
+
+.shimmer {
+  background: linear-gradient(90deg,
+    var(--bg-secondary) 0%,
+    var(--bg-tertiary) 50%,
+    var(--bg-secondary) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* チャットバブル（ダークテーマ） */
 .chat-bubble-ai {
-  @apply bg-warm-200 text-primary-900 rounded-2xl rounded-tl-md px-4 py-3;
+  @apply bg-dark-700 text-dark-100 rounded-2xl rounded-tl-md px-4 py-3;
 }
 
 .chat-bubble-user {
-  @apply bg-primary-500 text-white rounded-2xl rounded-tr-md px-4 py-3;
+  @apply bg-accent text-dark-900 rounded-2xl rounded-tr-md px-4 py-3;
 }
 
 /* 医療・法的注意書き */
 .disclaimer {
-  @apply text-xs text-gray-500 bg-gray-50 rounded-lg p-3 mt-4;
+  @apply text-xs text-dark-400 bg-dark-800/50 border border-dark-600 rounded-lg p-3 mt-4;
+}
+
+/* プレミアムバッジ */
+.premium-badge {
+  @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+         bg-gradient-premium text-dark-900 text-xs font-bold;
+}
+
+/* 機能アイコン背景 */
+.feature-icon {
+  @apply w-12 h-12 rounded-xl flex items-center justify-center text-2xl;
+}
+
+.feature-icon-voice { @apply bg-feature-voice/20 text-feature-voice; }
+.feature-icon-health { @apply bg-feature-health/20 text-feature-health; }
+.feature-icon-walk { @apply bg-feature-walk/20 text-feature-walk; }
+.feature-icon-food { @apply bg-feature-food/20 text-feature-food; }
+.feature-icon-insurance { @apply bg-feature-insurance/20 text-feature-insurance; }
+.feature-icon-family { @apply bg-feature-family/20 text-feature-family; }
+.feature-icon-goods { @apply bg-feature-goods/20 text-feature-goods; }
+
+/* プログレスバー */
+.progress-bar {
+  @apply h-2 bg-dark-700 rounded-full overflow-hidden;
+}
+
+.progress-bar-fill {
+  @apply h-full bg-accent rounded-full transition-all duration-500;
+}
+
+/* タブ */
+.tab-list {
+  @apply flex gap-2 p-1 bg-dark-800 rounded-xl;
+}
+
+.tab-item {
+  @apply flex-1 py-2 px-4 rounded-lg text-sm font-medium text-dark-300
+         transition-all duration-200 text-center cursor-pointer;
+}
+
+.tab-item-active {
+  @apply bg-dark-700 text-accent;
+}
+
+/* モーダル背景 */
+.modal-backdrop {
+  @apply fixed inset-0 bg-dark-900/80 backdrop-blur-sm z-50;
+}
+
+.modal-content {
+  @apply bg-dark-800 rounded-2xl border border-dark-600 shadow-card-dark
+         max-w-md w-full mx-4 p-6;
+}
+
+/* トースト通知 */
+.toast {
+  @apply fixed bottom-20 left-4 right-4 mx-auto max-w-sm
+         bg-dark-700 border border-dark-600 rounded-xl p-4
+         shadow-card-dark z-50;
+}
+
+.toast-success {
+  @apply border-l-4 border-l-feature-health;
+}
+
+.toast-error {
+  @apply border-l-4 border-l-red-500;
+}
+
+/* ローディングスピナー */
+.spinner {
+  @apply w-8 h-8 border-4 border-dark-600 border-t-accent rounded-full animate-spin;
+}
+
+/* 空状態 */
+.empty-state {
+  @apply text-center py-12;
+}
+
+.empty-state-icon {
+  @apply text-6xl mb-4;
+}
+
+.empty-state-title {
+  @apply text-lg font-bold text-dark-200 mb-2;
+}
+
+.empty-state-description {
+  @apply text-sm text-dark-400;
+}
+
+/* グラデーションテキスト */
+.gradient-text {
+  @apply bg-gradient-to-r from-accent to-accent-light bg-clip-text text-transparent;
+}
+
+.gradient-text-premium {
+  @apply bg-gradient-premium bg-clip-text text-transparent;
+}
+
+/* ボトムナビゲーション */
+.bottom-nav {
+  @apply fixed bottom-0 left-0 right-0 bg-dark-800/95 backdrop-blur-md
+         border-t border-dark-600 py-2 px-4 safe-area-bottom;
+}
+
+.bottom-nav-item {
+  @apply flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg
+         text-dark-400 text-xs transition-colors duration-200;
+}
+
+.bottom-nav-item-active {
+  @apply text-accent;
+}
+
+/* セーフエリア対応 */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  }
 }
