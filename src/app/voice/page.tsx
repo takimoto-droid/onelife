@@ -244,13 +244,18 @@ export default function VoicePage() {
                   )}
                 </div>
 
-                <p className="text-dark-300">
+                <p className={`font-medium ${isRecording ? 'text-red-400' : 'text-dark-300'}`}>
                   {isAnalyzing
-                    ? 'AIが分析中...'
+                    ? '🔍 AIが分析中...'
                     : isRecording
-                    ? 'タップして録音を停止'
-                    : 'タップして録音を開始'}
+                    ? '🔴 録音中... もう1回タップで停止'
+                    : '🎤 タップして録音開始'}
                 </p>
+                {isRecording && (
+                  <p className="text-xs text-dark-500 mt-1">
+                    鳴き声が聞こえる間、録音を続けてください
+                  </p>
+                )}
 
                 {error && (
                   <p className="mt-4 text-red-400 text-sm">{error}</p>
@@ -320,21 +325,30 @@ export default function VoicePage() {
 
         {/* 説明 */}
         <Card variant="feature" className="mb-8">
-          <h3 className="font-bold text-dark-100 mb-3">使い方</h3>
-          <ol className="space-y-2 text-sm text-dark-300">
+          <h3 className="font-bold text-dark-100 mb-3">使い方（タップ操作）</h3>
+          <ol className="space-y-3 text-sm text-dark-300">
             <li className="flex gap-3">
               <span className="flex-shrink-0 w-6 h-6 rounded-full bg-feature-voice/20 text-feature-voice flex items-center justify-center text-xs font-bold">1</span>
-              <span>ワンちゃんが鳴いている時にマイクボタンをタップ</span>
+              <div>
+                <span className="font-medium text-dark-100">1回タップ</span>
+                <span className="text-dark-400"> → 録音開始（ボタンが赤く点滅）</span>
+              </div>
             </li>
             <li className="flex gap-3">
               <span className="flex-shrink-0 w-6 h-6 rounded-full bg-feature-voice/20 text-feature-voice flex items-center justify-center text-xs font-bold">2</span>
-              <span>鳴き声を録音（3〜10秒程度がベスト）</span>
+              <div>
+                <span className="font-medium text-dark-100">もう1回タップ</span>
+                <span className="text-dark-400"> → 録音停止 & 即座に翻訳開始</span>
+              </div>
             </li>
             <li className="flex gap-3">
               <span className="flex-shrink-0 w-6 h-6 rounded-full bg-feature-voice/20 text-feature-voice flex items-center justify-center text-xs font-bold">3</span>
-              <span>AIが分析して感情と意味を翻訳</span>
+              <span>AIが分析完了 → 翻訳結果が下に表示されます</span>
             </li>
           </ol>
+          <p className="text-xs text-dark-500 mt-3 bg-dark-700/50 rounded-lg p-2">
+            <span className="text-feature-voice">💡</span> 3〜10秒程度の録音がベストです
+          </p>
         </Card>
 
         {/* 注意書き */}

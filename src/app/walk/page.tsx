@@ -1,26 +1,33 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { useGeolocation, GeoLocation } from '@/hooks/useGeolocation';
+import { LocationErrorBanner } from '@/components/LocationErrorModal';
+
+interface Waypoint {
+  name: string;
+  type: 'start' | 'destination' | 'landmark' | 'turn';
+  description: string;
+  distanceFromStart: number;
+  durationFromStart: number;
+}
 
 interface RouteDestination {
   id: string;
   name: string;
   type: 'park' | 'shopping' | 'other';
-  distance: {
-    oneWay: number;
-    roundTrip: number;
-  };
-  duration: {
-    oneWay: number;
-    roundTrip: number;
-  };
+  distance: { oneWay: number; roundTrip: number };
+  duration: { oneWay: number; roundTrip: number };
   isWithinTime: boolean;
   rating?: number;
+  description?: string;
+  features?: string[];
+  landmark?: string;
 }
 
 interface WalkRoute {
@@ -31,8 +38,11 @@ interface WalkRoute {
   totalDuration: number;
   isWithinTime: boolean;
   destinations: RouteDestination[];
-  polyline?: string;
+  waypoints: Waypoint[];
   recommendReason: string;
+  difficulty: 'easy' | 'normal' | 'challenging';
+  scenery: string[];
+  tips: string;
 }
 
 interface WalkHistory {
@@ -48,6 +58,17 @@ type WalkPurpose = 'park' | 'shopping' | 'any';
 export default function WalkPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+
+  // 位置情報フック
+  const {
+    location,
+    error: locationError,
+    loading: locationLoading,
+    getCurrentLocation,
+    setManualLocation,
+  } = useGeolocation();
+
+  // 状態管理
   const [walkTime, setWalkTime] = useState(20);
   const [purpose, setPurpose] = useState<WalkPurpose>('any');
   const [isWalking, setIsWalking] = useState(false);
@@ -59,9 +80,9 @@ export default function WalkPage() {
   const [currentWalkId, setCurrentWalkId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [dogName, setDogName] = useState<string>('');
-  const [showMap, setShowMap] = useState(false);
-  const mapRef = useRef<HTMLDivElement>(null);
+  const [hasViewedRoute, setHasViewedRoute] = useState<Set<string>>(new Set());
 
+  // 初期データ取得
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -83,9 +104,12 @@ export default function WalkPage() {
 
     if (session) {
       fetchData();
+      // 位置情報を自動取得
+      getCurrentLocation();
     }
-  }, [session]);
+  }, [session, getCurrentLocation]);
 
+  // 散歩タイマー
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isWalking && walkStartTime) {
@@ -97,6 +121,7 @@ export default function WalkPage() {
     return () => clearInterval(interval);
   }, [isWalking, walkStartTime]);
 
+  // ルート生成
   const generateRoutes = useCallback(async () => {
     setLoading(true);
     try {
@@ -106,24 +131,27 @@ export default function WalkPage() {
         body: JSON.stringify({
           durationMinutes: walkTime,
           purpose,
+          latitude: location?.latitude,
+          longitude: location?.longitude,
         }),
       });
       const data = await res.json();
       if (data.routes) {
         setSuggestedRoutes(data.routes);
+        setHasViewedRoute(new Set()); // リセット
       }
     } catch (error) {
       console.error('Failed to generate routes:', error);
     }
     setLoading(false);
-  }, [walkTime, purpose]);
+  }, [walkTime, purpose, location]);
 
+  // 散歩開始
   const startWalk = async (route: WalkRoute) => {
     setSelectedRoute(route);
     setIsWalking(true);
     setWalkStartTime(new Date());
     setElapsedTime(0);
-    setShowMap(true);
 
     try {
       const res = await fetch('/api/walk/start', {
@@ -140,6 +168,7 @@ export default function WalkPage() {
     }
   };
 
+  // 散歩終了
   const endWalk = async () => {
     if (!currentWalkId) return;
 
@@ -168,9 +197,9 @@ export default function WalkPage() {
     setSelectedRoute(null);
     setCurrentWalkId(null);
     setElapsedTime(0);
-    setShowMap(false);
   };
 
+  // ユーティリティ関数
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -178,9 +207,7 @@ export default function WalkPage() {
   };
 
   const formatDistance = (meters: number) => {
-    if (meters < 1000) {
-      return `${meters}m`;
-    }
+    if (meters < 1000) return `${meters}m`;
     return `${(meters / 1000).toFixed(1)}km`;
   };
 
@@ -196,13 +223,54 @@ export default function WalkPage() {
 
   const getDestinationIcon = (type: string) => {
     switch (type) {
-      case 'park':
-        return '🌳';
-      case 'shopping':
-        return '🏪';
-      default:
-        return '📍';
+      case 'park': return '🌳';
+      case 'shopping': return '🏪';
+      default: return '📍';
     }
+  };
+
+  const getDifficultyLabel = (difficulty: string) => {
+    switch (difficulty) {
+      case 'easy': return { text: 'やさしい', color: 'text-feature-health' };
+      case 'normal': return { text: 'ふつう', color: 'text-accent' };
+      case 'challenging': return { text: 'しっかり', color: 'text-feature-voice' };
+      default: return { text: '', color: '' };
+    }
+  };
+
+  const handleManualLocation = (loc: GeoLocation) => {
+    setManualLocation(loc);
+  };
+
+  // Googleマップで経路を開く
+  const openGoogleMaps = (route: WalkRoute) => {
+    if (!location) return;
+
+    // 目的地を取得
+    const destination = route.destinations[0];
+    if (!destination) return;
+
+    // Google Maps URLを構築（徒歩モード）
+    // 実際のAPIでは目的地の座標を使用するが、デモではプレースホルダー
+    const origin = `${location.latitude},${location.longitude}`;
+
+    // 目的地名で検索（実際の実装では座標を使用）
+    const destinationQuery = encodeURIComponent(destination.name);
+
+    // 経由地がある場合
+    const waypoints = route.destinations.slice(1).map(d => encodeURIComponent(d.name)).join('|');
+
+    let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destinationQuery}&travelmode=walking`;
+
+    if (waypoints) {
+      url += `&waypoints=${waypoints}`;
+    }
+
+    // 新しいタブで開く
+    window.open(url, '_blank');
+
+    // ルートを確認済みとしてマーク
+    setHasViewedRoute(prev => new Set([...prev, route.id]));
   };
 
   if (status === 'loading') {
@@ -236,118 +304,116 @@ export default function WalkPage() {
         <div className="text-center mb-6">
           <h2 className="text-2xl font-bold text-dark-50 mb-2">散歩ナビ</h2>
           <p className="text-dark-400">
-            {dogName}ちゃんとの散歩ルートを提案
+            {dogName ? `${dogName}ちゃんとの散歩ルートを提案` : '散歩ルートを提案'}
           </p>
         </div>
+
+        {/* 位置情報エラー表示 */}
+        {locationError && (
+          <LocationErrorBanner
+            error={locationError}
+            onRetry={getCurrentLocation}
+            onManualSelect={handleManualLocation}
+            loading={locationLoading}
+          />
+        )}
+
+        {/* 位置情報取得成功表示 */}
+        {location && !locationError && (
+          <div className="flex items-center gap-2 mb-4 p-2 bg-feature-walk/10 border border-feature-walk/30 rounded-lg">
+            <span className="text-feature-walk">📍</span>
+            <span className="text-sm text-dark-300">現在地を取得しました</span>
+            <button
+              onClick={getCurrentLocation}
+              className="ml-auto text-xs text-accent hover:underline"
+            >
+              更新
+            </button>
+          </div>
+        )}
 
         {/* 散歩中の表示 */}
         {isWalking ? (
           <div className="space-y-6">
-            {/* 地図プレースホルダー */}
-            {showMap && (
-              <Card className="overflow-hidden p-0">
-                <div
-                  ref={mapRef}
-                  className="h-64 bg-gradient-to-br from-feature-walk/20 to-dark-700 flex items-center justify-center relative"
-                >
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">
-                      <span className="text-4xl">🗺️</span>
-                      <p className="text-sm text-dark-300 mt-2">
-                        地図表示エリア
-                      </p>
-                    </div>
-                  </div>
-                  {/* ルート情報オーバーレイ */}
-                  <div className="absolute bottom-2 left-2 right-2 bg-dark-800/90 backdrop-blur-sm rounded-lg p-2 text-sm">
-                    <div className="flex items-center justify-between text-dark-200">
-                      <span className="text-feature-walk">🔵 現在地</span>
-                      <span className="text-accent">🔴 {selectedRoute?.destinations[0]?.name}</span>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            )}
-
-            <Card className="text-center">
-              <div className="py-6">
-                <p className="text-dark-400 mb-2">
-                  {dogName}ちゃんとお散歩中
-                </p>
-                <div className="text-5xl font-bold gradient-text mb-4">
-                  {formatTime(elapsedTime)}
+            {/* 地図エリア */}
+            <Card className="overflow-hidden p-0">
+              <div className="h-48 bg-gradient-to-br from-feature-walk/20 to-dark-700 flex items-center justify-center relative">
+                <div className="text-center">
+                  <span className="text-4xl">🗺️</span>
+                  <p className="text-sm text-dark-300 mt-2">地図表示エリア</p>
                 </div>
                 {selectedRoute && (
-                  <div className="mb-6 space-y-2">
-                    <p className="text-lg font-medium text-dark-100">
-                      {selectedRoute.name}
-                    </p>
-                    <div className="flex justify-center gap-4 text-sm text-dark-400">
-                      <span>目標: {selectedRoute.totalDuration}分</span>
-                      <span>{formatDistance(selectedRoute.totalDistance)}</span>
-                    </div>
-                    {/* 進捗バー */}
-                    <div className="progress-bar mt-4">
-                      <div
-                        className="progress-bar-fill"
-                        style={{
-                          width: `${Math.min(100, (elapsedTime / 60 / selectedRoute.totalDuration) * 100)}%`
-                        }}
-                      />
+                  <div className="absolute bottom-2 left-2 right-2 bg-dark-800/90 backdrop-blur-sm rounded-lg p-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-dark-300">目的地</span>
+                      <span className="text-accent font-medium">
+                        {selectedRoute.destinations[0]?.name}
+                      </span>
                     </div>
                   </div>
                 )}
-                <Button
-                  onClick={endWalk}
-                  variant="outline"
-                  className="w-full max-w-xs"
-                >
-                  散歩を終了する
-                </Button>
               </div>
             </Card>
 
-            {/* ルート詳細 */}
+            {/* タイマー */}
+            <Card className="text-center">
+              <p className="text-dark-400 mb-2">
+                {dogName}ちゃんとお散歩中
+              </p>
+              <div className="text-5xl font-bold gradient-text mb-4">
+                {formatTime(elapsedTime)}
+              </div>
+              {selectedRoute && (
+                <div className="mb-6">
+                  <p className="text-lg font-medium text-dark-100">{selectedRoute.name}</p>
+                  <div className="flex justify-center gap-4 text-sm text-dark-400 mt-2">
+                    <span>目標: {selectedRoute.totalDuration}分</span>
+                    <span>{formatDistance(selectedRoute.totalDistance)}</span>
+                  </div>
+                  <div className="progress-bar mt-4">
+                    <div
+                      className="progress-bar-fill"
+                      style={{
+                        width: `${Math.min(100, (elapsedTime / 60 / selectedRoute.totalDuration) * 100)}%`
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              <Button onClick={endWalk} variant="outline" className="w-full max-w-xs">
+                散歩を終了する
+              </Button>
+            </Card>
+
+            {/* ウェイポイント */}
             {selectedRoute && (
               <Card>
-                <h3 className="font-bold text-dark-100 mb-4">
-                  今日のルート詳細
-                </h3>
-                <div className="space-y-4">
-                  {selectedRoute.destinations.map((dest, index) => (
-                    <div
-                      key={dest.id}
-                      className="flex items-start gap-3 p-3 bg-dark-700/50 rounded-lg"
-                    >
+                <h3 className="font-bold text-dark-100 mb-4">ルートガイド</h3>
+                <div className="space-y-3">
+                  {selectedRoute.waypoints.map((wp, index) => (
+                    <div key={index} className="flex items-start gap-3">
                       <div className="flex flex-col items-center">
-                        <span className="text-2xl">{getDestinationIcon(dest.type)}</span>
-                        {index < selectedRoute.destinations.length - 1 && (
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${
+                          wp.type === 'start' ? 'bg-feature-walk text-white' :
+                          wp.type === 'destination' ? 'bg-accent text-dark-900' :
+                          'bg-dark-600 text-dark-300'
+                        }`}>
+                          {wp.type === 'start' ? '🚶' :
+                           wp.type === 'destination' ? '🎯' :
+                           wp.type === 'landmark' ? '📍' : '↗️'}
+                        </div>
+                        {index < selectedRoute.waypoints.length - 1 && (
                           <div className="w-0.5 h-8 bg-dark-600 mt-1" />
                         )}
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-medium text-dark-100">{dest.name}</h4>
-                          {dest.isWithinTime ? (
-                            <span className="text-xs bg-feature-health/20 text-feature-health px-2 py-0.5 rounded-full">
-                              往復可能
-                            </span>
-                          ) : (
-                            <span className="text-xs bg-accent/20 text-accent px-2 py-0.5 rounded-full">
-                              時間超過
-                            </span>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 mt-2 text-sm text-dark-400">
-                          <div>
-                            <span className="text-dark-500">片道:</span>{' '}
-                            {formatDistance(dest.distance.oneWay)} / {dest.duration.oneWay}分
-                          </div>
-                          <div>
-                            <span className="text-dark-500">往復:</span>{' '}
-                            {formatDistance(dest.distance.roundTrip)} / {dest.duration.roundTrip}分
-                          </div>
-                        </div>
+                      <div className="flex-1 pb-2">
+                        <p className="font-medium text-dark-100">{wp.name}</p>
+                        <p className="text-xs text-dark-400">{wp.description}</p>
+                        {wp.distanceFromStart > 0 && (
+                          <p className="text-xs text-dark-500 mt-1">
+                            {formatDistance(wp.distanceFromStart)} / {wp.durationFromStart}分
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -359,9 +425,7 @@ export default function WalkPage() {
           <div className="space-y-6">
             {/* 散歩時間設定 */}
             <Card>
-              <h3 className="font-bold text-dark-100 mb-4">
-                散歩時間を設定
-              </h3>
+              <h3 className="font-bold text-dark-100 mb-4">散歩時間を設定</h3>
               <div className="flex items-center justify-center gap-4 mb-4">
                 <button
                   onClick={() => setWalkTime(Math.max(10, walkTime - 5))}
@@ -370,9 +434,7 @@ export default function WalkPage() {
                   -
                 </button>
                 <div className="text-center">
-                  <span className="text-4xl font-bold gradient-text">
-                    {walkTime}
-                  </span>
+                  <span className="text-4xl font-bold gradient-text">{walkTime}</span>
                   <span className="text-lg text-dark-400 ml-1">分</span>
                 </div>
                 <button
@@ -416,9 +478,7 @@ export default function WalkPage() {
                     }`}
                   >
                     <span className="text-xl">{option.icon}</span>
-                    <p className="text-sm font-medium text-dark-200 mt-1">
-                      {option.label}
-                    </p>
+                    <p className="text-sm font-medium text-dark-200 mt-1">{option.label}</p>
                   </button>
                 ))}
               </div>
@@ -427,146 +487,157 @@ export default function WalkPage() {
                 onClick={generateRoutes}
                 loading={loading}
                 className="w-full"
+                disabled={!location && !locationError}
               >
                 ルートを提案してもらう
               </Button>
+
+              {!location && !locationError && (
+                <p className="text-xs text-dark-500 text-center mt-2">
+                  位置情報を取得中です...
+                </p>
+              )}
             </Card>
 
-            {/* 提案ルート */}
+            {/* 提案ルート一覧 */}
             {suggestedRoutes.length > 0 && (
               <div>
                 <h3 className="font-bold text-dark-100 mb-3">
-                  おすすめルート
+                  おすすめルート（{suggestedRoutes.length}件）
                 </h3>
                 <div className="space-y-4">
-                  {suggestedRoutes.map((route, index) => (
-                    <Card
-                      key={route.id}
-                      className={`${!route.isWithinTime ? 'opacity-75' : ''}`}
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          {index === 0 && route.isWithinTime && (
-                            <span className="bg-accent text-dark-900 text-xs font-bold px-2 py-0.5 rounded-full">
-                              おすすめ
+                  {suggestedRoutes.map((route, index) => {
+                    const difficulty = getDifficultyLabel(route.difficulty);
+                    const canStart = hasViewedRoute.has(route.id);
+
+                    return (
+                      <Card key={route.id} className={!route.isWithinTime ? 'opacity-75' : ''}>
+                        {/* ヘッダー */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {index === 0 && route.isWithinTime && (
+                              <span className="bg-accent text-dark-900 text-xs font-bold px-2 py-0.5 rounded-full">
+                                おすすめ
+                              </span>
+                            )}
+                            <h4 className="font-bold text-dark-100">{route.name}</h4>
+                          </div>
+                          <span className={`text-xs ${difficulty.color}`}>
+                            {difficulty.text}
+                          </span>
+                        </div>
+
+                        {/* 説明 */}
+                        <p className="text-sm text-dark-400 mb-3">{route.description}</p>
+
+                        {/* 目的地 */}
+                        <div className="space-y-2 mb-4">
+                          {route.destinations.map((dest) => (
+                            <div
+                              key={dest.id}
+                              className="flex items-center justify-between text-sm bg-dark-700/50 p-2 rounded-lg"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span>{getDestinationIcon(dest.type)}</span>
+                                <span className="font-medium text-dark-200">{dest.name}</span>
+                                {dest.rating && (
+                                  <span className="text-accent text-xs">★{dest.rating}</span>
+                                )}
+                              </div>
+                              <div className="text-dark-500 text-xs">
+                                往復 {formatDistance(dest.distance.roundTrip)} / {dest.duration.roundTrip}分
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* 合計情報 */}
+                        <div className="flex items-center justify-between text-sm border-t border-dark-600 pt-3 mb-3">
+                          <div className="text-dark-400">
+                            合計: {formatDistance(route.totalDistance)} / {route.totalDuration}分
+                          </div>
+                          {route.isWithinTime ? (
+                            <span className="text-xs bg-feature-health/20 text-feature-health px-2 py-1 rounded-full">
+                              {walkTime}分以内
+                            </span>
+                          ) : (
+                            <span className="text-xs bg-accent/20 text-accent px-2 py-1 rounded-full">
+                              時間超過
                             </span>
                           )}
-                          <h4 className="font-bold text-dark-100">
-                            {route.name}
-                          </h4>
                         </div>
-                        {route.isWithinTime ? (
-                          <span className="text-xs bg-feature-health/20 text-feature-health px-2 py-1 rounded-full">
-                            {walkTime}分以内
-                          </span>
-                        ) : (
-                          <span className="text-xs bg-accent/20 text-accent px-2 py-1 rounded-full">
-                            時間超過
-                          </span>
-                        )}
-                      </div>
 
-                      <p className="text-sm text-dark-400 mb-3">
-                        {route.description}
-                      </p>
-
-                      {/* 目的地リスト */}
-                      <div className="space-y-2 mb-4">
-                        {route.destinations.map((dest) => (
-                          <div
-                            key={dest.id}
-                            className="flex items-center justify-between text-sm bg-dark-700/50 p-2 rounded-lg"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span>{getDestinationIcon(dest.type)}</span>
-                              <span className="font-medium text-dark-200">{dest.name}</span>
-                              {dest.rating && (
-                                <span className="text-accent text-xs">
-                                  ★{dest.rating}
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-dark-500 text-xs">
-                              往復 {formatDistance(dest.distance.roundTrip)} / {dest.duration.roundTrip}分
-                            </div>
+                        {/* 見どころ */}
+                        {route.scenery.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-3">
+                            {route.scenery.slice(0, 4).map((s, i) => (
+                              <span key={i} className="text-xs px-2 py-0.5 bg-dark-700 text-dark-400 rounded-full">
+                                {s}
+                              </span>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        )}
 
-                      {/* 合計情報 */}
-                      <div className="flex items-center justify-between text-sm border-t border-dark-600 pt-3 mb-3">
-                        <div className="text-dark-400">
-                          合計: {formatDistance(route.totalDistance)} / {route.totalDuration}分
+                        {/* ボタン */}
+                        <div className="space-y-2">
+                          <div className="flex gap-2">
+                            <Button
+                              variant="secondary"
+                              onClick={() => openGoogleMaps(route)}
+                              className="flex-1"
+                            >
+                              <svg className="w-4 h-4 mr-1 inline" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                              </svg>
+                              ルートを見てみる
+                            </Button>
+                          </div>
+                          <Button
+                            onClick={() => startWalk(route)}
+                            className="w-full"
+                            disabled={!canStart || !route.isWithinTime}
+                          >
+                            {canStart ? 'このルートで散歩開始' : 'まずルートを確認'}
+                          </Button>
                         </div>
-                      </div>
 
-                      {/* おすすめ理由 */}
-                      <p className="text-xs text-accent bg-accent/10 p-2 rounded-lg mb-3">
-                        💡 {route.recommendReason}
-                      </p>
-
-                      <Button
-                        onClick={() => startWalk(route)}
-                        className="w-full"
-                        disabled={!route.isWithinTime}
-                      >
-                        このルートで散歩開始
-                      </Button>
-                    </Card>
-                  ))}
+                        {!canStart && (
+                          <p className="text-xs text-dark-500 text-center mt-2">
+                            「ルートを見てみる」でGoogleマップを確認後、散歩を開始できます
+                          </p>
+                        )}
+                      </Card>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
             {/* 散歩履歴 */}
-            {history.length > 0 && (
+            {history.length > 0 && suggestedRoutes.length === 0 && (
               <Card>
-                <h3 className="font-bold text-dark-100 mb-4">
-                  最近の散歩
-                </h3>
+                <h3 className="font-bold text-dark-100 mb-4">最近の散歩</h3>
                 <div className="space-y-3">
                   {history.slice(0, 5).map((walk) => (
                     <div
                       key={walk.id}
                       className="flex items-center justify-between py-2 border-b border-dark-600 last:border-0"
                     >
-                      <div>
-                        <p className="text-sm font-medium text-dark-200">
-                          {formatDate(walk.startedAt)}
-                        </p>
-                      </div>
+                      <p className="text-sm font-medium text-dark-200">
+                        {formatDate(walk.startedAt)}
+                      </p>
                       <div className="text-right text-sm text-dark-400">
-                        {walk.durationMin && (
-                          <span className="mr-3">{walk.durationMin}分</span>
-                        )}
-                        {walk.distanceM && (
-                          <span>{formatDistance(walk.distanceM)}</span>
-                        )}
+                        {walk.durationMin && <span className="mr-3">{walk.durationMin}分</span>}
+                        {walk.distanceM && <span>{formatDistance(walk.distanceM)}</span>}
                       </div>
                     </div>
                   ))}
                 </div>
               </Card>
             )}
-
-            {/* ヒント */}
-            <Card variant="feature">
-              <div className="flex items-start gap-3">
-                <span className="text-2xl">💡</span>
-                <div>
-                  <h3 className="font-bold text-dark-100 mb-1">
-                    散歩のコツ
-                  </h3>
-                  <ul className="text-sm text-dark-400 space-y-1">
-                    <li>・犬種や年齢に合わせて時間を調整</li>
-                    <li>・暑い日は朝晩の涼しい時間帯に</li>
-                    <li>・公園では他のワンちゃんとの交流も</li>
-                  </ul>
-                </div>
-              </div>
-            </Card>
           </div>
         )}
+
       </main>
 
       {/* ボトムナビゲーション */}

@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { BreedAutocomplete } from '@/components/BreedAutocomplete';
 
 type StepType =
   | 'breed'
@@ -374,16 +375,28 @@ export default function HearingPage() {
                   )}
                 </div>
 
-                {/* テキスト入力 */}
+                {/* テキスト入力（犬種はオートコンプリート） */}
                 {currentStepConfig.type === 'text' && (
                   <div className="space-y-4">
-                    <input
-                      type="text"
-                      placeholder={currentStepConfig.placeholder}
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-warm-300 focus:border-primary-400 focus:ring-2 focus:ring-primary-200 outline-none transition-all duration-200 bg-white text-center text-lg"
-                    />
+                    {currentStepConfig.id === 'breed' ? (
+                      <BreedAutocomplete
+                        value={inputValue}
+                        onChange={setInputValue}
+                        onSelect={(breed) => {
+                          setInputValue(breed);
+                        }}
+                        placeholder={currentStepConfig.placeholder}
+                        className="[&_input]:border-warm-300 [&_input]:focus:border-primary-400 [&_input]:focus:ring-primary-200 [&_input]:bg-white [&_input]:text-gray-900 [&_ul]:bg-white [&_ul]:border-warm-200 [&_li]:text-gray-700 [&_li:hover]:bg-primary-50"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder={currentStepConfig.placeholder}
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-warm-300 focus:border-primary-400 focus:ring-2 focus:ring-primary-200 outline-none transition-all duration-200 bg-white text-center text-lg"
+                      />
+                    )}
                     <Button
                       onClick={handleSubmitInput}
                       disabled={!inputValue.trim() || loading}

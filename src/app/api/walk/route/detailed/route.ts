@@ -16,6 +16,8 @@ const MOCK_DESTINATIONS = {
       baseDistance: 400,
       rating: 4.2,
       description: '広々とした芝生エリアが人気。ドッグランも併設。',
+      features: ['芝生広場', 'ドッグラン', 'ベンチ多数'],
+      landmark: '大きな噴水が目印',
     },
     {
       id: 'park-2',
@@ -24,6 +26,8 @@ const MOCK_DESTINATIONS = {
       baseDistance: 600,
       rating: 4.5,
       description: '桜の名所。春は花見客で賑わう。',
+      features: ['桜並木', '池', '遊歩道'],
+      landmark: '赤い橋が目印',
     },
     {
       id: 'park-3',
@@ -32,6 +36,8 @@ const MOCK_DESTINATIONS = {
       baseDistance: 800,
       rating: 4.0,
       description: '木陰が多く夏でも涼しい。',
+      features: ['木陰', '小川', '野鳥観察'],
+      landmark: '大きなケヤキの木',
     },
     {
       id: 'park-4',
@@ -40,6 +46,18 @@ const MOCK_DESTINATIONS = {
       baseDistance: 1000,
       rating: 4.3,
       description: '川沿いの遊歩道が気持ちいい。',
+      features: ['河川敷', 'サイクリングロード', '広場'],
+      landmark: '青い歩道橋',
+    },
+    {
+      id: 'park-5',
+      name: 'ひまわり公園',
+      type: 'park' as const,
+      baseDistance: 500,
+      rating: 4.1,
+      description: '小さいけど穴場の公園。',
+      features: ['花壇', 'ベンチ', '静か'],
+      landmark: '黄色いフェンス',
     },
   ],
   shopping: [
@@ -50,6 +68,8 @@ const MOCK_DESTINATIONS = {
       baseDistance: 350,
       rating: 3.8,
       description: '昔ながらの商店街。ペット同伴可の店も多い。',
+      features: ['飲食店', 'ペットショップ', 'コンビニ'],
+      landmark: '赤いアーケード',
     },
     {
       id: 'shop-2',
@@ -58,6 +78,8 @@ const MOCK_DESTINATIONS = {
       baseDistance: 500,
       rating: 4.1,
       description: '飲食店やカフェが並ぶ人気スポット。',
+      features: ['カフェ', 'テラス席あり', '犬OK店多数'],
+      landmark: '大きな時計台',
     },
     {
       id: 'shop-3',
@@ -66,9 +88,19 @@ const MOCK_DESTINATIONS = {
       baseDistance: 700,
       rating: 4.4,
       description: 'ペット用品店が集まるエリア。',
+      features: ['ペット用品', 'トリミング', 'おやつ'],
+      landmark: '犬の看板',
     },
   ],
 };
+
+interface Waypoint {
+  name: string;
+  type: 'start' | 'destination' | 'landmark' | 'turn';
+  description: string;
+  distanceFromStart: number;
+  durationFromStart: number;
+}
 
 interface RouteDestination {
   id: string;
@@ -84,6 +116,9 @@ interface RouteDestination {
   };
   isWithinTime: boolean;
   rating?: number;
+  description?: string;
+  features?: string[];
+  landmark?: string;
 }
 
 interface WalkRoute {
@@ -94,7 +129,11 @@ interface WalkRoute {
   totalDuration: number;
   isWithinTime: boolean;
   destinations: RouteDestination[];
+  waypoints: Waypoint[];
   recommendReason: string;
+  difficulty: 'easy' | 'normal' | 'challenging';
+  scenery: string[];
+  tips: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -105,14 +144,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
-    const { durationMinutes, purpose } = await request.json();
+    const { durationMinutes, purpose, latitude, longitude } = await request.json();
 
     // 片道最大距離を計算
     const oneWayMaxMinutes = durationMinutes / 2;
     const oneWayMaxDistance = Math.round(WALKING_SPEED_M_PER_MIN * oneWayMaxMinutes);
 
+    // 位置情報がある場合は距離を微調整（デモ用）
+    const locationFactor = latitude && longitude ? 0.9 + Math.random() * 0.2 : 1;
+
     // 目的地候補を取得
-    let destinations: typeof MOCK_DESTINATIONS.park = [];
+    type Destination = {
+      id: string;
+      name: string;
+      type: 'park' | 'shopping';
+      baseDistance: number;
+      rating: number;
+      description: string;
+      features: string[];
+      landmark: string;
+    };
+    let destinations: Destination[] = [];
 
     if (purpose === 'park') {
       destinations = MOCK_DESTINATIONS.park;
@@ -125,7 +177,7 @@ export async function POST(request: NextRequest) {
 
     // 距離にランダム変動を加える（実際のAPIでは正確な値を取得）
     const processedDestinations = destinations.map((dest) => {
-      const variation = 0.8 + Math.random() * 0.4; // 80-120%
+      const variation = (0.8 + Math.random() * 0.4) * locationFactor;
       const oneWayDistance = Math.round(dest.baseDistance * variation);
       const oneWayDuration = Math.round(oneWayDistance / WALKING_SPEED_M_PER_MIN);
       const roundTripDistance = oneWayDistance * 2;
@@ -146,49 +198,116 @@ export async function POST(request: NextRequest) {
         isWithinTime: roundTripDuration <= durationMinutes,
         rating: dest.rating,
         description: dest.description,
+        features: dest.features,
+        landmark: dest.landmark,
       };
     });
 
-    // ルートを生成
+    // ルートを生成（最低3つ確保）
     const routes: WalkRoute[] = [];
 
-    // 1. 公園コース（往復可能なもの）
-    const parkDests = processedDestinations.filter(d => d.type === 'park' && d.isWithinTime);
-    if (parkDests.length > 0) {
-      const best = parkDests.sort((a, b) => (b.rating || 0) - (a.rating || 0))[0];
-      routes.push({
-        id: `route-park-${Date.now()}`,
-        name: `${best.name}コース`,
-        description: `${best.name}まで往復する定番コース。${best.description || ''}`,
-        totalDistance: best.distance.roundTrip,
-        totalDuration: best.duration.roundTrip,
-        isWithinTime: true,
-        destinations: [best],
-        recommendReason: `評価${best.rating}の人気スポット。${durationMinutes}分以内で往復できます。`,
-      });
-    }
+    // ウェイポイントを生成するヘルパー関数
+    const generateWaypoints = (dest: RouteDestination, isReturn: boolean = false): Waypoint[] => {
+      const waypoints: Waypoint[] = [
+        {
+          name: '現在地',
+          type: 'start',
+          description: 'ここからスタート！',
+          distanceFromStart: 0,
+          durationFromStart: 0,
+        },
+      ];
 
-    // 2. 商店街コース（往復可能なもの）
-    const shopDests = processedDestinations.filter(d => d.type === 'shopping' && d.isWithinTime);
-    if (shopDests.length > 0) {
-      const best = shopDests.sort((a, b) => (b.rating || 0) - (a.rating || 0))[0];
-      routes.push({
-        id: `route-shop-${Date.now()}`,
-        name: `${best.name}コース`,
-        description: `にぎやかな通りを歩くコース。${best.description || ''}`,
-        totalDistance: best.distance.roundTrip,
-        totalDuration: best.duration.roundTrip,
-        isWithinTime: true,
-        destinations: [best],
-        recommendReason: `社会化にも◎。人通りがあるので安心です。`,
+      // 中間地点（3分の1地点）
+      waypoints.push({
+        name: '信号を渡って直進',
+        type: 'turn',
+        description: '歩道を進みましょう',
+        distanceFromStart: Math.round(dest.distance.oneWay * 0.33),
+        durationFromStart: Math.round(dest.duration.oneWay * 0.33),
       });
-    }
 
-    // 3. 組み合わせコース（公園＋商店街）
+      // 目印（3分の2地点）
+      if (dest.landmark) {
+        waypoints.push({
+          name: dest.landmark,
+          type: 'landmark',
+          description: 'もうすぐ到着です',
+          distanceFromStart: Math.round(dest.distance.oneWay * 0.66),
+          durationFromStart: Math.round(dest.duration.oneWay * 0.66),
+        });
+      }
+
+      // 目的地
+      waypoints.push({
+        name: dest.name,
+        type: 'destination',
+        description: dest.description || '到着！',
+        distanceFromStart: dest.distance.oneWay,
+        durationFromStart: dest.duration.oneWay,
+      });
+
+      return waypoints;
+    };
+
+    // 1. 公園コース（評価順に複数）
+    const parkDests = processedDestinations
+      .filter(d => d.type === 'park')
+      .sort((a, b) => (b.rating || 0) - (a.rating || 0));
+
+    parkDests.forEach((dest, index) => {
+      if (routes.length >= 5) return;
+
+      routes.push({
+        id: `route-park-${dest.id}-${Date.now()}`,
+        name: index === 0 ? `${dest.name}コース（おすすめ）` : `${dest.name}コース`,
+        description: `${dest.name}まで往復する${dest.isWithinTime ? '定番' : 'ゆったり'}コース。${dest.description || ''}`,
+        totalDistance: dest.distance.roundTrip,
+        totalDuration: dest.duration.roundTrip,
+        isWithinTime: dest.isWithinTime,
+        destinations: [dest],
+        waypoints: generateWaypoints(dest),
+        recommendReason: dest.isWithinTime
+          ? `評価★${dest.rating}の人気スポット。${durationMinutes}分以内で往復できます。`
+          : `評価★${dest.rating}の人気スポット。少し時間に余裕を持って出かけましょう。`,
+        difficulty: dest.distance.roundTrip < 800 ? 'easy' : dest.distance.roundTrip < 1500 ? 'normal' : 'challenging',
+        scenery: dest.features || [],
+        tips: dest.isWithinTime
+          ? 'ワンちゃんのペースに合わせてゆっくり歩きましょう'
+          : '途中で休憩を入れながら歩くのがおすすめです',
+      });
+    });
+
+    // 2. 商店街コース
+    const shopDests = processedDestinations
+      .filter(d => d.type === 'shopping')
+      .sort((a, b) => (b.rating || 0) - (a.rating || 0));
+
+    shopDests.forEach((dest) => {
+      if (routes.length >= 5) return;
+
+      routes.push({
+        id: `route-shop-${dest.id}-${Date.now()}`,
+        name: `${dest.name}コース`,
+        description: `にぎやかな通りを歩くコース。${dest.description || ''}`,
+        totalDistance: dest.distance.roundTrip,
+        totalDuration: dest.duration.roundTrip,
+        isWithinTime: dest.isWithinTime,
+        destinations: [dest],
+        waypoints: generateWaypoints(dest),
+        recommendReason: '社会化トレーニングにも◎。人通りがあるので安心です。',
+        difficulty: 'easy',
+        scenery: dest.features || [],
+        tips: 'お店の前では立ち止まって、他の人の邪魔にならないようにしましょう',
+      });
+    });
+
+    // 3. 組み合わせコース
     const nearPark = processedDestinations.find(d => d.type === 'park' && d.distance.oneWay <= oneWayMaxDistance * 0.6);
-    const nearShop = processedDestinations.find(d => d.type === 'shopping' && d.distance.oneWay <= oneWayMaxDistance * 0.4);
-    if (nearPark && nearShop) {
-      const combinedDistance = nearPark.distance.oneWay + nearShop.distance.oneWay + nearShop.distance.oneWay;
+    const nearShop = processedDestinations.find(d => d.type === 'shopping' && d.distance.oneWay <= oneWayMaxDistance * 0.5);
+
+    if (nearPark && nearShop && routes.length < 5) {
+      const combinedDistance = nearPark.distance.oneWay + nearShop.distance.oneWay * 2;
       const combinedDuration = Math.round(combinedDistance / WALKING_SPEED_M_PER_MIN);
       const isWithinTime = combinedDuration <= durationMinutes;
 
@@ -199,41 +318,88 @@ export async function POST(request: NextRequest) {
         totalDistance: combinedDistance,
         totalDuration: combinedDuration,
         isWithinTime,
-        destinations: [nearShop, nearPark].map(d => ({
-          ...d,
-          isWithinTime,
-        })),
+        destinations: [
+          { ...nearShop, isWithinTime },
+          { ...nearPark, isWithinTime },
+        ],
+        waypoints: [
+          { name: '現在地', type: 'start', description: 'ここからスタート！', distanceFromStart: 0, durationFromStart: 0 },
+          { name: nearShop.name, type: 'destination', description: '商店街で少し休憩', distanceFromStart: nearShop.distance.oneWay, durationFromStart: nearShop.duration.oneWay },
+          { name: nearPark.name, type: 'destination', description: '公園で遊びましょう', distanceFromStart: nearShop.distance.oneWay + nearPark.distance.oneWay, durationFromStart: nearShop.duration.oneWay + nearPark.duration.oneWay },
+        ],
         recommendReason: isWithinTime
           ? '公園と商店街の両方を楽しめるバランスの良いコース。'
           : '少し長めですが、変化に富んだ充実コース。',
+        difficulty: 'normal',
+        scenery: [...(nearShop.features || []), ...(nearPark.features || [])],
+        tips: '商店街では人混みに注意、公園ではリードを短めに持ちましょう',
       });
     }
 
-    // 4. 時間超過ルート（代替として）
-    const overTimeDests = processedDestinations.filter(d => !d.isWithinTime);
-    if (overTimeDests.length > 0 && routes.length < 3) {
-      const nearest = overTimeDests.sort((a, b) => a.duration.roundTrip - b.duration.roundTrip)[0];
-      routes.push({
-        id: `route-overtime-${Date.now()}`,
-        name: `${nearest.name}コース（時間超過）`,
-        description: `設定時間を超えますが、人気のスポットです。`,
-        totalDistance: nearest.distance.roundTrip,
-        totalDuration: nearest.duration.roundTrip,
-        isWithinTime: false,
-        destinations: [nearest],
-        recommendReason: `${nearest.duration.roundTrip - durationMinutes}分超過しますが、評価${nearest.rating}の人気スポットです。`,
-      });
+    // 4. ショートコース（時間が短い場合の代替）
+    if (durationMinutes <= 15 && routes.length < 3) {
+      const shortDest = processedDestinations
+        .filter(d => d.distance.oneWay <= 300)
+        .sort((a, b) => a.distance.oneWay - b.distance.oneWay)[0];
+
+      if (shortDest) {
+        routes.push({
+          id: `route-short-${Date.now()}`,
+          name: 'ご近所お散歩コース',
+          description: '近場をサクッと歩くコース。トイレ休憩にもぴったり。',
+          totalDistance: shortDest.distance.roundTrip,
+          totalDuration: shortDest.duration.roundTrip,
+          isWithinTime: true,
+          destinations: [{ ...shortDest, isWithinTime: true }],
+          waypoints: generateWaypoints(shortDest),
+          recommendReason: '短い時間でもお外の空気を楽しめます。',
+          difficulty: 'easy',
+          scenery: shortDest.features || [],
+          tips: '短い散歩でも、しっかり嗅ぎ探索の時間を作ってあげましょう',
+        });
+      }
     }
 
-    // スコア順にソート（時間内を優先）
+    // 5. のんびりコース（時間が長い場合）
+    if (durationMinutes >= 40 && routes.length < 5) {
+      const farDest = processedDestinations
+        .sort((a, b) => b.distance.oneWay - a.distance.oneWay)[0];
+
+      if (farDest && !routes.find(r => r.destinations.some(d => d.id === farDest.id))) {
+        routes.push({
+          id: `route-long-${Date.now()}`,
+          name: 'のんびり探検コース',
+          description: `少し遠出して${farDest.name}まで。探検気分で楽しもう。`,
+          totalDistance: farDest.distance.roundTrip,
+          totalDuration: farDest.duration.roundTrip,
+          isWithinTime: farDest.isWithinTime,
+          destinations: [farDest],
+          waypoints: generateWaypoints(farDest),
+          recommendReason: '時間をかけてゆっくりお散歩。新しい発見があるかも。',
+          difficulty: 'challenging',
+          scenery: farDest.features || [],
+          tips: '水分補給を忘れずに。暑い日は日陰を選んで歩きましょう',
+        });
+      }
+    }
+
+    // スコア順にソート（時間内を優先、その中で評価順）
     routes.sort((a, b) => {
       if (a.isWithinTime !== b.isWithinTime) {
         return a.isWithinTime ? -1 : 1;
       }
-      return a.totalDuration - b.totalDuration;
+      const aRating = a.destinations[0]?.rating || 0;
+      const bRating = b.destinations[0]?.rating || 0;
+      return bRating - aRating;
     });
 
-    return NextResponse.json({ routes: routes.slice(0, 3) });
+    // 最低3つ、最大5つのルートを返す
+    const finalRoutes = routes.slice(0, Math.max(3, Math.min(5, routes.length)));
+
+    return NextResponse.json({
+      routes: finalRoutes,
+      location: latitude && longitude ? { latitude, longitude } : null,
+    });
   } catch (error) {
     console.error('Walk route detailed error:', error);
     return NextResponse.json(

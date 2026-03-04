@@ -84,6 +84,22 @@ export default function DashboardPage() {
   // メニューアイテム
   const menuItems = [
     {
+      href: '/vet',
+      icon: '🏥',
+      title: 'かかりつけ',
+      description: '動物病院管理',
+      color: 'feature-health',
+      isNew: true,
+    },
+    {
+      href: '/community',
+      icon: '🐕',
+      title: 'ご近所',
+      description: '匿名コミュニティ',
+      color: 'feature-family',
+      isNew: true,
+    },
+    {
       href: '/voice',
       icon: '🎤',
       title: '鳴き声翻訳',
@@ -101,7 +117,7 @@ export default function DashboardPage() {
     },
     {
       href: '/insurance',
-      icon: '🏥',
+      icon: '🛡️',
       title: '保険',
       description: 'AIレコメンド',
       color: 'feature-insurance',
@@ -112,6 +128,14 @@ export default function DashboardPage() {
       title: '散歩',
       description: 'ルート提案',
       color: 'feature-walk',
+    },
+    {
+      href: '/events',
+      icon: '🎉',
+      title: 'イベント',
+      description: '展示会・パピパ',
+      color: 'feature-walk',
+      isNew: true,
     },
     {
       href: '/places',
@@ -154,6 +178,14 @@ export default function DashboardPage() {
       title: 'グッズ',
       description: 'おすすめ情報',
       color: 'feature-goods',
+    },
+    {
+      href: '/food',
+      icon: '🍖',
+      title: 'フード見直し',
+      description: 'AIおすすめ',
+      premium: true,
+      color: 'feature-food',
     },
   ];
 
@@ -226,7 +258,12 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
           {menuItems.map((item) => (
             <Link key={item.href} href={item.href}>
-              <Card variant="interactive" className="h-full p-4">
+              <Card variant="interactive" className="h-full p-4 relative">
+                {item.isNew && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                    NEW
+                  </span>
+                )}
                 <div className="text-center">
                   <div className={`w-12 h-12 rounded-xl mx-auto mb-2 flex items-center justify-center text-2xl bg-${item.color}/20`}>
                     {item.icon}

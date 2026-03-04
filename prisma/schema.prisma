@@ -169,3 +169,160 @@ model GoodsItem {
   publishedAt   DateTime  @default(now())
   createdAt     DateTime  @default(now())
 }
+
+// ================================================
+// 機能①：かかりつけ動物病院
+// ================================================
+model VetClinic {
+  id            String    @id @default(cuid())
+
+  // 病院情報
+  name          String
+  address       String
+  phone         String?
+  googleMapsUrl String?
+  placeId       String?   // Google Places ID
+
+  // 診療時間（JSON形式で保存）
+  businessHours String?   // {"mon": "9:00-18:00", "tue": "9:00-18:00", ...}
+
+  // 位置情報
+  latitude      Float?
+  longitude     Float?
+
+  // メタ情報
+  rating        Float?
+  reviewCount   Int?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // かかりつけ登録
+  primaryUsers  PrimaryVetClinic[]
+}
+
+model PrimaryVetClinic {
+  id            String    @id @default(cuid())
+  userId        String
+  clinicId      String
+  clinic        VetClinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  // 登録日
+  registeredAt  DateTime  @default(now())
+
+  // メモ（任意）
+  memo          String?
+
+  @@unique([userId])  // 1ユーザー1かかりつけ
+}
+
+// ================================================
+// 機能②：ご近所ワンちゃん匿名コミュニティ
+// ================================================
+model CommunityPost {
+  id            String    @id @default(cuid())
+  userId        String    // 投稿者（非公開）
+
+  // 匿名表示名（自動生成）
+  anonymousName String    // "柴犬飼い主＠近所", "トイプーママさん"
+
+  // 投稿内容
+  content       String
+  imageUrl      String?
+
+  // 位置情報（市区町村レベルのみ）
+  city          String    // "渋谷区", "横浜市"
+  prefecture    String    // "東京都", "神奈川県"
+
+  // カテゴリ
+  category      String    // walk, dogrun, vet, trimming, lost, training, other
+
+  // ステータス
+  isHidden      Boolean   @default(false)  // 通報により非表示
+  reportCount   Int       @default(0)
+
+  // 統計
+  likeCount     Int       @default(0)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // リレーション
+  likes         PostLike[]
+  reports       PostReport[]
+}
+
+model PostLike {
+  id            String    @id @default(cuid())
+  postId        String
+  post          CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId        String
+
+  createdAt     DateTime  @default(now())
+
+  @@unique([postId, userId])  // 1ユーザー1いいね
+}
+
+model PostReport {
+  id            String    @id @default(cuid())
+  postId        String
+  post          CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId        String
+
+  // 通報理由
+  reason        String    // inappropriate, spam, personal_info, medical, other
+  detail        String?
+
+  // ステータス
+  status        String    @default("pending")  // pending, reviewed, dismissed
+  reviewedAt    DateTime?
+
+  createdAt     DateTime  @default(now())
+
+  @@unique([postId, userId])  // 1ユーザー1通報
+}
+
+// ================================================
+// 機能③：犬イベント情報（情報元URL付き）
+// ================================================
+model DogEvent {
+  id            String    @id @default(cuid())
+
+  // イベント基本情報
+  title         String
+  description   String
+
+  // 日程
+  startDate     DateTime
+  endDate       DateTime?
+
+  // 場所（市区町村レベル）
+  venue         String    // 会場名
+  address       String?
+  city          String    // "渋谷区"
+  prefecture    String    // "東京都"
+  latitude      Float?
+  longitude     Float?
+
+  // カテゴリ
+  category      String    // exhibition, party, meetup, competition, seminar, other
+
+  // 情報元（必須）
+  sourceUrl     String    // 情報元URL
+  sourceName    String    // "〇〇公式サイト"
+
+  // メタ情報
+  imageUrl      String?
+  fee           String?   // "無料", "1,000円"
+  targetBreed   String?   // 対象犬種（あれば）
+
+  // ステータス
+  status        String    @default("upcoming")  // upcoming, ongoing, ended
+  isActive      Boolean   @default(true)
+
+  // 取得情報
+  fetchedAt     DateTime  @default(now())
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
