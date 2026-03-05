@@ -1,21 +1,103 @@
 {
-  "name": "わんサポ",
-  "short_name": "わんサポ",
-  "description": "犬を飼い始めた人のAIサポートアプリ",
-  "start_url": "/",
+  "name": "わんライフ - 愛犬との生活をもっと豊かに",
+  "short_name": "わんライフ",
+  "description": "犬を飼い始めた人から長年の飼い主まで、AIがあなたと愛犬の毎日をサポートする統合アプリ",
+  "start_url": "/dashboard",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#fefdfb",
-  "theme_color": "#e4824a",
+  "orientation": "portrait",
+  "background_color": "#FFF9F5",
+  "theme_color": "#FF8585",
+  "categories": ["lifestyle", "health", "social"],
+  "lang": "ja",
+  "dir": "ltr",
   "icons": [
     {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
+      "src": "/icons/icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/icons/icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
-  ]
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/home.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "ホーム画面"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "散歩を始める",
+      "short_name": "散歩",
+      "description": "散歩ルートを提案",
+      "url": "/walk",
+      "icons": [{ "src": "/icons/shortcut-walk.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "鳴き声翻訳",
+      "short_name": "翻訳",
+      "description": "AIで鳴き声を翻訳",
+      "url": "/voice",
+      "icons": [{ "src": "/icons/shortcut-voice.png", "sizes": "96x96" }]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
 }
