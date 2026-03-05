@@ -1,16 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { useLocation } from '@/contexts/LocationContext';
+import { LocationRequired, LocationErrorBanner } from '@/components/LocationRequest';
 
 interface PetPolicy {
   dogAllowed: boolean;
-  catAllowed: boolean;
-  sizeLimit: string;
+  sizeLimit: 'all' | 'medium' | 'small';
   indoorAllowed: boolean;
   terraceOnly: boolean;
   petMenu: boolean;
@@ -31,59 +32,202 @@ interface Restaurant {
   features: string[];
   openingHours: string;
   description: string;
+  imageUrl?: string;
 }
 
+const CATEGORIES = ['すべて', 'カフェ', 'イタリアン', '和食', 'ダイニング', 'ビアガーデン'];
+
+const SEARCH_RADIUS_OPTIONS = [
+  { value: 1, label: '1km' },
+  { value: 3, label: '3km' },
+  { value: 5, label: '5km' },
+  { value: 10, label: '10km' },
+];
+
+// モックデータ
+const MOCK_RESTAURANTS: Restaurant[] = [
+  {
+    id: 'r1',
+    name: 'Dog Cafe PAWS',
+    category: 'カフェ',
+    address: '東京都渋谷区神宮前3-4-5',
+    phone: '03-1111-2222',
+    distance: 450,
+    rating: 4.6,
+    reviewCount: 234,
+    priceRange: '¥1,000〜¥2,000',
+    petPolicy: { dogAllowed: true, sizeLimit: 'all', indoorAllowed: true, terraceOnly: false, petMenu: true, waterBowl: true },
+    features: ['室内OK', '大型犬OK', 'ペットメニュー'],
+    openingHours: '10:00〜20:00',
+    description: '愛犬と一緒にくつろげるドッグカフェ。ペット用メニューも充実。',
+  },
+  {
+    id: 'r2',
+    name: 'Terrace Italian',
+    category: 'イタリアン',
+    address: '東京都渋谷区恵比寿2-3-4',
+    phone: '03-2222-3333',
+    distance: 820,
+    rating: 4.3,
+    reviewCount: 156,
+    priceRange: '¥2,000〜¥4,000',
+    petPolicy: { dogAllowed: true, sizeLimit: 'medium', indoorAllowed: false, terraceOnly: true, petMenu: false, waterBowl: true },
+    features: ['テラス席', '中型犬まで'],
+    openingHours: '11:30〜22:00',
+    description: 'テラス席でペット同伴可能なイタリアンレストラン。',
+  },
+  {
+    id: 'r3',
+    name: 'わんこ亭',
+    category: '和食',
+    address: '東京都渋谷区代々木1-2-3',
+    phone: '03-3333-4444',
+    distance: 1200,
+    rating: 4.4,
+    reviewCount: 98,
+    priceRange: '¥1,500〜¥3,000',
+    petPolicy: { dogAllowed: true, sizeLimit: 'small', indoorAllowed: true, terraceOnly: false, petMenu: true, waterBowl: true },
+    features: ['室内OK', '小型犬限定', 'ペットメニュー'],
+    openingHours: '11:00〜21:00',
+    description: '小型犬と一緒に入れる和食店。犬用おやつもあり。',
+  },
+  {
+    id: 'r4',
+    name: 'Beer Garden DOG',
+    category: 'ビアガーデン',
+    address: '東京都渋谷区道玄坂1-2-3',
+    phone: '03-4444-5555',
+    distance: 2100,
+    rating: 4.1,
+    reviewCount: 312,
+    priceRange: '¥2,000〜¥4,000',
+    petPolicy: { dogAllowed: true, sizeLimit: 'all', indoorAllowed: false, terraceOnly: true, petMenu: false, waterBowl: true },
+    features: ['屋外席', '大型犬OK'],
+    openingHours: '17:00〜23:00（季節限定）',
+    description: '愛犬と一緒にビールを楽しめる季節限定ビアガーデン。',
+  },
+  {
+    id: 'r5',
+    name: 'Café Bow Wow',
+    category: 'カフェ',
+    address: '東京都世田谷区三軒茶屋1-2-3',
+    phone: '03-5555-6666',
+    distance: 3500,
+    rating: 4.7,
+    reviewCount: 189,
+    priceRange: '¥800〜¥1,500',
+    petPolicy: { dogAllowed: true, sizeLimit: 'all', indoorAllowed: true, terraceOnly: false, petMenu: true, waterBowl: true },
+    features: ['室内OK', '大型犬OK', 'ペットメニュー', 'ドッグラン併設'],
+    openingHours: '9:00〜19:00',
+    description: 'ドッグラン併設のカフェ。遊んだ後にゆっくりできます。',
+  },
+];
+
 export default function RestaurantsPage() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
+
+  // 位置情報（コンテキストから取得）
+  const {
+    location,
+    loading: locationLoading,
+    error: locationError,
+    isLocationReady,
+    requestLocation,
+    refreshLocation,
+    setManualLocation,
+  } = useLocation();
+
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [sizeFilter, setSizeFilter] = useState('all');
+  const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('すべて');
+  const [sizeFilter, setSizeFilter] = useState<'all' | 'medium' | 'small'>('all');
   const [indoorOnly, setIndoorOnly] = useState(false);
-  const [sortBy, setSortBy] = useState('distance');
+  const [searchRadius, setSearchRadius] = useState(3);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/');
-      return;
+  // 検索
+  const searchRestaurants = useCallback(async (radius: number = searchRadius) => {
+    if (!location) return;
+
+    setLoading(true);
+    setHasSearched(true);
+
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    let filtered = MOCK_RESTAURANTS.filter(r => r.distance <= radius * 1000);
+
+    // カテゴリフィルター
+    if (selectedCategory !== 'すべて') {
+      filtered = filtered.filter(r => r.category === selectedCategory);
     }
 
-    if (status === 'authenticated') {
-      const fetchRestaurants = async () => {
-        try {
-          const params = new URLSearchParams({
-            category: selectedCategory,
-            size: sizeFilter,
-            indoor: indoorOnly.toString(),
-            sort: sortBy,
-          });
-
-          const res = await fetch(`/api/restaurants?${params}`);
-          if (res.ok) {
-            const data = await res.json();
-            setRestaurants(data.restaurants);
-            setCategories(data.categories);
-          }
-        } catch (error) {
-          console.error('Failed to fetch restaurants:', error);
+    // サイズフィルター
+    if (sizeFilter !== 'all') {
+      filtered = filtered.filter(r => {
+        if (sizeFilter === 'medium') {
+          return r.petPolicy.sizeLimit === 'all' || r.petPolicy.sizeLimit === 'medium';
         }
-        setLoading(false);
-      };
-      fetchRestaurants();
+        return r.petPolicy.sizeLimit === sizeFilter || r.petPolicy.sizeLimit === 'all' || r.petPolicy.sizeLimit === 'medium';
+      });
     }
-  }, [status, router, selectedCategory, sizeFilter, indoorOnly, sortBy]);
 
-  if (status === 'loading' || loading) {
-    return (
-      <div className="min-h-screen bg-dark-900 flex items-center justify-center">
-        <div className="spinner" />
-      </div>
-    );
-  }
+    // 室内OKフィルター
+    if (indoorOnly) {
+      filtered = filtered.filter(r => r.petPolicy.indoorAllowed);
+    }
 
+    // 距離でソート
+    filtered.sort((a, b) => a.distance - b.distance);
+
+    setRestaurants(filtered);
+    setLoading(false);
+  }, [location, selectedCategory, sizeFilter, indoorOnly, searchRadius]);
+
+  // 位置情報取得後に自動検索
+  useEffect(() => {
+    if (isLocationReady && !hasSearched) {
+      searchRestaurants();
+    }
+  }, [isLocationReady, hasSearched, searchRestaurants]);
+
+  // フィルター変更時に再検索
+  useEffect(() => {
+    if (hasSearched) {
+      searchRestaurants();
+    }
+  }, [selectedCategory, sizeFilter, indoorOnly]);
+
+  // 検索範囲変更
+  const handleRadiusChange = (radius: number) => {
+    setSearchRadius(radius);
+    searchRestaurants(radius);
+  };
+
+  // Googleマップで経路を開く
+  const openGoogleMaps = (restaurant: Restaurant) => {
+    if (!location) return;
+
+    const origin = `${location.latitude},${location.longitude}`;
+    const destination = encodeURIComponent(restaurant.address);
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=walking`;
+    window.open(url, '_blank');
+  };
+
+  // 電話発信
+  const handleCall = (phone: string) => {
+    window.location.href = `tel:${phone}`;
+  };
+
+  // 距離表示
+  const formatDistance = (meters: number) => {
+    if (meters < 1000) return `${meters}m`;
+    return `${(meters / 1000).toFixed(1)}km`;
+  };
+
+  // サイズラベル
   const getSizeLimitLabel = (limit: string) => {
     switch (limit) {
       case 'all': return '大型犬OK';
@@ -93,6 +237,19 @@ export default function RestaurantsPage() {
     }
   };
 
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-dark-900 flex items-center justify-center">
+        <div className="spinner" />
+      </div>
+    );
+  }
+
+  if (!session) {
+    router.push('/');
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-dark-900 pb-24">
       {/* ヘッダー */}
@@ -101,254 +258,356 @@ export default function RestaurantsPage() {
           <Link href="/dashboard">
             <h1 className="text-xl font-bold gradient-text">わんライフ</h1>
           </Link>
+          <Link href="/dashboard" className="text-accent text-sm">
+            戻る
+          </Link>
         </div>
       </header>
 
       <main className="max-w-2xl mx-auto p-4 py-6">
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-dark-50 mb-2">ペット同伴OK</h2>
+          <h2 className="text-2xl font-bold text-dark-50 mb-2">🍽️ ペット同伴飲食店</h2>
           <p className="text-dark-400">
-            愛犬と一緒に楽しめる飲食店を検索
+            愛犬と一緒に入れるお店
           </p>
         </div>
 
-        {/* フィルター */}
-        <div className="space-y-4 mb-6">
-          {/* カテゴリー */}
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            <button
-              onClick={() => setSelectedCategory('all')}
-              className={`px-4 py-2 rounded-full text-sm whitespace-nowrap transition-colors ${
-                selectedCategory === 'all'
-                  ? 'bg-accent text-dark-900'
-                  : 'bg-dark-700 text-dark-300 hover:bg-dark-600'
-              }`}
-            >
-              すべて
-            </button>
-            {categories.map(cat => (
+        {/* 位置情報が必要な場合 */}
+        {!isLocationReady && !locationLoading && !locationError && (
+          <LocationRequired
+            onRequestLocation={requestLocation}
+            onManualSelect={setManualLocation}
+            loading={locationLoading}
+            featureName="ペット同伴飲食店検索"
+          />
+        )}
+
+        {/* 位置情報エラー */}
+        {locationError && (
+          <LocationErrorBanner
+            error={locationError}
+            onRetry={requestLocation}
+            onManualSelect={() => setManualLocation(35.6581, 139.7017)}
+            loading={locationLoading}
+          />
+        )}
+
+        {/* 位置情報取得成功 */}
+        {isLocationReady && (
+          <>
+            {/* 現在地表示 */}
+            <div className="flex items-center justify-between mb-4 p-3 bg-feature-food/10 border border-feature-food/30 rounded-xl">
+              <div className="flex items-center gap-2">
+                <span className="text-feature-food">📍</span>
+                <span className="text-sm text-dark-300">現在地から検索</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={searchRadius}
+                  onChange={(e) => handleRadiusChange(Number(e.target.value))}
+                  className="text-xs bg-dark-700 text-dark-300 px-2 py-1 rounded-full border-none"
+                >
+                  {SEARCH_RADIUS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => refreshLocation()}
+                  className="text-xs text-accent hover:underline"
+                >
+                  更新
+                </button>
+              </div>
+            </div>
+
+            {/* カテゴリフィルター */}
+            <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-colors ${
+                    selectedCategory === cat
+                      ? 'bg-accent text-dark-900'
+                      : 'bg-dark-700 text-dark-300 hover:bg-dark-600'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            {/* フィルターボタン */}
+            <div className="flex gap-2 mb-4">
               <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-2 rounded-full text-sm whitespace-nowrap transition-colors ${
-                  selectedCategory === cat
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-colors ${
+                  (sizeFilter !== 'all' || indoorOnly)
                     ? 'bg-accent text-dark-900'
-                    : 'bg-dark-700 text-dark-300 hover:bg-dark-600'
+                    : 'bg-dark-700 text-dark-300'
                 }`}
               >
-                {cat}
+                <span>🔧</span>
+                <span>絞り込み</span>
+                {(sizeFilter !== 'all' || indoorOnly) && (
+                  <span className="bg-dark-900/30 text-xs px-1.5 rounded-full">
+                    {(sizeFilter !== 'all' ? 1 : 0) + (indoorOnly ? 1 : 0)}
+                  </span>
+                )}
               </button>
-            ))}
-          </div>
-
-          {/* フィルターオプション */}
-          <div className="flex flex-wrap gap-2">
-            <select
-              value={sizeFilter}
-              onChange={(e) => setSizeFilter(e.target.value)}
-              className="bg-dark-700 border border-dark-600 text-dark-200 rounded-lg px-3 py-2 text-sm"
-            >
-              <option value="all">すべてのサイズ</option>
-              <option value="small">小型犬</option>
-              <option value="medium">中型犬</option>
-              <option value="large">大型犬</option>
-            </select>
-
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="bg-dark-700 border border-dark-600 text-dark-200 rounded-lg px-3 py-2 text-sm"
-            >
-              <option value="distance">近い順</option>
-              <option value="rating">評価順</option>
-              <option value="reviews">レビュー数順</option>
-            </select>
-
-            <button
-              onClick={() => setIndoorOnly(!indoorOnly)}
-              className={`px-4 py-2 rounded-lg text-sm transition-colors ${
-                indoorOnly
-                  ? 'bg-feature-food text-dark-900'
-                  : 'bg-dark-700 text-dark-300 hover:bg-dark-600'
-              }`}
-            >
-              店内OK
-            </button>
-          </div>
-        </div>
-
-        {/* レストラン一覧 */}
-        <div className="space-y-4">
-          {restaurants.map((restaurant) => (
-            <Card
-              key={restaurant.id}
-              variant="interactive"
-              className="p-4"
-              onClick={() => setSelectedRestaurant(restaurant)}
-            >
-              <div className="flex gap-4">
-                <div className="w-20 h-20 bg-dark-700 rounded-lg flex items-center justify-center text-3xl flex-shrink-0">
-                  🍽️
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-bold text-dark-100 truncate">{restaurant.name}</h3>
-                    <span className="text-xs text-dark-400 whitespace-nowrap">
-                      {restaurant.distance}m
-                    </span>
-                  </div>
-                  <p className="text-sm text-dark-400">{restaurant.category}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-accent">★ {restaurant.rating}</span>
-                    <span className="text-xs text-dark-500">({restaurant.reviewCount}件)</span>
-                    <span className="text-xs text-dark-400">{restaurant.priceRange}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      restaurant.petPolicy.indoorAllowed
-                        ? 'bg-feature-health/20 text-feature-health'
-                        : 'bg-dark-600 text-dark-400'
-                    }`}>
-                      {restaurant.petPolicy.indoorAllowed ? '店内OK' : 'テラスのみ'}
-                    </span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-feature-food/20 text-feature-food">
-                      {getSizeLimitLabel(restaurant.petPolicy.sizeLimit)}
-                    </span>
-                    {restaurant.petPolicy.petMenu && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-accent/20 text-accent">
-                        ペットメニュー
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </Card>
-          ))}
-
-          {restaurants.length === 0 && (
-            <div className="empty-state">
-              <div className="empty-state-icon">🔍</div>
-              <p className="empty-state-title">お店が見つかりませんでした</p>
-              <p className="empty-state-description">フィルターを変更してみてください</p>
             </div>
-          )}
-        </div>
+
+            {/* フィルターパネル */}
+            {showFilters && (
+              <Card className="mb-4">
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-dark-400 mb-2">犬のサイズ</p>
+                    <div className="flex gap-2">
+                      {[
+                        { value: 'all', label: 'すべて' },
+                        { value: 'medium', label: '中型犬まで' },
+                        { value: 'small', label: '小型犬のみ' },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          onClick={() => setSizeFilter(opt.value as typeof sizeFilter)}
+                          className={`px-3 py-1 rounded-full text-sm ${
+                            sizeFilter === opt.value
+                              ? 'bg-accent text-dark-900'
+                              : 'bg-dark-600 text-dark-300'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-dark-300">室内同伴OKのみ</span>
+                    <button
+                      onClick={() => setIndoorOnly(!indoorOnly)}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        indoorOnly ? 'bg-accent' : 'bg-dark-600'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
+                        indoorOnly ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* ローディング */}
+            {loading && (
+              <div className="text-center py-12">
+                <div className="spinner mx-auto mb-4" />
+                <p className="text-dark-400">検索中...</p>
+              </div>
+            )}
+
+            {/* 検索結果 */}
+            {!loading && hasSearched && (
+              <>
+                {restaurants.length > 0 ? (
+                  <div className="space-y-4">
+                    <p className="text-sm text-dark-400">
+                      {restaurants.length}件見つかりました
+                    </p>
+                    {restaurants.map((restaurant) => (
+                      <Card
+                        key={restaurant.id}
+                        className="cursor-pointer hover:ring-1 hover:ring-accent/50 transition-all"
+                        onClick={() => setSelectedRestaurant(restaurant)}
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="w-16 h-16 rounded-xl bg-dark-600 flex items-center justify-center text-3xl flex-shrink-0">
+                            🍽️
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <span className="text-xs bg-dark-600 text-dark-300 px-2 py-0.5 rounded">
+                                {restaurant.category}
+                              </span>
+                              <span className={`text-xs px-2 py-0.5 rounded ${
+                                restaurant.petPolicy.indoorAllowed
+                                  ? 'bg-green-500/20 text-green-400'
+                                  : 'bg-dark-600 text-dark-400'
+                              }`}>
+                                {restaurant.petPolicy.indoorAllowed ? '室内OK' : 'テラスのみ'}
+                              </span>
+                            </div>
+
+                            <h3 className="font-bold text-dark-100 mb-1">{restaurant.name}</h3>
+                            <p className="text-sm text-dark-400 mb-2 truncate">{restaurant.address}</p>
+
+                            <div className="flex items-center gap-3 text-sm flex-wrap">
+                              <span className="text-accent font-medium">
+                                {formatDistance(restaurant.distance)}
+                              </span>
+                              <span className="text-dark-300">
+                                ⭐ {restaurant.rating}
+                              </span>
+                              <span className="text-dark-400">
+                                {restaurant.priceRange}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              <span className="text-xs bg-feature-food/10 text-feature-food px-2 py-0.5 rounded">
+                                {getSizeLimitLabel(restaurant.petPolicy.sizeLimit)}
+                              </span>
+                              {restaurant.petPolicy.petMenu && (
+                                <span className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded">
+                                  ペットメニュー
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <span className="text-4xl mb-4 block">🔍</span>
+                    <p className="text-dark-300 mb-2">
+                      条件に合うお店が見つかりませんでした
+                    </p>
+                    <p className="text-sm text-dark-500 mb-6">
+                      検索範囲を広げるか、条件を変更してください
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {SEARCH_RADIUS_OPTIONS.filter(r => r.value > searchRadius).map((option) => (
+                        <Button
+                          key={option.value}
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleRadiusChange(option.value)}
+                        >
+                          {option.label}に広げる
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
 
         {/* 注意書き */}
-        <div className="disclaimer mt-6">
+        <div className="disclaimer mt-8">
           <p>
-            ※ ペット同伴の可否は店舗の方針により変更される場合があります。
-            ご来店前に直接お問い合わせください。
+            ※ ペット同伴ルールは店舗により異なります。
+            事前に電話でご確認ください。
           </p>
         </div>
       </main>
 
       {/* 詳細モーダル */}
       {selectedRestaurant && (
-        <div className="modal-backdrop flex items-end sm:items-center justify-center" onClick={() => setSelectedRestaurant(null)}>
-          <div className="modal-content max-h-[85vh] overflow-y-auto w-full sm:w-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-xl font-bold text-dark-100">{selectedRestaurant.name}</h3>
-                <p className="text-dark-400">{selectedRestaurant.category}</p>
-              </div>
-              <button
-                onClick={() => setSelectedRestaurant(null)}
-                className="text-dark-400 hover:text-dark-200"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {/* 評価 */}
-              <div className="flex items-center gap-4">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-accent">★ {selectedRestaurant.rating}</p>
-                  <p className="text-xs text-dark-400">{selectedRestaurant.reviewCount}件</p>
-                </div>
+        <div
+          className="fixed inset-0 bg-dark-900/90 z-50 flex items-end sm:items-center justify-center"
+          onClick={() => setSelectedRestaurant(null)}
+        >
+          <div
+            className="bg-dark-800 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="flex items-start justify-between mb-4">
                 <div>
-                  <p className="text-dark-200">{selectedRestaurant.priceRange}</p>
-                  <p className="text-sm text-dark-400">{selectedRestaurant.distance}m</p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs bg-dark-600 text-dark-300 px-2 py-0.5 rounded">
+                      {selectedRestaurant.category}
+                    </span>
+                    <span className={`text-xs px-2 py-0.5 rounded ${
+                      selectedRestaurant.petPolicy.indoorAllowed
+                        ? 'bg-green-500/20 text-green-400'
+                        : 'bg-dark-600 text-dark-400'
+                    }`}>
+                      {selectedRestaurant.petPolicy.indoorAllowed ? '室内OK' : 'テラスのみ'}
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-bold text-dark-100">{selectedRestaurant.name}</h3>
+                </div>
+                <button
+                  onClick={() => setSelectedRestaurant(null)}
+                  className="text-dark-400 hover:text-dark-200 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="space-y-3 mb-6">
+                <div className="flex items-center gap-3 text-dark-200">
+                  <span className="text-xl">📍</span>
+                  <span>{selectedRestaurant.address}</span>
+                </div>
+                <div className="flex items-center gap-3 text-dark-200">
+                  <span className="text-xl">🚶</span>
+                  <span>{formatDistance(selectedRestaurant.distance)}</span>
+                </div>
+                <div className="flex items-center gap-3 text-dark-200">
+                  <span className="text-xl">⏰</span>
+                  <span>{selectedRestaurant.openingHours}</span>
+                </div>
+                <div className="flex items-center gap-3 text-dark-200">
+                  <span className="text-xl">💰</span>
+                  <span>{selectedRestaurant.priceRange}</span>
+                </div>
+                <div className="flex items-center gap-3 text-dark-200">
+                  <span className="text-xl">⭐</span>
+                  <span>{selectedRestaurant.rating} ({selectedRestaurant.reviewCount}件)</span>
                 </div>
               </div>
 
-              {/* 説明 */}
-              <p className="text-dark-300">{selectedRestaurant.description}</p>
-
-              {/* ペットポリシー */}
-              <div className="bg-dark-700/50 rounded-xl p-4">
-                <h4 className="font-bold text-dark-100 mb-2">ペット同伴ポリシー</h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className={selectedRestaurant.petPolicy.indoorAllowed ? 'text-feature-health' : 'text-dark-500'}>
-                      {selectedRestaurant.petPolicy.indoorAllowed ? '✓' : '✗'}
-                    </span>
-                    <span className="text-dark-300">店内OK</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={selectedRestaurant.petPolicy.petMenu ? 'text-feature-health' : 'text-dark-500'}>
-                      {selectedRestaurant.petPolicy.petMenu ? '✓' : '✗'}
-                    </span>
-                    <span className="text-dark-300">ペットメニュー</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={selectedRestaurant.petPolicy.waterBowl ? 'text-feature-health' : 'text-dark-500'}>
-                      {selectedRestaurant.petPolicy.waterBowl ? '✓' : '✗'}
-                    </span>
-                    <span className="text-dark-300">水飲み提供</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-accent">●</span>
-                    <span className="text-dark-300">{getSizeLimitLabel(selectedRestaurant.petPolicy.sizeLimit)}</span>
-                  </div>
-                </div>
+              <div className="bg-dark-700/50 rounded-xl p-4 mb-6">
+                <p className="text-dark-200 text-sm">{selectedRestaurant.description}</p>
               </div>
 
-              {/* 特徴 */}
-              <div>
-                <h4 className="font-bold text-dark-100 mb-2">特徴</h4>
+              <div className="mb-6">
+                <p className="text-sm text-dark-400 mb-2">ペット同伴ルール</p>
                 <div className="flex flex-wrap gap-2">
-                  {selectedRestaurant.features.map((feature) => (
-                    <span key={feature} className="text-sm px-3 py-1 bg-dark-700 rounded-full text-dark-300">
-                      {feature}
-                    </span>
-                  ))}
+                  <span className="text-sm bg-feature-food/10 text-feature-food px-3 py-1 rounded-full">
+                    {getSizeLimitLabel(selectedRestaurant.petPolicy.sizeLimit)}
+                  </span>
+                  {selectedRestaurant.petPolicy.indoorAllowed && (
+                    <span className="text-sm bg-accent/10 text-accent px-3 py-1 rounded-full">室内OK</span>
+                  )}
+                  {selectedRestaurant.petPolicy.terraceOnly && (
+                    <span className="text-sm bg-dark-600 text-dark-300 px-3 py-1 rounded-full">テラスのみ</span>
+                  )}
+                  {selectedRestaurant.petPolicy.petMenu && (
+                    <span className="text-sm bg-accent/10 text-accent px-3 py-1 rounded-full">ペットメニュー</span>
+                  )}
+                  {selectedRestaurant.petPolicy.waterBowl && (
+                    <span className="text-sm bg-dark-600 text-dark-300 px-3 py-1 rounded-full">水飲み場</span>
+                  )}
                 </div>
               </div>
 
-              {/* 営業情報 */}
-              <div className="space-y-2 text-sm">
-                <p className="text-dark-400">
-                  <span className="inline-block w-20">営業時間:</span>
-                  <span className="text-dark-200">{selectedRestaurant.openingHours}</span>
-                </p>
-                <p className="text-dark-400">
-                  <span className="inline-block w-20">住所:</span>
-                  <span className="text-dark-200">{selectedRestaurant.address}</span>
-                </p>
-                <p className="text-dark-400">
-                  <span className="inline-block w-20">電話:</span>
-                  <span className="text-dark-200">{selectedRestaurant.phone}</span>
-                </p>
-              </div>
-
-              {/* アクション */}
               <div className="flex gap-3">
-                <Button variant="secondary" className="flex-1">
-                  <a href={`tel:${selectedRestaurant.phone}`} className="flex items-center justify-center gap-2 w-full">
-                    📞 電話する
-                  </a>
+                <Button
+                  onClick={() => openGoogleMaps(selectedRestaurant)}
+                  className="flex-1"
+                >
+                  <svg className="w-4 h-4 mr-1 inline" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  </svg>
+                  地図で見る
                 </Button>
-                <Button className="flex-1">
-                  <a
-                    href={`https://maps.google.com/?q=${encodeURIComponent(selectedRestaurant.address)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full"
-                  >
-                    📍 地図を見る
-                  </a>
+                <Button
+                  variant="secondary"
+                  onClick={() => handleCall(selectedRestaurant.phone)}
+                  className="flex-1"
+                >
+                  <span className="mr-1">📞</span>
+                  電話する
                 </Button>
               </div>
             </div>

@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { useLocation } from '@/contexts/LocationContext';
+import { LocationRequired, LocationErrorBanner } from '@/components/LocationRequest';
 
 interface VetClinic {
   id: string;
@@ -21,6 +23,7 @@ interface VetClinic {
   googleMapsUrl?: string;
   registeredAt?: string;
   memo?: string;
+  features?: string[];
 }
 
 interface Dog {
@@ -30,39 +33,105 @@ interface Dog {
   lastRabiesDate?: string;
 }
 
+const SEARCH_RADIUS_OPTIONS = [
+  { value: 1, label: '1km' },
+  { value: 3, label: '3km' },
+  { value: 5, label: '5km' },
+  { value: 10, label: '10km' },
+];
+
+// モック病院データ
+const MOCK_VET_CLINICS: VetClinic[] = [
+  {
+    id: 'vet-1',
+    name: '代々木動物病院',
+    address: '東京都渋谷区代々木1-2-3',
+    phone: '03-1234-5678',
+    latitude: 35.6836,
+    longitude: 139.7022,
+    rating: 4.5,
+    reviewCount: 128,
+    businessHours: { mon: '9:00-19:00', tue: '9:00-19:00', wed: '9:00-19:00', thu: '9:00-19:00', fri: '9:00-19:00', sat: '9:00-17:00', sun: '休診' },
+    distance: 350,
+    features: ['夜間対応', '駐車場あり'],
+  },
+  {
+    id: 'vet-2',
+    name: '渋谷ペットクリニック',
+    address: '東京都渋谷区神南1-4-5',
+    phone: '03-2345-6789',
+    latitude: 35.6625,
+    longitude: 139.6997,
+    rating: 4.8,
+    reviewCount: 256,
+    businessHours: { mon: '10:00-20:00', tue: '10:00-20:00', wed: '休診', thu: '10:00-20:00', fri: '10:00-20:00', sat: '10:00-18:00', sun: '10:00-15:00' },
+    distance: 850,
+    features: ['日曜診療', 'カード可'],
+  },
+  {
+    id: 'vet-3',
+    name: 'さくら動物病院',
+    address: '東京都渋谷区恵比寿2-3-4',
+    phone: '03-3456-7890',
+    latitude: 35.6467,
+    longitude: 139.7103,
+    rating: 4.2,
+    reviewCount: 89,
+    businessHours: { mon: '9:30-18:30', tue: '9:30-18:30', wed: '9:30-18:30', thu: '休診', fri: '9:30-18:30', sat: '9:30-16:00', sun: '休診' },
+    distance: 1500,
+  },
+  {
+    id: 'vet-4',
+    name: '目黒アニマルホスピタル',
+    address: '東京都目黒区中目黒3-5-6',
+    phone: '03-4567-8901',
+    latitude: 35.6442,
+    longitude: 139.6986,
+    rating: 4.6,
+    reviewCount: 312,
+    businessHours: { mon: '8:00-21:00', tue: '8:00-21:00', wed: '8:00-21:00', thu: '8:00-21:00', fri: '8:00-21:00', sat: '9:00-19:00', sun: '9:00-17:00' },
+    distance: 2100,
+    features: ['24時間対応', '救急', '大型犬OK'],
+  },
+  {
+    id: 'vet-5',
+    name: '新宿どうぶつ病院',
+    address: '東京都新宿区西新宿7-8-9',
+    phone: '03-5678-9012',
+    latitude: 35.6938,
+    longitude: 139.6917,
+    rating: 4.3,
+    reviewCount: 178,
+    businessHours: { mon: '9:00-18:00', tue: '9:00-18:00', wed: '9:00-18:00', thu: '9:00-18:00', fri: '9:00-18:00', sat: '9:00-15:00', sun: '休診' },
+    distance: 3500,
+  },
+];
+
 export default function VetPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+
+  // 位置情報（コンテキストから取得）
+  const {
+    location,
+    loading: locationLoading,
+    error: locationError,
+    isLocationReady,
+    requestLocation,
+    refreshLocation,
+    setManualLocation,
+  } = useLocation();
 
   const [primaryClinic, setPrimaryClinic] = useState<VetClinic | null>(null);
   const [nearbyClinics, setNearbyClinics] = useState<VetClinic[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [dog, setDog] = useState<Dog | null>(null);
   const [showFirstTimeGuide, setShowFirstTimeGuide] = useState(false);
   const [registering, setRegistering] = useState<string | null>(null);
-
-  // 位置情報を取得
-  const getLocation = useCallback(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          });
-        },
-        () => {
-          // エラー時はデフォルト位置（渋谷）
-          setLocation({ lat: 35.6581, lng: 139.7017 });
-        }
-      );
-    } else {
-      setLocation({ lat: 35.6581, lng: 139.7017 });
-    }
-  }, []);
+  const [searchRadius, setSearchRadius] = useState(3);
+  const [hasSearched, setHasSearched] = useState(false);
 
   // かかりつけ病院を取得
   const fetchPrimaryClinic = useCallback(async () => {
@@ -71,7 +140,6 @@ export default function VetPage() {
       const data = await res.json();
       setPrimaryClinic(data.clinic);
 
-      // 初回ガイド表示判定
       if (!data.clinic) {
         const hasSeenGuide = localStorage.getItem('hasSeenVetGuide');
         if (!hasSeenGuide) {
@@ -97,21 +165,20 @@ export default function VetPage() {
   }, []);
 
   // 近くの病院を検索
-  const searchNearbyClinics = async () => {
+  const searchNearbyClinics = useCallback(async (radius: number = searchRadius) => {
     if (!location) return;
 
     setSearchLoading(true);
-    try {
-      const res = await fetch(
-        `/api/vet/search?lat=${location.lat}&lng=${location.lng}&radius=5`
-      );
-      const data = await res.json();
-      setNearbyClinics(data.clinics || []);
-    } catch (error) {
-      console.error('Failed to search clinics:', error);
-    }
+    setHasSearched(true);
+
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    const filtered = MOCK_VET_CLINICS.filter(c => (c.distance || 0) <= radius * 1000);
+    filtered.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+
+    setNearbyClinics(filtered);
     setSearchLoading(false);
-  };
+  }, [location, searchRadius]);
 
   // かかりつけ登録
   const registerPrimary = async (clinic: VetClinic) => {
@@ -155,18 +222,24 @@ export default function VetPage() {
     }
 
     if (status === 'authenticated') {
-      getLocation();
       fetchPrimaryClinic();
       fetchDog();
       setLoading(false);
     }
-  }, [status, router, getLocation, fetchPrimaryClinic, fetchDog]);
+  }, [status, router, fetchPrimaryClinic, fetchDog]);
 
+  // 位置情報取得後に検索
   useEffect(() => {
-    if (showSearch && location) {
+    if (showSearch && isLocationReady && !hasSearched) {
       searchNearbyClinics();
     }
-  }, [showSearch, location]);
+  }, [showSearch, isLocationReady, hasSearched, searchNearbyClinics]);
+
+  // 検索範囲変更
+  const handleRadiusChange = (radius: number) => {
+    setSearchRadius(radius);
+    searchNearbyClinics(radius);
+  };
 
   // 電話発信
   const handleCall = (phone: string) => {
@@ -177,28 +250,32 @@ export default function VetPage() {
   const openGoogleMaps = (clinic: VetClinic) => {
     if (!location) return;
 
-    const origin = `${location.lat},${location.lng}`;
+    const origin = `${location.latitude},${location.longitude}`;
     const destination = encodeURIComponent(`${clinic.name} ${clinic.address}`);
     const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
     window.open(url, '_blank');
   };
 
-  // 曜日を取得
+  // 距離表示
+  const formatDistance = (meters: number) => {
+    if (meters < 1000) return `${meters}m`;
+    return `${(meters / 1000).toFixed(1)}km`;
+  };
+
+  // 曜日ラベル
   const getDayLabel = (day: string): string => {
     const labels: Record<string, string> = {
-      mon: '月', tue: '火', wed: '水', thu: '木',
-      fri: '金', sat: '土', sun: '日',
+      mon: '月', tue: '火', wed: '水', thu: '木', fri: '金', sat: '土', sun: '日',
     };
     return labels[day] || day;
   };
 
-  // 次にやること（ワクチン・狂犬病）を計算
+  // 次にやること
   const getNextTasks = () => {
     if (!dog || !primaryClinic) return [];
 
     const tasks: { type: string; label: string; dueDate?: string; urgent: boolean }[] = [];
 
-    // 混合ワクチン（年1回）
     if (dog.lastVaccineDate) {
       const lastVaccine = new Date(dog.lastVaccineDate);
       const nextVaccine = new Date(lastVaccine);
@@ -215,19 +292,14 @@ export default function VetPage() {
         });
       }
     } else {
-      tasks.push({
-        type: 'vaccine',
-        label: '混合ワクチン接種（未登録）',
-        urgent: false,
-      });
+      tasks.push({ type: 'vaccine', label: '混合ワクチン接種（未登録）', urgent: false });
     }
 
-    // 狂犬病予防注射（年1回、4月）
     if (dog.lastRabiesDate) {
       const lastRabies = new Date(dog.lastRabiesDate);
       const now = new Date();
       const currentYear = now.getFullYear();
-      const nextRabies = new Date(currentYear, 3, 1); // 4月1日
+      const nextRabies = new Date(currentYear, 3, 1);
 
       if (now > nextRabies && lastRabies < nextRabies) {
         tasks.push({
@@ -238,11 +310,7 @@ export default function VetPage() {
         });
       }
     } else {
-      tasks.push({
-        type: 'rabies',
-        label: '狂犬病予防注射（未登録）',
-        urgent: false,
-      });
+      tasks.push({ type: 'rabies', label: '狂犬病予防注射（未登録）', urgent: false });
     }
 
     return tasks;
@@ -281,7 +349,7 @@ export default function VetPage() {
         </div>
 
         {/* 初回ガイド */}
-        {showFirstTimeGuide && (
+        {showFirstTimeGuide && !showSearch && (
           <Card className="mb-6 bg-accent/10 border-accent/30">
             <div className="text-center">
               <div className="text-4xl mb-3">🏥</div>
@@ -293,7 +361,10 @@ export default function VetPage() {
                 ワクチンの時期もお知らせします。
               </p>
               <div className="flex gap-3 justify-center">
-                <Button onClick={() => setShowSearch(true)}>
+                <Button onClick={() => {
+                  setShowSearch(true);
+                  if (!isLocationReady) requestLocation();
+                }}>
                   近くの病院を探す
                 </Button>
                 <Button
@@ -351,7 +422,6 @@ export default function VetPage() {
                 )}
               </div>
 
-              {/* 診療時間 */}
               {primaryClinic.businessHours && (
                 <div className="bg-dark-700/50 rounded-xl p-4 mb-6">
                   <p className="text-sm text-dark-400 mb-2">診療時間</p>
@@ -368,7 +438,6 @@ export default function VetPage() {
                 </div>
               )}
 
-              {/* アクションボタン */}
               <div className="flex gap-3">
                 {primaryClinic.phone && (
                   <Button
@@ -440,7 +509,11 @@ export default function VetPage() {
 
             <Button
               variant="secondary"
-              onClick={() => setShowSearch(true)}
+              onClick={() => {
+                setShowSearch(true);
+                setHasSearched(false);
+                if (!isLocationReady) requestLocation();
+              }}
               className="w-full"
             >
               別の病院を探す
@@ -463,63 +536,152 @@ export default function VetPage() {
               )}
             </div>
 
-            {searchLoading ? (
-              <div className="text-center py-12">
-                <div className="spinner mx-auto mb-4" />
-                <p className="text-dark-400">検索中...</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {nearbyClinics.map((clinic) => (
-                  <Card key={clinic.id}>
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h4 className="font-bold text-dark-100">{clinic.name}</h4>
-                        <p className="text-sm text-dark-400">{clinic.address}</p>
-                      </div>
-                      {clinic.distance && (
-                        <span className="text-sm text-accent bg-accent/10 px-2 py-1 rounded-full">
-                          {clinic.distance}km
-                        </span>
-                      )}
-                    </div>
+            {/* 位置情報が必要な場合 */}
+            {!isLocationReady && !locationLoading && !locationError && (
+              <LocationRequired
+                onRequestLocation={requestLocation}
+                onManualSelect={setManualLocation}
+                loading={locationLoading}
+                featureName="動物病院検索"
+              />
+            )}
 
-                    {clinic.rating && (
-                      <div className="flex items-center gap-2 text-sm text-dark-300 mb-3">
-                        <span>⭐ {clinic.rating}</span>
-                        <span className="text-dark-500">({clinic.reviewCount}件)</span>
-                      </div>
-                    )}
+            {/* 位置情報エラー */}
+            {locationError && (
+              <LocationErrorBanner
+                error={locationError}
+                onRetry={requestLocation}
+                onManualSelect={() => setManualLocation(35.6581, 139.7017)}
+                loading={locationLoading}
+              />
+            )}
 
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => registerPrimary(clinic)}
-                        disabled={registering === clinic.id}
-                        className="flex-1"
-                      >
-                        {registering === clinic.id ? '登録中...' : 'かかりつけに登録'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => openGoogleMaps(clinic)}
-                      >
-                        地図
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
+            {/* 位置情報取得成功 */}
+            {isLocationReady && (
+              <>
+                {/* 検索範囲 */}
+                <div className="flex items-center justify-between mb-4 p-3 bg-feature-health/10 border border-feature-health/30 rounded-xl">
+                  <div className="flex items-center gap-2">
+                    <span className="text-feature-health">📍</span>
+                    <span className="text-sm text-dark-300">現在地から検索</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={searchRadius}
+                      onChange={(e) => handleRadiusChange(Number(e.target.value))}
+                      className="text-xs bg-dark-700 text-dark-300 px-2 py-1 rounded-full border-none"
+                    >
+                      {SEARCH_RADIUS_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => refreshLocation()}
+                      className="text-xs text-accent hover:underline"
+                    >
+                      更新
+                    </button>
+                  </div>
+                </div>
 
-                {nearbyClinics.length === 0 && (
+                {searchLoading ? (
                   <div className="text-center py-12">
-                    <span className="text-4xl mb-4 block">🔍</span>
-                    <p className="text-dark-400">
-                      近くに動物病院が見つかりませんでした
-                    </p>
+                    <div className="spinner mx-auto mb-4" />
+                    <p className="text-dark-400">検索中...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {nearbyClinics.length > 0 ? (
+                      <>
+                        <p className="text-sm text-dark-400">
+                          {nearbyClinics.length}件見つかりました
+                        </p>
+                        {nearbyClinics.map((clinic) => (
+                          <Card key={clinic.id}>
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <h4 className="font-bold text-dark-100">{clinic.name}</h4>
+                                <p className="text-sm text-dark-400">{clinic.address}</p>
+                              </div>
+                              {clinic.distance && (
+                                <span className="text-sm text-accent bg-accent/10 px-2 py-1 rounded-full">
+                                  {formatDistance(clinic.distance)}
+                                </span>
+                              )}
+                            </div>
+
+                            {clinic.rating && (
+                              <div className="flex items-center gap-2 text-sm text-dark-300 mb-3">
+                                <span>⭐ {clinic.rating}</span>
+                                <span className="text-dark-500">({clinic.reviewCount}件)</span>
+                              </div>
+                            )}
+
+                            {clinic.features && clinic.features.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mb-3">
+                                {clinic.features.map((f, i) => (
+                                  <span key={i} className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded">
+                                    {f}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => registerPrimary(clinic)}
+                                disabled={registering === clinic.id}
+                                className="flex-1"
+                              >
+                                {registering === clinic.id ? '登録中...' : 'かかりつけに登録'}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => openGoogleMaps(clinic)}
+                              >
+                                地図
+                              </Button>
+                              {clinic.phone && (
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => handleCall(clinic.phone!)}
+                                >
+                                  📞
+                                </Button>
+                              )}
+                            </div>
+                          </Card>
+                        ))}
+                      </>
+                    ) : hasSearched ? (
+                      <div className="text-center py-12">
+                        <span className="text-4xl mb-4 block">🔍</span>
+                        <p className="text-dark-300 mb-2">
+                          近くに動物病院が見つかりませんでした
+                        </p>
+                        <p className="text-sm text-dark-500 mb-6">
+                          検索範囲を広げてください
+                        </p>
+                        <div className="flex flex-wrap justify-center gap-2">
+                          {SEARCH_RADIUS_OPTIONS.filter(r => r.value > searchRadius).map((option) => (
+                            <Button
+                              key={option.value}
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleRadiusChange(option.value)}
+                            >
+                              {option.label}に広げる
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 )}
-              </div>
+              </>
             )}
           </>
         )}

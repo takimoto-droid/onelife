@@ -1,179 +1,163 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-
-interface VetFeatures {
-  nightAvailable: boolean;
-  holidayAvailable: boolean;
-  emergencyAvailable: boolean;
-  largeDogFriendly: boolean;
-  reservationRequired: boolean;
-  walkInOk: boolean;
-  parking: boolean;
-  creditCard: boolean;
-}
-
-interface ReviewSummary {
-  goodPoints: string[];
-  cautionPoints: string[];
-  recommendedFor: string[];
-}
-
-interface VetHospital {
-  id: string;
-  name: string;
-  address: string;
-  phone?: string;
-  distance: {
-    meters: number;
-    walkMinutes: number;
-    carMinutes: number;
-  };
-  rating: number;
-  reviewCount: number;
-  features: VetFeatures;
-  specialties: string[];
-  openingHours: {
-    weekday: string;
-    saturday: string;
-    sunday: string;
-  };
-  reviewSummary: ReviewSummary;
-}
+import { useLocation } from '@/contexts/LocationContext';
+import { LocationRequired, LocationErrorBanner } from '@/components/LocationRequest';
 
 interface Place {
   id: string;
   name: string;
   address: string;
+  phone?: string;
   distance: number;
   rating?: number;
+  reviewCount?: number;
   openNow?: boolean;
-  type: 'vet' | 'dogrun' | 'petshop';
+  type: 'vet' | 'dogrun' | 'petshop' | 'trimming' | 'cafe';
+  features?: string[];
 }
 
-type PlaceType = 'vet' | 'dogrun' | 'petshop';
+type PlaceType = 'all' | 'vet' | 'dogrun' | 'petshop' | 'trimming' | 'cafe';
+
+const PLACE_TYPES: { value: PlaceType; label: string; emoji: string }[] = [
+  { value: 'all', label: 'すべて', emoji: '📍' },
+  { value: 'vet', label: '動物病院', emoji: '🏥' },
+  { value: 'dogrun', label: 'ドッグラン', emoji: '🐕' },
+  { value: 'petshop', label: 'ペットショップ', emoji: '🛒' },
+  { value: 'trimming', label: 'トリミング', emoji: '✂️' },
+  { value: 'cafe', label: 'ペットカフェ', emoji: '☕' },
+];
+
+const SEARCH_RADIUS_OPTIONS = [
+  { value: 1, label: '1km' },
+  { value: 3, label: '3km' },
+  { value: 5, label: '5km' },
+  { value: 10, label: '10km' },
+];
+
+// モック施設データ
+const MOCK_PLACES: Place[] = [
+  { id: 'p1', name: '代々木動物病院', address: '東京都渋谷区代々木1-2-3', phone: '03-1234-5678', distance: 350, rating: 4.5, reviewCount: 128, openNow: true, type: 'vet' },
+  { id: 'p2', name: '渋谷ペットクリニック', address: '東京都渋谷区神南1-4-5', phone: '03-2345-6789', distance: 850, rating: 4.8, reviewCount: 256, openNow: true, type: 'vet' },
+  { id: 'p3', name: '代々木公園ドッグラン', address: '東京都渋谷区代々木神園町', distance: 500, rating: 4.2, reviewCount: 89, openNow: true, type: 'dogrun', features: ['大型犬OK', '水飲み場'] },
+  { id: 'p4', name: '駒沢ドッグラン', address: '東京都世田谷区駒沢公園1-1', distance: 2100, rating: 4.6, reviewCount: 312, openNow: true, type: 'dogrun', features: ['大型犬OK', '小型犬エリア'] },
+  { id: 'p5', name: 'ペットショップ渋谷', address: '東京都渋谷区道玄坂2-3-4', distance: 720, rating: 4.0, reviewCount: 45, openNow: true, type: 'petshop' },
+  { id: 'p6', name: 'わんわんトリミング', address: '東京都渋谷区恵比寿1-2-3', distance: 1200, rating: 4.7, reviewCount: 178, openNow: false, type: 'trimming' },
+  { id: 'p7', name: 'ドッグカフェ PAWS', address: '東京都渋谷区神宮前3-4-5', distance: 980, rating: 4.4, reviewCount: 203, openNow: true, type: 'cafe', features: ['室内OK', '大型犬OK'] },
+  { id: 'p8', name: 'さくら動物病院', address: '東京都渋谷区恵比寿2-3-4', phone: '03-3456-7890', distance: 1500, rating: 4.2, reviewCount: 89, openNow: true, type: 'vet' },
+  { id: 'p9', name: '目黒ドッグパーク', address: '東京都目黒区中目黒1-2-3', distance: 3200, rating: 4.5, reviewCount: 156, openNow: true, type: 'dogrun' },
+  { id: 'p10', name: 'ペットサロン HAPPY', address: '東京都渋谷区広尾1-2-3', distance: 4500, rating: 4.8, reviewCount: 234, openNow: true, type: 'trimming' },
+];
 
 export default function PlacesPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [placeType, setPlaceType] = useState<PlaceType>('vet');
+
+  // 位置情報（コンテキストから取得）
+  const {
+    location,
+    loading: locationLoading,
+    error: locationError,
+    isLocationReady,
+    requestLocation,
+    refreshLocation,
+    setManualLocation,
+  } = useLocation();
+
+  const [placeType, setPlaceType] = useState<PlaceType>('all');
   const [places, setPlaces] = useState<Place[]>([]);
-  const [vetHospitals, setVetHospitals] = useState<VetHospital[]>([]);
-  const [selectedVet, setSelectedVet] = useState<VetHospital | null>(null);
   const [loading, setLoading] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [searchRadius, setSearchRadius] = useState(1); // km
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [showRadiusSelector, setShowRadiusSelector] = useState(false);
 
-  const searchPlaces = async () => {
+  // 施設検索
+  const searchPlaces = useCallback(async (radius: number = searchRadius) => {
+    if (!location) return;
+
     setLoading(true);
-    setLocationError(null);
+    setHasSearched(true);
 
-    try {
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-        });
-      });
+    // モックデータをフィルタリング（実際はAPIを呼び出す）
+    await new Promise(resolve => setTimeout(resolve, 500)); // シミュレーション
 
-      const { latitude, longitude } = position.coords;
+    let filtered = MOCK_PLACES.filter(p => p.distance <= radius * 1000);
 
-      if (placeType === 'vet') {
-        const res = await fetch(
-          `/api/places/vet?lat=${latitude}&lng=${longitude}`
-        );
-        const data = await res.json();
-        if (data.hospitals) {
-          setVetHospitals(data.hospitals);
-        }
-      } else {
-        const res = await fetch(
-          `/api/places/nearby?lat=${latitude}&lng=${longitude}&type=${placeType}`
-        );
-        const data = await res.json();
-        if (data.places) {
-          setPlaces(data.places);
-        }
-      }
-      setHasSearched(true);
-    } catch (error) {
-      console.error('Location error:', error);
-      setLocationError('位置情報を取得できませんでした。');
-
-      // モックデータを表示
-      if (placeType === 'vet') {
-        const res = await fetch(`/api/places/vet`);
-        const data = await res.json();
-        if (data.hospitals) {
-          setVetHospitals(data.hospitals);
-        }
-      } else {
-        const res = await fetch(`/api/places/nearby?type=${placeType}`);
-        const data = await res.json();
-        if (data.places) {
-          setPlaces(data.places);
-        }
-      }
-      setHasSearched(true);
+    if (placeType !== 'all') {
+      filtered = filtered.filter(p => p.type === placeType);
     }
 
-    setLoading(false);
-  };
+    // 距離でソート
+    filtered.sort((a, b) => a.distance - b.distance);
 
+    setPlaces(filtered);
+    setLoading(false);
+  }, [location, placeType, searchRadius]);
+
+  // 位置情報取得後に自動検索
   useEffect(() => {
-    if (session && !hasSearched) {
+    if (isLocationReady && !hasSearched) {
       searchPlaces();
     }
-  }, [session, placeType]);
+  }, [isLocationReady, hasSearched, searchPlaces]);
 
-  const handleTypeChange = (type: PlaceType) => {
-    setPlaceType(type);
-    setHasSearched(false);
-    setSelectedVet(null);
-  };
-
-  const getTypeLabel = (type: PlaceType) => {
-    switch (type) {
-      case 'vet':
-        return '動物病院';
-      case 'dogrun':
-        return 'ドッグラン';
-      case 'petshop':
-        return 'ペットショップ';
+  // フィルター変更時に再検索
+  useEffect(() => {
+    if (hasSearched) {
+      searchPlaces();
     }
+  }, [placeType]);
+
+  // 検索範囲を変更
+  const handleRadiusChange = (radius: number) => {
+    setSearchRadius(radius);
+    setShowRadiusSelector(false);
+    searchPlaces(radius);
   };
 
-  const getTypeEmoji = (type: PlaceType) => {
-    switch (type) {
-      case 'vet':
-        return '🏥';
-      case 'dogrun':
-        return '🐕';
-      case 'petshop':
-        return '🛒';
-    }
+  // Googleマップで経路を開く
+  const openGoogleMaps = (place: Place) => {
+    if (!location) return;
+
+    const origin = `${location.latitude},${location.longitude}`;
+    const destination = encodeURIComponent(place.address);
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=walking`;
+    window.open(url, '_blank');
   };
 
-  const getFeatureBadges = (features: VetFeatures) => {
-    const badges = [];
-    if (features.nightAvailable) badges.push({ label: '夜間対応', color: 'purple' });
-    if (features.holidayAvailable) badges.push({ label: '休日対応', color: 'blue' });
-    if (features.emergencyAvailable) badges.push({ label: '救急', color: 'red' });
-    if (features.largeDogFriendly) badges.push({ label: '大型犬OK', color: 'green' });
-    if (features.walkInOk) badges.push({ label: '飛び込みOK', color: 'orange' });
-    if (features.parking) badges.push({ label: '駐車場', color: 'gray' });
-    return badges;
+  // 電話発信
+  const handleCall = (phone: string) => {
+    window.location.href = `tel:${phone}`;
+  };
+
+  // 距離表示
+  const formatDistance = (meters: number) => {
+    if (meters < 1000) return `${meters}m`;
+    return `${(meters / 1000).toFixed(1)}km`;
+  };
+
+  // タイプのアイコン
+  const getTypeIcon = (type: string) => {
+    const found = PLACE_TYPES.find(t => t.value === type);
+    return found?.emoji || '📍';
+  };
+
+  // タイプのラベル
+  const getTypeLabel = (type: string) => {
+    const found = PLACE_TYPES.find(t => t.value === type);
+    return found?.label || '';
   };
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-warm-50 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary-200 border-t-primary-500 rounded-full" />
+      <div className="min-h-screen bg-dark-900 flex items-center justify-center">
+        <div className="spinner" />
       </div>
     );
   }
@@ -183,388 +167,375 @@ export default function PlacesPage() {
     return null;
   }
 
-  // 病院詳細モーダル
-  if (selectedVet) {
-    return (
-      <div className="min-h-screen bg-warm-50">
-        <header className="bg-white border-b border-warm-200 p-4">
-          <div className="max-w-2xl mx-auto flex items-center justify-between">
-            <button
-              onClick={() => setSelectedVet(null)}
-              className="text-primary-600 flex items-center gap-1"
-            >
-              ← 戻る
-            </button>
-            <h1 className="text-lg font-bold text-primary-900">病院詳細</h1>
-            <div className="w-12" />
-          </div>
-        </header>
-
-        <main className="max-w-2xl mx-auto p-4 py-6">
-          {/* 基本情報 */}
-          <Card className="mb-4">
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <h2 className="text-xl font-bold text-primary-900">
-                  {selectedVet.name}
-                </h2>
-                <p className="text-sm text-gray-600 mt-1">{selectedVet.address}</p>
-              </div>
-              <div className="flex items-center gap-1 bg-yellow-100 text-yellow-700 px-2 py-1 rounded-lg">
-                <span>⭐</span>
-                <span className="font-bold">{selectedVet.rating.toFixed(1)}</span>
-                <span className="text-xs text-gray-500">({selectedVet.reviewCount}件)</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
-              <span>🚶 徒歩{selectedVet.distance.walkMinutes}分</span>
-              <span>🚗 車{selectedVet.distance.carMinutes}分</span>
-              <span>📍 {selectedVet.distance.meters}m</span>
-            </div>
-
-            {/* 特徴バッジ */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              {getFeatureBadges(selectedVet.features).map((badge, index) => (
-                <span
-                  key={index}
-                  className={`text-xs px-2 py-1 rounded-full bg-${badge.color}-100 text-${badge.color}-700`}
-                  style={{
-                    backgroundColor: badge.color === 'purple' ? '#f3e8ff' :
-                      badge.color === 'blue' ? '#dbeafe' :
-                      badge.color === 'red' ? '#fee2e2' :
-                      badge.color === 'green' ? '#dcfce7' :
-                      badge.color === 'orange' ? '#ffedd5' : '#f3f4f6',
-                    color: badge.color === 'purple' ? '#7c3aed' :
-                      badge.color === 'blue' ? '#2563eb' :
-                      badge.color === 'red' ? '#dc2626' :
-                      badge.color === 'green' ? '#16a34a' :
-                      badge.color === 'orange' ? '#ea580c' : '#4b5563',
-                  }}
-                >
-                  {badge.label}
-                </span>
-              ))}
-            </div>
-
-            {/* 営業時間 */}
-            <div className="bg-warm-50 rounded-lg p-3 text-sm">
-              <h4 className="font-medium text-gray-700 mb-2">営業時間</h4>
-              <div className="grid grid-cols-3 gap-2 text-gray-600">
-                <div>
-                  <span className="text-gray-400">平日:</span> {selectedVet.openingHours.weekday}
-                </div>
-                <div>
-                  <span className="text-gray-400">土曜:</span> {selectedVet.openingHours.saturday}
-                </div>
-                <div>
-                  <span className="text-gray-400">日祝:</span> {selectedVet.openingHours.sunday}
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* 得意分野 */}
-          <Card className="mb-4">
-            <h3 className="font-bold text-primary-900 mb-3">得意分野</h3>
-            <div className="flex flex-wrap gap-2">
-              {selectedVet.specialties.map((specialty, index) => (
-                <span
-                  key={index}
-                  className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm"
-                >
-                  {specialty}
-                </span>
-              ))}
-            </div>
-          </Card>
-
-          {/* 口コミ要約 */}
-          <Card className="mb-4">
-            <h3 className="font-bold text-primary-900 mb-4">
-              🤖 口コミAI要約
-            </h3>
-
-            {/* 良い点 */}
-            <div className="mb-4">
-              <h4 className="text-sm font-medium text-green-700 mb-2 flex items-center gap-1">
-                👍 良い点
-              </h4>
-              <ul className="space-y-2">
-                {selectedVet.reviewSummary.goodPoints.map((point, index) => (
-                  <li key={index} className="flex items-start gap-2 text-sm text-gray-700">
-                    <span className="text-green-500 mt-0.5">✓</span>
-                    {point}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* 注意点 */}
-            <div className="mb-4">
-              <h4 className="text-sm font-medium text-orange-700 mb-2 flex items-center gap-1">
-                ⚠️ 注意点
-              </h4>
-              <ul className="space-y-2">
-                {selectedVet.reviewSummary.cautionPoints.map((point, index) => (
-                  <li key={index} className="flex items-start gap-2 text-sm text-gray-700">
-                    <span className="text-orange-500 mt-0.5">•</span>
-                    {point}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* こんな人におすすめ */}
-            <div className="p-3 bg-primary-50 rounded-lg">
-              <h4 className="text-sm font-medium text-primary-800 mb-2">
-                💡 こんな飼い主さんにおすすめ
-              </h4>
-              <ul className="space-y-1">
-                {selectedVet.reviewSummary.recommendedFor.map((rec, index) => (
-                  <li key={index} className="text-sm text-primary-700 flex items-center gap-2">
-                    <span>•</span>
-                    {rec}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </Card>
-
-          {/* アクションボタン */}
-          <div className="space-y-3">
-            {selectedVet.phone && (
-              <a
-                href={`tel:${selectedVet.phone}`}
-                className="block w-full"
-              >
-                <Button className="w-full">
-                  📞 電話する
-                </Button>
-              </a>
-            )}
-            <a
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedVet.name + ' ' + selectedVet.address)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block w-full"
-            >
-              <Button variant="outline" className="w-full">
-                🗺️ 地図で見る
-              </Button>
-            </a>
-          </div>
-
-          {/* 注意書き */}
-          <div className="disclaimer mt-6">
-            <p>
-              ※ 口コミ要約はAIによる自動生成です。実際の診療内容は病院に直接ご確認ください。
-            </p>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-warm-50">
+    <div className="min-h-screen bg-dark-900 pb-24">
       {/* ヘッダー */}
-      <header className="bg-white border-b border-warm-200 p-4">
+      <header className="header p-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <Link href="/dashboard">
-            <h1 className="text-xl font-bold text-primary-600">わんサポ</h1>
+            <h1 className="text-xl font-bold gradient-text">わんライフ</h1>
           </Link>
-          <Link href="/dashboard" className="text-primary-600 text-sm">
+          <Link href="/dashboard" className="text-accent text-sm">
             戻る
           </Link>
         </div>
       </header>
 
       <main className="max-w-2xl mx-auto p-4 py-6">
-        <div className="flex items-center gap-2 mb-6">
-          <span className="text-2xl">📍</span>
-          <h2 className="text-2xl font-bold text-primary-900">
-            近くの施設
-          </h2>
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold text-dark-50 mb-2">📍 周辺施設</h2>
+          <p className="text-dark-400">
+            近くの動物病院・ドッグラン・ペットショップ
+          </p>
         </div>
 
-        {/* タイプ選択 */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-          {(['vet', 'dogrun', 'petshop'] as PlaceType[]).map((type) => (
-            <button
-              key={type}
-              onClick={() => handleTypeChange(type)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap transition-colors ${
-                placeType === type
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-white border border-warm-300 text-gray-700 hover:border-primary-400'
-              }`}
-            >
-              <span>{getTypeEmoji(type)}</span>
-              <span>{getTypeLabel(type)}</span>
-            </button>
-          ))}
-        </div>
+        {/* 位置情報が必要な場合 */}
+        {!isLocationReady && !locationLoading && !locationError && (
+          <LocationRequired
+            onRequestLocation={requestLocation}
+            onManualSelect={setManualLocation}
+            loading={locationLoading}
+            featureName="周辺施設検索"
+          />
+        )}
 
         {/* 位置情報エラー */}
         {locationError && (
-          <Card variant="warm" className="mb-4">
-            <div className="flex items-start gap-3">
-              <span className="text-xl">⚠️</span>
-              <div>
-                <p className="text-sm text-gray-700">{locationError}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  サンプルデータを表示しています
-                </p>
-              </div>
-            </div>
-          </Card>
+          <LocationErrorBanner
+            error={locationError}
+            onRetry={requestLocation}
+            onManualSelect={() => setManualLocation(35.6581, 139.7017)}
+            loading={locationLoading}
+          />
         )}
 
-        {/* 検索ボタン */}
-        <Button
-          onClick={searchPlaces}
-          loading={loading}
-          className="w-full mb-6"
+        {/* 位置情報取得成功 */}
+        {isLocationReady && (
+          <>
+            {/* 現在地表示 */}
+            <div className="flex items-center justify-between mb-4 p-3 bg-feature-walk/10 border border-feature-walk/30 rounded-xl">
+              <div className="flex items-center gap-2">
+                <span className="text-feature-walk">📍</span>
+                <span className="text-sm text-dark-300">
+                  現在地から検索中
+                  {location?.source === 'manual' && '（手動設定）'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowRadiusSelector(true)}
+                  className="text-xs bg-dark-700 text-dark-300 px-2 py-1 rounded-full"
+                >
+                  {searchRadius}km圏内
+                </button>
+                <button
+                  onClick={() => refreshLocation()}
+                  className="text-xs text-accent hover:underline"
+                  disabled={locationLoading}
+                >
+                  更新
+                </button>
+              </div>
+            </div>
+
+            {/* カテゴリフィルター */}
+            <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide">
+              {PLACE_TYPES.map((type) => (
+                <button
+                  key={type.value}
+                  onClick={() => setPlaceType(type.value)}
+                  className={`flex items-center gap-1 px-3 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-colors ${
+                    placeType === type.value
+                      ? 'bg-accent text-dark-900'
+                      : 'bg-dark-700 text-dark-300 hover:bg-dark-600'
+                  }`}
+                >
+                  <span>{type.emoji}</span>
+                  <span>{type.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* ローディング */}
+            {loading && (
+              <div className="text-center py-12">
+                <div className="spinner mx-auto mb-4" />
+                <p className="text-dark-400">検索中...</p>
+              </div>
+            )}
+
+            {/* 検索結果 */}
+            {!loading && hasSearched && (
+              <>
+                {places.length > 0 ? (
+                  <div className="space-y-4">
+                    <p className="text-sm text-dark-400">
+                      {searchRadius}km圏内に{places.length}件見つかりました
+                    </p>
+                    {places.map((place) => (
+                      <Card
+                        key={place.id}
+                        className="cursor-pointer hover:ring-1 hover:ring-accent/50 transition-all"
+                        onClick={() => setSelectedPlace(place)}
+                      >
+                        <div className="flex items-start gap-4">
+                          {/* アイコン */}
+                          <div className="w-12 h-12 rounded-xl bg-dark-600 flex items-center justify-center text-2xl flex-shrink-0">
+                            {getTypeIcon(place.type)}
+                          </div>
+
+                          {/* 情報 */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs bg-dark-600 text-dark-300 px-2 py-0.5 rounded">
+                                {getTypeLabel(place.type)}
+                              </span>
+                              {place.openNow !== undefined && (
+                                <span className={`text-xs px-2 py-0.5 rounded ${
+                                  place.openNow
+                                    ? 'bg-green-500/20 text-green-400'
+                                    : 'bg-dark-600 text-dark-400'
+                                }`}>
+                                  {place.openNow ? '営業中' : '営業時間外'}
+                                </span>
+                              )}
+                            </div>
+
+                            <h3 className="font-bold text-dark-100 mb-1">{place.name}</h3>
+                            <p className="text-sm text-dark-400 mb-2">{place.address}</p>
+
+                            <div className="flex items-center gap-3 text-sm">
+                              <span className="text-accent font-medium">
+                                {formatDistance(place.distance)}
+                              </span>
+                              {place.rating && (
+                                <span className="text-dark-300">
+                                  ⭐ {place.rating} ({place.reviewCount})
+                                </span>
+                              )}
+                            </div>
+
+                            {place.features && place.features.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {place.features.map((f, i) => (
+                                  <span key={i} className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded">
+                                    {f}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  /* 結果なし */
+                  <div className="text-center py-12">
+                    <span className="text-4xl mb-4 block">🔍</span>
+                    <p className="text-dark-300 mb-2">
+                      近くに施設が見つかりませんでした
+                    </p>
+                    <p className="text-sm text-dark-500 mb-6">
+                      検索範囲を広げてお試しください
+                    </p>
+
+                    {/* 範囲拡張ボタン */}
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {SEARCH_RADIUS_OPTIONS.filter(r => r.value > searchRadius).map((option) => (
+                        <Button
+                          key={option.value}
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleRadiusChange(option.value)}
+                        >
+                          {option.label}に広げる
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {/* 注意書き */}
+        <div className="disclaimer mt-8">
+          <p>
+            ※ 施設情報は変更される場合があります。
+            営業時間・定休日は事前にご確認ください。
+          </p>
+        </div>
+      </main>
+
+      {/* 検索範囲選択モーダル */}
+      {showRadiusSelector && (
+        <div
+          className="fixed inset-0 bg-dark-900/90 z-50 flex items-end sm:items-center justify-center"
+          onClick={() => setShowRadiusSelector(false)}
         >
-          現在地から検索
-        </Button>
-
-        {/* 動物病院リスト */}
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-spin w-8 h-8 border-4 border-primary-200 border-t-primary-500 rounded-full" />
-          </div>
-        ) : placeType === 'vet' && vetHospitals.length > 0 ? (
-          <div className="space-y-4">
-            {vetHospitals.map((hospital) => (
-              <Card
-                key={hospital.id}
-                className="hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => setSelectedVet(hospital)}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <h3 className="font-bold text-primary-900">{hospital.name}</h3>
-                    <p className="text-sm text-gray-600">{hospital.address}</p>
-                  </div>
-                  <div className="flex items-center gap-1 text-yellow-600">
-                    <span>⭐</span>
-                    <span className="font-bold">{hospital.rating.toFixed(1)}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 text-sm text-gray-500 mb-3">
-                  <span>🚶 {hospital.distance.walkMinutes}分</span>
-                  <span>📍 {hospital.distance.meters}m</span>
-                </div>
-
-                {/* 特徴バッジ（上位3つ） */}
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {getFeatureBadges(hospital.features).slice(0, 3).map((badge, index) => (
-                    <span
-                      key={index}
-                      className="text-xs px-2 py-0.5 rounded-full"
-                      style={{
-                        backgroundColor: badge.color === 'purple' ? '#f3e8ff' :
-                          badge.color === 'blue' ? '#dbeafe' :
-                          badge.color === 'red' ? '#fee2e2' :
-                          badge.color === 'green' ? '#dcfce7' :
-                          badge.color === 'orange' ? '#ffedd5' : '#f3f4f6',
-                        color: badge.color === 'purple' ? '#7c3aed' :
-                          badge.color === 'blue' ? '#2563eb' :
-                          badge.color === 'red' ? '#dc2626' :
-                          badge.color === 'green' ? '#16a34a' :
-                          badge.color === 'orange' ? '#ea580c' : '#4b5563',
-                      }}
-                    >
-                      {badge.label}
-                    </span>
-                  ))}
-                </div>
-
-                {/* こんな人におすすめ（1つだけ） */}
-                <p className="text-xs text-primary-700 bg-primary-50 px-2 py-1 rounded">
-                  💡 {hospital.reviewSummary.recommendedFor[0]}
-                </p>
-
-                <p className="text-xs text-primary-600 mt-3 text-right">
-                  詳細を見る →
-                </p>
-              </Card>
-            ))}
-          </div>
-        ) : places.length > 0 ? (
-          <div className="space-y-4">
-            {places.map((place) => (
-              <Card key={place.id} className="hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-lg">{getTypeEmoji(place.type)}</span>
-                      <h3 className="font-bold text-primary-900">{place.name}</h3>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-2">{place.address}</p>
-                    <div className="flex items-center gap-4 text-sm">
-                      <span className="text-gray-500">
-                        📍 {place.distance < 1000
-                          ? `${place.distance}m`
-                          : `${(place.distance / 1000).toFixed(1)}km`}
-                      </span>
-                      {place.rating && (
-                        <span className="text-yellow-600">
-                          ⭐ {place.rating.toFixed(1)}
-                        </span>
-                      )}
-                      {place.openNow !== undefined && (
-                        <span className={place.openNow ? 'text-green-600' : 'text-red-600'}>
-                          {place.openNow ? '営業中' : '営業時間外'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + ' ' + place.address)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-2 bg-primary-100 text-primary-600 rounded-lg text-sm font-medium hover:bg-primary-200 transition-colors"
-                  >
-                    地図
-                  </a>
-                </div>
-              </Card>
-            ))}
-          </div>
-        ) : hasSearched ? (
-          <Card className="text-center py-8">
-            <span className="text-4xl mb-4 block">🔍</span>
-            <p className="text-gray-600">
-              近くに{getTypeLabel(placeType)}が見つかりませんでした
-            </p>
-          </Card>
-        ) : null}
-
-        {/* ヒント */}
-        <Card variant="warm" className="mt-6">
-          <div className="flex items-start gap-3">
-            <span className="text-2xl">💡</span>
-            <div>
-              <h3 className="font-bold text-primary-900 mb-1">
-                {placeType === 'vet' ? 'かかりつけ医を見つけよう' :
-                 placeType === 'dogrun' ? 'ドッグラン利用のコツ' :
-                 'ペットショップ活用法'}
-              </h3>
-              <p className="text-sm text-gray-700">
-                {placeType === 'vet'
-                  ? '口コミだけでなく、実際に健康診断などで訪問して雰囲気を確かめるのがおすすめです。緊急時に備えて、夜間対応の病院も把握しておくと安心。'
-                  : placeType === 'dogrun'
-                  ? 'ワクチン接種証明書が必要な場合が多いです。初めての場所では他の犬の様子を見てから入りましょう。'
-                  : 'スタッフに相談すると、愛犬に合ったフードやおもちゃを教えてもらえますよ。'}
-              </p>
+          <div
+            className="bg-dark-800 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-dark-100 mb-4 text-center">
+              検索範囲を選択
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              {SEARCH_RADIUS_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => handleRadiusChange(option.value)}
+                  className={`py-3 rounded-xl font-medium transition-colors ${
+                    searchRadius === option.value
+                      ? 'bg-accent text-dark-900'
+                      : 'bg-dark-700 text-dark-300 hover:bg-dark-600'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
           </div>
-        </Card>
-      </main>
+        </div>
+      )}
+
+      {/* 施設詳細モーダル */}
+      {selectedPlace && (
+        <div
+          className="fixed inset-0 bg-dark-900/90 z-50 flex items-end sm:items-center justify-center"
+          onClick={() => setSelectedPlace(null)}
+        >
+          <div
+            className="bg-dark-800 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              {/* ヘッダー */}
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-dark-600 flex items-center justify-center text-2xl">
+                    {getTypeIcon(selectedPlace.type)}
+                  </div>
+                  <div>
+                    <span className="text-xs bg-dark-600 text-dark-300 px-2 py-0.5 rounded">
+                      {getTypeLabel(selectedPlace.type)}
+                    </span>
+                    <h3 className="text-lg font-bold text-dark-100 mt-1">
+                      {selectedPlace.name}
+                    </h3>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedPlace(null)}
+                  className="text-dark-400 hover:text-dark-200 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* 情報 */}
+              <div className="space-y-3 mb-6">
+                <div className="flex items-center gap-3 text-dark-200">
+                  <span className="text-xl">📍</span>
+                  <span>{selectedPlace.address}</span>
+                </div>
+                <div className="flex items-center gap-3 text-dark-200">
+                  <span className="text-xl">🚶</span>
+                  <span>現在地から{formatDistance(selectedPlace.distance)}</span>
+                </div>
+                {selectedPlace.rating && (
+                  <div className="flex items-center gap-3 text-dark-200">
+                    <span className="text-xl">⭐</span>
+                    <span>{selectedPlace.rating} ({selectedPlace.reviewCount}件の口コミ)</span>
+                  </div>
+                )}
+                {selectedPlace.phone && (
+                  <div className="flex items-center gap-3 text-dark-200">
+                    <span className="text-xl">📞</span>
+                    <span>{selectedPlace.phone}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* 特徴 */}
+              {selectedPlace.features && selectedPlace.features.length > 0 && (
+                <div className="mb-6">
+                  <p className="text-sm text-dark-400 mb-2">特徴</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPlace.features.map((f, i) => (
+                      <span key={i} className="text-sm bg-accent/10 text-accent px-3 py-1 rounded-full">
+                        {f}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* アクションボタン */}
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => openGoogleMaps(selectedPlace)}
+                  className="flex-1"
+                >
+                  <svg className="w-4 h-4 mr-1 inline" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  </svg>
+                  地図で見る
+                </Button>
+                {selectedPlace.phone && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => handleCall(selectedPlace.phone!)}
+                    className="flex-1"
+                  >
+                    <span className="mr-1">📞</span>
+                    電話する
+                  </Button>
+                )}
+              </div>
+
+              {/* かかりつけ登録（動物病院の場合） */}
+              {selectedPlace.type === 'vet' && (
+                <div className="mt-4 pt-4 border-t border-dark-700">
+                  <Link href="/vet">
+                    <Button variant="outline" className="w-full">
+                      🏥 かかりつけ病院として登録
+                    </Button>
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ボトムナビゲーション */}
+      <nav className="bottom-nav">
+        <div className="max-w-4xl mx-auto flex justify-around">
+          <Link href="/dashboard" className="bottom-nav-item">
+            <span className="text-xl">🏠</span>
+            <span>ホーム</span>
+          </Link>
+          <Link href="/walk" className="bottom-nav-item">
+            <span className="text-xl">🚶</span>
+            <span>散歩</span>
+          </Link>
+          <Link href="/voice" className="bottom-nav-item">
+            <span className="text-xl">🎤</span>
+            <span>翻訳</span>
+          </Link>
+          <Link href="/family" className="bottom-nav-item">
+            <span className="text-xl">👨‍👩‍👧</span>
+            <span>家族</span>
+          </Link>
+          <Link href="/settings" className="bottom-nav-item">
+            <span className="text-xl">⚙️</span>
+            <span>設定</span>
+          </Link>
+        </div>
+      </nav>
     </div>
   );
 }
