@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { useLocation } from '@/contexts/LocationContext';
+import { LocationRequired } from '@/components/LocationRequest';
 
 interface CommunityPost {
   id: string;
@@ -46,14 +48,36 @@ const REPORT_REASONS = [
   { id: 'other', label: 'その他' },
 ];
 
+// 座標から市区町村名を取得（モック）
+const getCityFromCoords = (lat: number, lng: number): { city: string; prefecture: string } => {
+  // 実際の実装ではreverse geocoding APIを使用
+  // 簡易的に東京23区の中心座標で判定
+  if (lat > 35.7 && lng < 139.7) return { city: '練馬区', prefecture: '東京都' };
+  if (lat > 35.7 && lng > 139.75) return { city: '足立区', prefecture: '東京都' };
+  if (lat > 35.65 && lng < 139.68) return { city: '世田谷区', prefecture: '東京都' };
+  if (lat > 35.65 && lng > 139.75) return { city: '江東区', prefecture: '東京都' };
+  if (lat < 35.62 && lng < 139.72) return { city: '目黒区', prefecture: '東京都' };
+  if (lat < 35.62 && lng > 139.72) return { city: '品川区', prefecture: '東京都' };
+  return { city: '渋谷区', prefecture: '東京都' };
+};
+
 export default function CommunityPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
+  // 位置情報（コンテキストから取得）
+  const {
+    location: geoLocation,
+    loading: locationLoading,
+    isLocationReady,
+    requestLocation,
+    setManualLocation,
+  } = useLocation();
+
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<PostCategory>('all');
-  const [location, setLocation] = useState<{ city: string; prefecture: string } | null>(null);
+  const [cityInfo, setCityInfo] = useState<{ city: string; prefecture: string } | null>(null);
 
   // 投稿モーダル
   const [showPostModal, setShowPostModal] = useState(false);
@@ -67,20 +91,22 @@ export default function CommunityPage() {
   const [reportDetail, setReportDetail] = useState('');
   const [reporting, setReporting] = useState(false);
 
-  // 位置情報から市区町村を取得（モック）
-  const getLocationInfo = useCallback(() => {
-    // 実際はreverse geocodingを使用
-    setLocation({ city: '渋谷区', prefecture: '東京都' });
-  }, []);
+  // 位置情報が取得されたら市区町村を設定
+  useEffect(() => {
+    if (geoLocation) {
+      const info = getCityFromCoords(geoLocation.latitude, geoLocation.longitude);
+      setCityInfo(info);
+    }
+  }, [geoLocation]);
 
   // 投稿を取得
   const fetchPosts = useCallback(async () => {
-    if (!location) return;
+    if (!cityInfo) return;
 
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        prefecture: location.prefecture,
+        prefecture: cityInfo.prefecture,
         category: selectedCategory,
       });
 
@@ -91,7 +117,7 @@ export default function CommunityPage() {
       console.error('Failed to fetch posts:', error);
     }
     setLoading(false);
-  }, [location, selectedCategory]);
+  }, [cityInfo, selectedCategory]);
 
   // いいねをトグル
   const toggleLike = async (postId: string) => {
@@ -119,7 +145,7 @@ export default function CommunityPage() {
 
   // 投稿を作成
   const createPost = async () => {
-    if (!postContent.trim() || !location) return;
+    if (!postContent.trim() || !cityInfo) return;
 
     setPosting(true);
     try {
@@ -129,8 +155,8 @@ export default function CommunityPage() {
         body: JSON.stringify({
           content: postContent,
           category: postCategory,
-          city: location.city,
-          prefecture: location.prefecture,
+          city: cityInfo.city,
+          prefecture: cityInfo.prefecture,
         }),
       });
 
@@ -206,16 +232,16 @@ export default function CommunityPage() {
       return;
     }
 
-    if (status === 'authenticated') {
-      getLocationInfo();
+    if (status === 'authenticated' && !isLocationReady) {
+      requestLocation();
     }
-  }, [status, router, getLocationInfo]);
+  }, [status, router, isLocationReady, requestLocation]);
 
   useEffect(() => {
-    if (location) {
+    if (cityInfo) {
       fetchPosts();
     }
-  }, [location, selectedCategory, fetchPosts]);
+  }, [cityInfo, selectedCategory, fetchPosts]);
 
   if (status === 'loading' || (loading && posts.length === 0)) {
     return (
@@ -234,9 +260,9 @@ export default function CommunityPage() {
             <h1 className="text-xl font-bold gradient-text">わんライフ</h1>
           </Link>
           <div className="flex items-center gap-3">
-            {location && (
+            {cityInfo && (
               <span className="text-sm text-dark-400">
-                📍 {location.city}
+                📍 {cityInfo.city}
               </span>
             )}
             <Link href="/dashboard" className="text-accent text-sm">
@@ -250,16 +276,28 @@ export default function CommunityPage() {
         <div className="text-center mb-6">
           <h2 className="text-2xl font-bold text-dark-50 mb-2">🐕 ご近所コミュニティ</h2>
           <p className="text-dark-400">
-            {location?.city}周辺の飼い主さんとつながろう
+            {cityInfo?.city ? `${cityInfo.city}周辺の飼い主さんとつながろう` : '近所の飼い主さんとつながろう'}
           </p>
         </div>
 
+        {/* 位置情報が必要な場合 */}
+        {!isLocationReady && !locationLoading && (
+          <LocationRequired
+            onRequestLocation={requestLocation}
+            onManualSelect={setManualLocation}
+            loading={locationLoading}
+            featureName="ご近所コミュニティ"
+          />
+        )}
+
         {/* 注意書き（常時表示） */}
-        <div className="bg-accent/10 border border-accent/30 rounded-xl p-3 mb-6 text-center">
-          <p className="text-sm text-accent">
-            🐾 犬と飼い主にやさしい投稿をお願いします
-          </p>
-        </div>
+        {isLocationReady && (
+          <div className="bg-accent/10 border border-accent/30 rounded-xl p-3 mb-6 text-center">
+            <p className="text-sm text-accent">
+              🐾 犬と飼い主にやさしい投稿をお願いします
+            </p>
+          </div>
+        )}
 
         {/* カテゴリフィルター */}
         <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide">

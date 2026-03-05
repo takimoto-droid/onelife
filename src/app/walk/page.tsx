@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { useGeolocation, GeoLocation } from '@/hooks/useGeolocation';
-import { LocationErrorBanner } from '@/components/LocationErrorModal';
+import { useLocation } from '@/contexts/LocationContext';
+import { LocationRequired, LocationErrorBanner } from '@/components/LocationRequest';
 
 interface Waypoint {
   name: string;
@@ -59,14 +59,17 @@ export default function WalkPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // 位置情報フック
+  // 位置情報（コンテキストから取得）
   const {
     location,
     error: locationError,
     loading: locationLoading,
-    getCurrentLocation,
+    isLocationReady,
+    requestLocation,
+    refreshLocation,
     setManualLocation,
-  } = useGeolocation();
+    clearError,
+  } = useLocation();
 
   // 状態管理
   const [walkTime, setWalkTime] = useState(20);
@@ -104,10 +107,12 @@ export default function WalkPage() {
 
     if (session) {
       fetchData();
-      // 位置情報を自動取得
-      getCurrentLocation();
+      // 位置情報を自動取得（キャッシュがなければ）
+      if (!isLocationReady) {
+        requestLocation();
+      }
     }
-  }, [session, getCurrentLocation]);
+  }, [session, isLocationReady, requestLocation]);
 
   // 散歩タイマー
   useEffect(() => {
@@ -238,9 +243,14 @@ export default function WalkPage() {
     }
   };
 
-  const handleManualLocation = (loc: GeoLocation) => {
-    setManualLocation(loc);
+  // 手動で位置を設定
+  const handleManualLocation = (lat: number, lng: number) => {
+    setManualLocation(lat, lng);
+    clearError();
   };
+
+  // 位置情報がない場合の表示
+  const [showLocationSelector, setShowLocationSelector] = useState(false);
 
   // Googleマップで経路を開く
   const openGoogleMaps = (route: WalkRoute) => {
@@ -308,26 +318,82 @@ export default function WalkPage() {
           </p>
         </div>
 
+        {/* 位置情報が必要な場合 */}
+        {!isLocationReady && !locationLoading && !locationError && (
+          <LocationRequired
+            onRequestLocation={requestLocation}
+            onManualSelect={handleManualLocation}
+            loading={locationLoading}
+            featureName="散歩ナビ"
+          />
+        )}
+
         {/* 位置情報エラー表示 */}
         {locationError && (
           <LocationErrorBanner
             error={locationError}
-            onRetry={getCurrentLocation}
-            onManualSelect={handleManualLocation}
+            onRetry={requestLocation}
+            onManualSelect={() => setShowLocationSelector(true)}
             loading={locationLoading}
           />
         )}
 
+        {/* 手動地域選択モーダル */}
+        {showLocationSelector && (
+          <div className="fixed inset-0 bg-dark-900/90 z-50 flex items-center justify-center p-4">
+            <Card className="max-w-sm w-full">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-dark-100">地域を選択</h3>
+                <button
+                  onClick={() => setShowLocationSelector(false)}
+                  className="text-dark-400 hover:text-dark-200"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto">
+                {[
+                  { name: '渋谷区', lat: 35.6619, lng: 139.7041 },
+                  { name: '新宿区', lat: 35.6938, lng: 139.7034 },
+                  { name: '港区', lat: 35.6581, lng: 139.7514 },
+                  { name: '目黒区', lat: 35.6414, lng: 139.6982 },
+                  { name: '世田谷区', lat: 35.6461, lng: 139.6531 },
+                  { name: '品川区', lat: 35.6090, lng: 139.7302 },
+                  { name: '杉並区', lat: 35.6994, lng: 139.6366 },
+                  { name: '中野区', lat: 35.7078, lng: 139.6638 },
+                  { name: '練馬区', lat: 35.7355, lng: 139.6517 },
+                ].map((area) => (
+                  <button
+                    key={area.name}
+                    onClick={() => {
+                      handleManualLocation(area.lat, area.lng);
+                      setShowLocationSelector(false);
+                    }}
+                    className="p-2 text-sm bg-dark-700 hover:bg-dark-600 rounded-lg text-dark-200"
+                  >
+                    {area.name}
+                  </button>
+                ))}
+              </div>
+            </Card>
+          </div>
+        )}
+
         {/* 位置情報取得成功表示 */}
-        {location && !locationError && (
+        {isLocationReady && !locationError && (
           <div className="flex items-center gap-2 mb-4 p-2 bg-feature-walk/10 border border-feature-walk/30 rounded-lg">
             <span className="text-feature-walk">📍</span>
-            <span className="text-sm text-dark-300">現在地を取得しました</span>
+            <span className="text-sm text-dark-300">
+              現在地を取得しました
+              {location?.source === 'manual' && '（手動設定）'}
+              {location?.source === 'ip' && '（おおよその位置）'}
+            </span>
             <button
-              onClick={getCurrentLocation}
+              onClick={refreshLocation}
               className="ml-auto text-xs text-accent hover:underline"
+              disabled={locationLoading}
             >
-              更新
+              {locationLoading ? '取得中...' : '更新'}
             </button>
           </div>
         )}
