@@ -318,8 +318,11 @@ export default function VetPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen bg-dark-900 flex items-center justify-center">
-        <div className="spinner" />
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4 animate-bounce-soft">🏥</div>
+          <div className="spinner mx-auto" />
+        </div>
       </div>
     );
   }
@@ -327,14 +330,17 @@ export default function VetPage() {
   const nextTasks = getNextTasks();
 
   return (
-    <div className="min-h-screen bg-dark-900 pb-24">
+    <div className="min-h-screen pb-24">
       {/* ヘッダー */}
       <header className="header p-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <Link href="/dashboard">
-            <h1 className="text-xl font-bold gradient-text">わんライフ</h1>
-          </Link>
-          <Link href="/dashboard" className="text-accent text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🐾</span>
+            <Link href="/dashboard">
+              <h1 className="text-xl font-bold gradient-text">わんライフ</h1>
+            </Link>
+          </div>
+          <Link href="/dashboard" className="text-accent font-medium text-sm">
             戻る
           </Link>
         </div>
@@ -342,21 +348,24 @@ export default function VetPage() {
 
       <main className="max-w-2xl mx-auto p-4 py-6">
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-dark-50 mb-2">🏥 かかりつけ病院</h2>
-          <p className="text-dark-400">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-mint-100 rounded-full mb-3">
+            <span className="text-3xl">🏥</span>
+          </div>
+          <h2 className="text-2xl font-bold text-brown-700 mb-2">かかりつけ病院</h2>
+          <p className="text-brown-400">
             困った時にすぐ行動できる安心を
           </p>
         </div>
 
         {/* 初回ガイド */}
         {showFirstTimeGuide && !showSearch && (
-          <Card className="mb-6 bg-accent/10 border-accent/30">
+          <Card className="mb-6 bg-gradient-to-br from-mint-50 to-cream-50 border-mint-200">
             <div className="text-center">
-              <div className="text-4xl mb-3">🏥</div>
-              <h3 className="font-bold text-dark-100 mb-2">
+              <div className="text-5xl mb-3">🏥</div>
+              <h3 className="font-bold text-brown-700 mb-2">
                 かかりつけ病院を登録すると安心です
               </h3>
-              <p className="text-sm text-dark-300 mb-4">
+              <p className="text-sm text-brown-400 mb-4">
                 いざという時にワンタップで電話や地図を表示できます。
                 ワクチンの時期もお知らせします。
               </p>
@@ -384,17 +393,17 @@ export default function VetPage() {
         {/* かかりつけ病院表示 */}
         {primaryClinic && !showSearch && (
           <>
-            <Card className="mb-6">
+            <Card className="mb-6 bg-gradient-to-br from-mint-50 to-white border-mint-200">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-feature-health/20 flex items-center justify-center text-2xl">
+                  <div className="w-14 h-14 rounded-2xl bg-mint-100 flex items-center justify-center text-2xl shadow-sm">
                     🏥
                   </div>
                   <div>
-                    <span className="text-xs bg-accent/20 text-accent px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-accent/20 text-accent px-2 py-0.5 rounded-full font-medium">
                       かかりつけ
                     </span>
-                    <h3 className="font-bold text-dark-100 mt-1">
+                    <h3 className="font-bold text-brown-700 mt-1">
                       {primaryClinic.name}
                     </h3>
                   </div>
@@ -402,18 +411,18 @@ export default function VetPage() {
               </div>
 
               <div className="space-y-3 mb-6">
-                <div className="flex items-center gap-2 text-dark-300">
+                <div className="flex items-center gap-2 text-brown-500">
                   <span className="text-lg">📍</span>
                   <span className="text-sm">{primaryClinic.address}</span>
                 </div>
                 {primaryClinic.phone && (
-                  <div className="flex items-center gap-2 text-dark-300">
+                  <div className="flex items-center gap-2 text-brown-500">
                     <span className="text-lg">📞</span>
                     <span className="text-sm">{primaryClinic.phone}</span>
                   </div>
                 )}
                 {primaryClinic.rating && (
-                  <div className="flex items-center gap-2 text-dark-300">
+                  <div className="flex items-center gap-2 text-brown-500">
                     <span className="text-lg">⭐</span>
                     <span className="text-sm">
                       {primaryClinic.rating} ({primaryClinic.reviewCount}件の口コミ)
@@ -423,13 +432,13 @@ export default function VetPage() {
               </div>
 
               {primaryClinic.businessHours && (
-                <div className="bg-dark-700/50 rounded-xl p-4 mb-6">
-                  <p className="text-sm text-dark-400 mb-2">診療時間</p>
+                <div className="bg-cream-50 rounded-2xl p-4 mb-6">
+                  <p className="text-sm text-brown-400 mb-2">診療時間</p>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     {Object.entries(primaryClinic.businessHours).map(([day, hours]) => (
                       <div key={day} className="flex justify-between">
-                        <span className="text-dark-400">{getDayLabel(day)}</span>
-                        <span className={hours === '休診' ? 'text-dark-500' : 'text-dark-200'}>
+                        <span className="text-brown-400">{getDayLabel(day)}</span>
+                        <span className={hours === '休診' ? 'text-brown-300' : 'text-brown-600'}>
                           {hours}
                         </span>
                       </div>
@@ -442,7 +451,7 @@ export default function VetPage() {
                 {primaryClinic.phone && (
                   <Button
                     onClick={() => handleCall(primaryClinic.phone!)}
-                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    className="flex-1 bg-gradient-to-r from-mint-500 to-mint-400"
                   >
                     <span className="mr-2">📞</span>
                     電話する
@@ -460,7 +469,7 @@ export default function VetPage() {
 
               <button
                 onClick={removePrimary}
-                className="mt-4 text-xs text-dark-500 hover:text-dark-400 w-full text-center"
+                className="mt-4 text-xs text-brown-300 hover:text-brown-400 w-full text-center"
               >
                 かかりつけ登録を解除
               </button>
@@ -469,14 +478,14 @@ export default function VetPage() {
             {/* 次にやること */}
             {nextTasks.length > 0 && (
               <div className="mb-6">
-                <h3 className="font-bold text-dark-100 mb-3 flex items-center gap-2">
+                <h3 className="font-bold text-brown-700 mb-3 flex items-center gap-2">
                   <span>📋</span> 次にやること
                 </h3>
                 <div className="space-y-3">
                   {nextTasks.map((task, index) => (
                     <Card
                       key={index}
-                      className={task.urgent ? 'border-red-500/50 bg-red-500/5' : ''}
+                      className={task.urgent ? 'border-pink-300 bg-pink-50' : 'bg-cream-50'}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -484,9 +493,9 @@ export default function VetPage() {
                             {task.type === 'vaccine' ? '💉' : '🐕'}
                           </span>
                           <div>
-                            <p className="font-medium text-dark-100">{task.label}</p>
+                            <p className="font-medium text-brown-700">{task.label}</p>
                             {task.dueDate && (
-                              <p className={`text-sm ${task.urgent ? 'text-red-400' : 'text-dark-400'}`}>
+                              <p className={`text-sm ${task.urgent ? 'text-pink-500' : 'text-brown-400'}`}>
                                 {task.urgent ? '⚠️ ' : ''}{task.dueDate}まで
                               </p>
                             )}
@@ -525,11 +534,11 @@ export default function VetPage() {
         {(showSearch || (!primaryClinic && !showFirstTimeGuide)) && (
           <>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-dark-100">近くの動物病院</h3>
+              <h3 className="font-bold text-brown-700">近くの動物病院</h3>
               {primaryClinic && (
                 <button
                   onClick={() => setShowSearch(false)}
-                  className="text-sm text-accent"
+                  className="text-sm text-accent font-medium"
                 >
                   戻る
                 </button>
@@ -560,16 +569,16 @@ export default function VetPage() {
             {isLocationReady && (
               <>
                 {/* 検索範囲 */}
-                <div className="flex items-center justify-between mb-4 p-3 bg-feature-health/10 border border-feature-health/30 rounded-xl">
+                <div className="flex items-center justify-between mb-4 p-3 bg-mint-50 border border-mint-200 rounded-2xl">
                   <div className="flex items-center gap-2">
-                    <span className="text-feature-health">📍</span>
-                    <span className="text-sm text-dark-300">現在地から検索</span>
+                    <span className="text-mint-600">📍</span>
+                    <span className="text-sm text-brown-500">現在地から検索</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <select
                       value={searchRadius}
                       onChange={(e) => handleRadiusChange(Number(e.target.value))}
-                      className="text-xs bg-dark-700 text-dark-300 px-2 py-1 rounded-full border-none"
+                      className="text-xs bg-white text-brown-600 px-3 py-1.5 rounded-full border border-cream-200"
                     >
                       {SEARCH_RADIUS_OPTIONS.map((o) => (
                         <option key={o.value} value={o.value}>{o.label}</option>
@@ -577,7 +586,7 @@ export default function VetPage() {
                     </select>
                     <button
                       onClick={() => refreshLocation()}
-                      className="text-xs text-accent hover:underline"
+                      className="text-xs text-accent hover:underline font-medium"
                     >
                       更新
                     </button>
@@ -587,40 +596,40 @@ export default function VetPage() {
                 {searchLoading ? (
                   <div className="text-center py-12">
                     <div className="spinner mx-auto mb-4" />
-                    <p className="text-dark-400">検索中...</p>
+                    <p className="text-brown-400">検索中...</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {nearbyClinics.length > 0 ? (
                       <>
-                        <p className="text-sm text-dark-400">
+                        <p className="text-sm text-brown-400">
                           {nearbyClinics.length}件見つかりました
                         </p>
                         {nearbyClinics.map((clinic) => (
-                          <Card key={clinic.id}>
+                          <Card key={clinic.id} className="bg-white">
                             <div className="flex items-start justify-between mb-3">
                               <div>
-                                <h4 className="font-bold text-dark-100">{clinic.name}</h4>
-                                <p className="text-sm text-dark-400">{clinic.address}</p>
+                                <h4 className="font-bold text-brown-700">{clinic.name}</h4>
+                                <p className="text-sm text-brown-400">{clinic.address}</p>
                               </div>
                               {clinic.distance && (
-                                <span className="text-sm text-accent bg-accent/10 px-2 py-1 rounded-full">
+                                <span className="text-sm text-accent bg-accent/10 px-2 py-1 rounded-full font-medium">
                                   {formatDistance(clinic.distance)}
                                 </span>
                               )}
                             </div>
 
                             {clinic.rating && (
-                              <div className="flex items-center gap-2 text-sm text-dark-300 mb-3">
+                              <div className="flex items-center gap-2 text-sm text-brown-500 mb-3">
                                 <span>⭐ {clinic.rating}</span>
-                                <span className="text-dark-500">({clinic.reviewCount}件)</span>
+                                <span className="text-brown-300">({clinic.reviewCount}件)</span>
                               </div>
                             )}
 
                             {clinic.features && clinic.features.length > 0 && (
                               <div className="flex flex-wrap gap-1 mb-3">
                                 {clinic.features.map((f, i) => (
-                                  <span key={i} className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded">
+                                  <span key={i} className="text-xs bg-mint-100 text-mint-700 px-2 py-0.5 rounded-full">
                                     {f}
                                   </span>
                                 ))}
@@ -658,11 +667,11 @@ export default function VetPage() {
                       </>
                     ) : hasSearched ? (
                       <div className="text-center py-12">
-                        <span className="text-4xl mb-4 block">🔍</span>
-                        <p className="text-dark-300 mb-2">
+                        <span className="text-5xl mb-4 block">🔍</span>
+                        <p className="text-brown-500 mb-2">
                           近くに動物病院が見つかりませんでした
                         </p>
-                        <p className="text-sm text-dark-500 mb-6">
+                        <p className="text-sm text-brown-400 mb-6">
                           検索範囲を広げてください
                         </p>
                         <div className="flex flex-wrap justify-center gap-2">

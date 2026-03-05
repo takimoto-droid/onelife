@@ -10,14 +10,16 @@ interface VaccineCardProps {
   onComplete?: () => void;
 }
 
-const vaccineTypeLabels: Record<string, { name: string; description: string }> = {
+const vaccineTypeLabels: Record<string, { name: string; description: string; emoji: string }> = {
   mixed_vaccine: {
     name: '混合ワクチン',
     description: '複数の感染症を予防するワクチンです',
+    emoji: '💉',
   },
   rabies: {
     name: '狂犬病ワクチン',
     description: '法律で義務付けられている予防接種です',
+    emoji: '🏥',
   },
 };
 
@@ -30,6 +32,7 @@ export function VaccineCard({
   const vaccineInfo = vaccineTypeLabels[type] || {
     name: type,
     description: '',
+    emoji: '💉',
   };
 
   const formatDate = (date: Date) => {
@@ -52,41 +55,29 @@ export function VaccineCard({
   const daysUntil = getDaysUntil(scheduledDate);
 
   return (
-    <Card className="relative overflow-hidden">
+    <Card className="relative overflow-hidden bg-gradient-to-br from-mint-50 to-white border-mint-200">
       {completed && (
-        <div className="absolute top-0 right-0 bg-feature-health text-dark-900 text-xs font-bold px-3 py-1 rounded-bl-lg">
+        <div className="absolute top-0 right-0 bg-gradient-to-r from-mint-400 to-mint-300 text-white text-xs font-bold px-4 py-1.5 rounded-bl-2xl shadow-sm">
           完了
         </div>
       )}
       <div className="flex items-start gap-4">
-        <div className="w-12 h-12 bg-feature-health/20 rounded-full flex items-center justify-center flex-shrink-0">
-          <svg
-            className="w-6 h-6 text-feature-health"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            />
-          </svg>
+        <div className="w-14 h-14 bg-mint-100 rounded-2xl flex items-center justify-center flex-shrink-0 text-2xl shadow-sm">
+          {vaccineInfo.emoji}
         </div>
         <div className="flex-1">
-          <h3 className="font-bold text-dark-100 text-lg">{vaccineInfo.name}</h3>
-          <p className="text-sm text-dark-400 mt-1">{vaccineInfo.description}</p>
+          <h3 className="font-bold text-brown-700 text-lg">{vaccineInfo.name}</h3>
+          <p className="text-sm text-brown-400 mt-1">{vaccineInfo.description}</p>
           <div className="mt-3 flex items-center gap-2">
-            <span className="text-sm text-dark-400">予定日:</span>
-            <span className="font-medium text-dark-200">
+            <span className="text-sm text-brown-400">予定日:</span>
+            <span className="font-medium text-brown-600">
               {formatDate(scheduledDate)}
             </span>
           </div>
           {!completed && daysUntil >= 0 && (
             <p
-              className={`text-sm mt-2 ${
-                daysUntil <= 7 ? 'text-accent font-medium' : 'text-dark-400'
+              className={`text-sm mt-2 font-medium ${
+                daysUntil <= 7 ? 'text-accent' : 'text-brown-400'
               }`}
             >
               {daysUntil === 0
@@ -97,8 +88,8 @@ export function VaccineCard({
         </div>
       </div>
       {!completed && onComplete && (
-        <div className="mt-4 pt-4 border-t border-dark-600">
-          <Button variant="outline" onClick={onComplete} className="w-full">
+        <div className="mt-4 pt-4 border-t border-mint-200">
+          <Button variant="mint" onClick={onComplete} className="w-full">
             完了にする
           </Button>
         </div>

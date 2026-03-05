@@ -27,17 +27,18 @@ type PostCategory = 'all' | 'walk' | 'dogrun' | 'vet' | 'trimming' | 'lost' | 't
 interface CategoryInfo {
   label: string;
   emoji: string;
+  bgColor: string;
 }
 
 const CATEGORIES: Record<PostCategory, CategoryInfo> = {
-  all: { label: 'すべて', emoji: '📋' },
-  walk: { label: '散歩', emoji: '🚶' },
-  dogrun: { label: 'ドッグラン', emoji: '🐕' },
-  vet: { label: '動物病院', emoji: '🏥' },
-  trimming: { label: 'トリミング', emoji: '✂️' },
-  lost: { label: '迷子・注意', emoji: '⚠️' },
-  training: { label: 'しつけ', emoji: '📚' },
-  other: { label: 'その他', emoji: '💬' },
+  all: { label: 'すべて', emoji: '📋', bgColor: 'bg-cream-100' },
+  walk: { label: '散歩', emoji: '🚶', bgColor: 'bg-blue-100' },
+  dogrun: { label: 'ドッグラン', emoji: '🐕', bgColor: 'bg-mint-100' },
+  vet: { label: '動物病院', emoji: '🏥', bgColor: 'bg-mint-100' },
+  trimming: { label: 'トリミング', emoji: '✂️', bgColor: 'bg-lavender-100' },
+  lost: { label: '迷子・注意', emoji: '⚠️', bgColor: 'bg-peach-100' },
+  training: { label: 'しつけ', emoji: '📚', bgColor: 'bg-cream-200' },
+  other: { label: 'その他', emoji: '💬', bgColor: 'bg-pink-100' },
 };
 
 const REPORT_REASONS = [
@@ -50,8 +51,6 @@ const REPORT_REASONS = [
 
 // 座標から市区町村名を取得（モック）
 const getCityFromCoords = (lat: number, lng: number): { city: string; prefecture: string } => {
-  // 実際の実装ではreverse geocoding APIを使用
-  // 簡易的に東京23区の中心座標で判定
   if (lat > 35.7 && lng < 139.7) return { city: '練馬区', prefecture: '東京都' };
   if (lat > 35.7 && lng > 139.75) return { city: '足立区', prefecture: '東京都' };
   if (lat > 35.65 && lng < 139.68) return { city: '世田谷区', prefecture: '東京都' };
@@ -65,7 +64,6 @@ export default function CommunityPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // 位置情報（コンテキストから取得）
   const {
     location: geoLocation,
     loading: locationLoading,
@@ -79,19 +77,16 @@ export default function CommunityPage() {
   const [selectedCategory, setSelectedCategory] = useState<PostCategory>('all');
   const [cityInfo, setCityInfo] = useState<{ city: string; prefecture: string } | null>(null);
 
-  // 投稿モーダル
   const [showPostModal, setShowPostModal] = useState(false);
   const [postContent, setPostContent] = useState('');
   const [postCategory, setPostCategory] = useState<PostCategory>('other');
   const [posting, setPosting] = useState(false);
 
-  // 通報モーダル
   const [reportingPost, setReportingPost] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState('');
   const [reportDetail, setReportDetail] = useState('');
   const [reporting, setReporting] = useState(false);
 
-  // 位置情報が取得されたら市区町村を設定
   useEffect(() => {
     if (geoLocation) {
       const info = getCityFromCoords(geoLocation.latitude, geoLocation.longitude);
@@ -99,7 +94,6 @@ export default function CommunityPage() {
     }
   }, [geoLocation]);
 
-  // 投稿を取得
   const fetchPosts = useCallback(async () => {
     if (!cityInfo) return;
 
@@ -119,7 +113,6 @@ export default function CommunityPage() {
     setLoading(false);
   }, [cityInfo, selectedCategory]);
 
-  // いいねをトグル
   const toggleLike = async (postId: string) => {
     try {
       const res = await fetch('/api/community/like', {
@@ -143,7 +136,6 @@ export default function CommunityPage() {
     }
   };
 
-  // 投稿を作成
   const createPost = async () => {
     if (!postContent.trim() || !cityInfo) return;
 
@@ -177,7 +169,6 @@ export default function CommunityPage() {
     setPosting(false);
   };
 
-  // 通報を送信
   const submitReport = async () => {
     if (!reportingPost || !reportReason) return;
 
@@ -210,7 +201,6 @@ export default function CommunityPage() {
     setReporting(false);
   };
 
-  // 時間表示
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
     const now = new Date();
@@ -245,27 +235,33 @@ export default function CommunityPage() {
 
   if (status === 'loading' || (loading && posts.length === 0)) {
     return (
-      <div className="min-h-screen bg-dark-900 flex items-center justify-center">
-        <div className="spinner" />
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4 animate-bounce-soft">🐕</div>
+          <div className="spinner mx-auto" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-dark-900 pb-24">
+    <div className="min-h-screen pb-24">
       {/* ヘッダー */}
       <header className="header p-4 sticky top-0 z-40">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <Link href="/dashboard">
-            <h1 className="text-xl font-bold gradient-text">わんライフ</h1>
-          </Link>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🐾</span>
+            <Link href="/dashboard">
+              <h1 className="text-xl font-bold gradient-text">わんライフ</h1>
+            </Link>
+          </div>
           <div className="flex items-center gap-3">
             {cityInfo && (
-              <span className="text-sm text-dark-400">
+              <span className="text-sm text-brown-400 bg-cream-100 px-2 py-1 rounded-full">
                 📍 {cityInfo.city}
               </span>
             )}
-            <Link href="/dashboard" className="text-accent text-sm">
+            <Link href="/dashboard" className="text-accent font-medium text-sm">
               戻る
             </Link>
           </div>
@@ -274,8 +270,11 @@ export default function CommunityPage() {
 
       <main className="max-w-2xl mx-auto p-4 py-6">
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-dark-50 mb-2">🐕 ご近所コミュニティ</h2>
-          <p className="text-dark-400">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-pink-100 rounded-full mb-3">
+            <span className="text-3xl">🐕</span>
+          </div>
+          <h2 className="text-2xl font-bold text-brown-700 mb-2">ご近所コミュニティ</h2>
+          <p className="text-brown-400">
             {cityInfo?.city ? `${cityInfo.city}周辺の飼い主さんとつながろう` : '近所の飼い主さんとつながろう'}
           </p>
         </div>
@@ -290,10 +289,10 @@ export default function CommunityPage() {
           />
         )}
 
-        {/* 注意書き（常時表示） */}
+        {/* 注意書き */}
         {isLocationReady && (
-          <div className="bg-accent/10 border border-accent/30 rounded-xl p-3 mb-6 text-center">
-            <p className="text-sm text-accent">
+          <div className="bg-gradient-to-r from-pink-50 to-peach-50 border border-pink-200 rounded-2xl p-3 mb-6 text-center">
+            <p className="text-sm text-pink-600">
               🐾 犬と飼い主にやさしい投稿をお願いします
             </p>
           </div>
@@ -305,10 +304,10 @@ export default function CommunityPage() {
             <button
               key={key}
               onClick={() => setSelectedCategory(key as PostCategory)}
-              className={`flex items-center gap-1 px-3 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-colors ${
+              className={`flex items-center gap-1 px-3 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-all ${
                 selectedCategory === key
-                  ? 'bg-accent text-dark-900'
-                  : 'bg-dark-700 text-dark-300 hover:bg-dark-600'
+                  ? 'bg-gradient-to-r from-accent to-accent-light text-white shadow-sm'
+                  : `${cat.bgColor} text-brown-600 hover:shadow-sm`
               }`}
             >
               <span>{cat.emoji}</span>
@@ -329,27 +328,29 @@ export default function CommunityPage() {
         {/* タイムライン */}
         <div className="space-y-4">
           {posts.map((post) => (
-            <Card key={post.id}>
+            <Card key={post.id} className="bg-white">
               {/* ヘッダー */}
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-dark-600 flex items-center justify-center text-xl">
+                  <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center text-xl">
                     🐕
                   </div>
                   <div>
-                    <p className="font-medium text-dark-100 text-sm">
+                    <p className="font-medium text-brown-700 text-sm">
                       {post.anonymousName}
                     </p>
-                    <div className="flex items-center gap-2 text-xs text-dark-500">
+                    <div className="flex items-center gap-2 text-xs text-brown-400">
                       <span>{formatTime(post.createdAt)}</span>
                       <span>・</span>
-                      <span>{CATEGORIES[post.category as PostCategory]?.emoji} {CATEGORIES[post.category as PostCategory]?.label}</span>
+                      <span className={`${CATEGORIES[post.category as PostCategory]?.bgColor} px-1.5 py-0.5 rounded`}>
+                        {CATEGORIES[post.category as PostCategory]?.emoji} {CATEGORIES[post.category as PostCategory]?.label}
+                      </span>
                     </div>
                   </div>
                 </div>
                 <button
                   onClick={() => setReportingPost(post.id)}
-                  className="text-dark-500 hover:text-dark-300 text-xl"
+                  className="text-brown-300 hover:text-brown-500 text-xl"
                   title="通報"
                 >
                   ⋮
@@ -357,13 +358,13 @@ export default function CommunityPage() {
               </div>
 
               {/* 本文 */}
-              <p className="text-dark-200 mb-4 whitespace-pre-wrap">
+              <p className="text-brown-600 mb-4 whitespace-pre-wrap">
                 {post.content}
               </p>
 
-              {/* 画像（あれば） */}
+              {/* 画像 */}
               {post.imageUrl && (
-                <div className="mb-4 rounded-xl overflow-hidden">
+                <div className="mb-4 rounded-2xl overflow-hidden">
                   <img
                     src={post.imageUrl}
                     alt="投稿画像"
@@ -373,16 +374,18 @@ export default function CommunityPage() {
               )}
 
               {/* アクション */}
-              <div className="flex items-center gap-4 pt-3 border-t border-dark-700">
+              <div className="flex items-center gap-4 pt-3 border-t border-cream-200">
                 <button
                   onClick={() => toggleLike(post.id)}
-                  className={`flex items-center gap-2 text-sm transition-colors ${
+                  className={`flex items-center gap-2 text-sm transition-all ${
                     post.isLiked
-                      ? 'text-red-400'
-                      : 'text-dark-400 hover:text-red-400'
+                      ? 'text-pink-500'
+                      : 'text-brown-400 hover:text-pink-500'
                   }`}
                 >
-                  <span className="text-lg">{post.isLiked ? '❤️' : '🤍'}</span>
+                  <span className={`text-lg transition-transform ${post.isLiked ? 'scale-110' : ''}`}>
+                    {post.isLiked ? '❤️' : '🤍'}
+                  </span>
                   <span>{post.likeCount > 0 ? post.likeCount : '共感'}</span>
                 </button>
               </div>
@@ -391,8 +394,8 @@ export default function CommunityPage() {
 
           {posts.length === 0 && !loading && (
             <div className="text-center py-12">
-              <span className="text-4xl mb-4 block">🐾</span>
-              <p className="text-dark-400 mb-4">
+              <span className="text-5xl mb-4 block">🐾</span>
+              <p className="text-brown-400 mb-4">
                 まだ投稿がありません
               </p>
               <Button onClick={() => setShowPostModal(true)}>
@@ -415,19 +418,19 @@ export default function CommunityPage() {
       {/* 投稿モーダル */}
       {showPostModal && (
         <div
-          className="fixed inset-0 bg-dark-900/90 z-50 flex items-end sm:items-center justify-center"
+          className="fixed inset-0 bg-brown-900/30 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center"
           onClick={() => setShowPostModal(false)}
         >
           <div
-            className="bg-dark-800 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto"
+            className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto shadow-soft-lg"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-dark-100">新しい投稿</h3>
+                <h3 className="text-lg font-bold text-brown-700">新しい投稿</h3>
                 <button
                   onClick={() => setShowPostModal(false)}
-                  className="text-dark-400 hover:text-dark-200 text-2xl"
+                  className="text-brown-400 hover:text-brown-600 text-2xl"
                 >
                   ×
                 </button>
@@ -435,7 +438,7 @@ export default function CommunityPage() {
 
               {/* カテゴリ選択 */}
               <div className="mb-4">
-                <p className="text-sm text-dark-400 mb-2">カテゴリ</p>
+                <p className="text-sm text-brown-500 mb-2">カテゴリ</p>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(CATEGORIES)
                     .filter(([key]) => key !== 'all')
@@ -443,10 +446,10 @@ export default function CommunityPage() {
                       <button
                         key={key}
                         onClick={() => setPostCategory(key as PostCategory)}
-                        className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm transition-colors ${
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-all ${
                           postCategory === key
-                            ? 'bg-accent text-dark-900'
-                            : 'bg-dark-700 text-dark-300'
+                            ? 'bg-gradient-to-r from-accent to-accent-light text-white shadow-sm'
+                            : `${cat.bgColor} text-brown-600`
                         }`}
                       >
                         <span>{cat.emoji}</span>
@@ -461,16 +464,16 @@ export default function CommunityPage() {
                 value={postContent}
                 onChange={(e) => setPostContent(e.target.value)}
                 placeholder="今日のお散歩情報、おすすめスポット、しつけの悩みなど..."
-                className="w-full h-32 bg-dark-700 border border-dark-600 rounded-xl p-4 text-dark-100 placeholder-dark-500 resize-none focus:outline-none focus:ring-2 focus:ring-accent mb-4"
+                className="input-field h-32 resize-none mb-2"
                 maxLength={500}
               />
-              <p className="text-xs text-dark-500 text-right mb-4">
+              <p className="text-xs text-brown-400 text-right mb-4">
                 {postContent.length}/500
               </p>
 
               {/* 注意 */}
-              <div className="bg-dark-700/50 rounded-lg p-3 mb-4">
-                <p className="text-xs text-dark-400">
+              <div className="bg-cream-50 rounded-2xl p-3 mb-4">
+                <p className="text-xs text-brown-400">
                   ⚠️ 個人情報（住所・電話番号・メールアドレス等）は投稿できません。
                   投稿は匿名で表示されます。
                 </p>
@@ -491,19 +494,19 @@ export default function CommunityPage() {
       {/* 通報モーダル */}
       {reportingPost && (
         <div
-          className="fixed inset-0 bg-dark-900/90 z-50 flex items-end sm:items-center justify-center"
+          className="fixed inset-0 bg-brown-900/30 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center"
           onClick={() => setReportingPost(null)}
         >
           <div
-            className="bg-dark-800 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md"
+            className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md shadow-soft-lg"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
-              <h3 className="text-lg font-bold text-dark-100 mb-4">
+              <h3 className="text-lg font-bold text-brown-700 mb-4">
                 🚨 投稿を通報
               </h3>
 
-              <p className="text-sm text-dark-400 mb-4">
+              <p className="text-sm text-brown-500 mb-4">
                 通報理由を選択してください
               </p>
 
@@ -512,10 +515,10 @@ export default function CommunityPage() {
                   <button
                     key={reason.id}
                     onClick={() => setReportReason(reason.id)}
-                    className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                    className={`w-full text-left px-4 py-3 rounded-2xl transition-all ${
                       reportReason === reason.id
-                        ? 'bg-accent/20 text-accent border border-accent/50'
-                        : 'bg-dark-700 text-dark-300 hover:bg-dark-600'
+                        ? 'bg-pink-50 text-pink-600 border-2 border-pink-300'
+                        : 'bg-cream-50 text-brown-600 border-2 border-transparent hover:border-cream-200'
                     }`}
                   >
                     {reason.label}
@@ -528,7 +531,7 @@ export default function CommunityPage() {
                   value={reportDetail}
                   onChange={(e) => setReportDetail(e.target.value)}
                   placeholder="詳細を入力してください..."
-                  className="w-full h-20 bg-dark-700 border border-dark-600 rounded-xl p-3 text-dark-100 placeholder-dark-500 resize-none focus:outline-none focus:ring-2 focus:ring-accent mb-4"
+                  className="input-field h-20 resize-none mb-4"
                 />
               )}
 
@@ -543,7 +546,7 @@ export default function CommunityPage() {
                 <Button
                   onClick={submitReport}
                   disabled={!reportReason || reporting}
-                  className="flex-1 bg-red-600 hover:bg-red-700"
+                  className="flex-1 bg-gradient-to-r from-pink-500 to-pink-400"
                 >
                   {reporting ? '送信中...' : '通報する'}
                 </Button>

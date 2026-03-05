@@ -3,7 +3,7 @@
 import { ButtonHTMLAttributes, ReactNode } from 'react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'premium';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'premium' | 'cute' | 'mint';
   size?: 'sm' | 'md' | 'lg';
   children: ReactNode;
   loading?: boolean;
@@ -18,7 +18,7 @@ export function Button({
   className = '',
   ...props
 }: ButtonProps) {
-  const baseClasses = 'font-medium rounded-xl transition-all duration-200 flex items-center justify-center gap-2 active:scale-95';
+  const baseClasses = 'font-bold rounded-full transition-all duration-300 flex items-center justify-center gap-2 active:scale-95';
 
   const sizeClasses = {
     sm: 'py-2 px-4 text-sm',
@@ -27,11 +27,13 @@ export function Button({
   };
 
   const variantClasses = {
-    primary: 'bg-accent hover:bg-accent-light text-dark-900 font-bold shadow-glow-accent disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none',
-    secondary: 'bg-dark-700 hover:bg-dark-600 text-dark-100 border border-dark-600',
-    outline: 'border-2 border-accent text-accent hover:bg-accent hover:text-dark-900',
-    ghost: 'text-dark-200 hover:text-accent hover:bg-dark-700/50',
-    premium: 'bg-gradient-to-r from-yellow-500 to-orange-500 text-dark-900 font-bold shadow-glow-premium hover:scale-105',
+    primary: 'bg-gradient-to-r from-accent to-accent-light text-white shadow-button hover:shadow-soft-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100',
+    secondary: 'bg-white hover:bg-cream-50 text-brown-600 border-2 border-cream-300 hover:border-accent-light shadow-card',
+    outline: 'border-2 border-accent text-accent hover:bg-accent hover:text-white',
+    ghost: 'text-brown-500 hover:text-accent hover:bg-accent-50',
+    premium: 'bg-gradient-to-r from-yellow-400 to-orange-400 text-brown-800 shadow-soft hover:scale-105',
+    cute: 'bg-gradient-to-r from-pink-300 to-peach-300 text-white shadow-soft hover:shadow-soft-lg hover:scale-105',
+    mint: 'bg-gradient-to-r from-mint-400 to-mint-300 text-white shadow-soft hover:shadow-soft-lg hover:scale-105',
   };
 
   return (

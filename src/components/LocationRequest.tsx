@@ -23,7 +23,6 @@ interface LocationRequestModalProps {
 
 /**
  * 位置情報取得モーダル
- * 初回起動時や位置情報が必要な機能で表示
  */
 export function LocationRequestModal({
   isOpen,
@@ -61,28 +60,28 @@ export function LocationRequestModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-dark-900/95 z-50 flex items-center justify-center p-4">
-      <Card className="max-w-md w-full max-h-[80vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-brown-900/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <Card className="max-w-md w-full max-h-[80vh] overflow-y-auto shadow-soft-lg">
         {/* 初回リクエスト画面 */}
         {view === 'request' && (
           <div className="text-center">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-accent/10 flex items-center justify-center">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-pink-100 to-peach-100 flex items-center justify-center shadow-sm">
               <span className="text-4xl">📍</span>
             </div>
 
-            <h2 className="text-xl font-bold text-dark-100 mb-3">
+            <h2 className="text-xl font-bold text-brown-700 mb-3">
               位置情報を使用します
             </h2>
 
-            <p className="text-dark-400 text-sm mb-6 leading-relaxed">
+            <p className="text-brown-500 text-sm mb-6 leading-relaxed">
               近くの散歩コース、動物病院、ドッグランを
               見つけるために現在地を使用します。
             </p>
 
             {/* プライバシー説明 */}
-            <div className="bg-dark-700/50 rounded-xl p-4 mb-6 text-left">
-              <p className="text-xs text-dark-400 mb-2 font-medium">🔒 プライバシーについて</p>
-              <ul className="text-xs text-dark-500 space-y-1">
+            <div className="bg-cream-50 rounded-2xl p-4 mb-6 text-left">
+              <p className="text-xs text-brown-600 mb-2 font-medium">🔒 プライバシーについて</p>
+              <ul className="text-xs text-brown-400 space-y-1">
                 <li>• 位置情報はサーバーに保存されません</li>
                 <li>• リアルタイム追跡は行いません</li>
                 <li>• コミュニティには市区町村名のみ表示</li>
@@ -108,7 +107,7 @@ export function LocationRequestModal({
 
               <button
                 onClick={onClose}
-                className="w-full text-sm text-dark-500 hover:text-dark-300 py-2"
+                className="w-full text-sm text-brown-400 hover:text-brown-600 py-2"
               >
                 後で設定する
               </button>
@@ -119,16 +118,16 @@ export function LocationRequestModal({
         {/* エラー画面 */}
         {view === 'error' && errorInfo && (
           <div className="text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent/10 flex items-center justify-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-peach-100 flex items-center justify-center">
               <span className="text-3xl">
                 {error === 'PERMISSION_DENIED' ? '🔒' : '📍'}
               </span>
             </div>
 
-            <h3 className="text-lg font-bold text-dark-100 mb-2">
+            <h3 className="text-lg font-bold text-brown-700 mb-2">
               {errorInfo.title}
             </h3>
-            <p className="text-dark-400 text-sm mb-6">
+            <p className="text-brown-500 text-sm mb-6">
               {errorInfo.message}
             </p>
 
@@ -155,7 +154,7 @@ export function LocationRequestModal({
 
               <button
                 onClick={onClose}
-                className="w-full text-sm text-dark-500 hover:text-dark-300 py-2"
+                className="w-full text-sm text-brown-400 hover:text-brown-600 py-2"
               >
                 後で設定する
               </button>
@@ -163,14 +162,12 @@ export function LocationRequestModal({
 
             {/* iOSの設定ヒント */}
             {error === 'PERMISSION_DENIED' && (
-              <div className="mt-6 p-3 bg-dark-700/50 rounded-lg text-left">
-                <p className="text-xs text-dark-400">
-                  <span className="font-bold text-dark-300">設定方法：</span>
-                </p>
-                <p className="text-xs text-dark-500 mt-1">
+              <div className="mt-6 p-4 bg-cream-50 rounded-2xl text-left">
+                <p className="text-xs text-brown-600 font-medium">設定方法：</p>
+                <p className="text-xs text-brown-400 mt-1">
                   iPhone：設定 → プライバシー → 位置情報サービス
                 </p>
-                <p className="text-xs text-dark-500">
+                <p className="text-xs text-brown-400">
                   Android：設定 → 位置情報 → アプリの権限
                 </p>
               </div>
@@ -182,18 +179,18 @@ export function LocationRequestModal({
         {view === 'manual' && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-dark-100">
+              <h3 className="text-lg font-bold text-brown-700">
                 地域を選択
               </h3>
               <button
                 onClick={() => setView(error ? 'error' : 'request')}
-                className="text-dark-400 hover:text-dark-200 text-sm"
+                className="text-accent font-medium text-sm"
               >
                 ← 戻る
               </button>
             </div>
 
-            <p className="text-sm text-dark-400 mb-4">
+            <p className="text-sm text-brown-500 mb-4">
               お住まいの地域に近い場所を選んでください。
             </p>
 
@@ -201,20 +198,20 @@ export function LocationRequestModal({
             <div className="flex gap-2 mb-4">
               <button
                 onClick={() => setSelectedArea('tokyo')}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex-1 py-2 rounded-full text-sm font-medium transition-all ${
                   selectedArea === 'tokyo'
-                    ? 'bg-accent text-dark-900'
-                    : 'bg-dark-700 text-dark-300'
+                    ? 'bg-gradient-to-r from-accent to-accent-light text-white shadow-sm'
+                    : 'bg-cream-100 text-brown-600'
                 }`}
               >
                 東京23区
               </button>
               <button
                 onClick={() => setSelectedArea('other')}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex-1 py-2 rounded-full text-sm font-medium transition-all ${
                   selectedArea === 'other'
-                    ? 'bg-accent text-dark-900'
-                    : 'bg-dark-700 text-dark-300'
+                    ? 'bg-gradient-to-r from-accent to-accent-light text-white shadow-sm'
+                    : 'bg-cream-100 text-brown-600'
                 }`}
               >
                 その他の都市
@@ -227,14 +224,14 @@ export function LocationRequestModal({
                 <button
                   key={area.name}
                   onClick={() => handleManualSelect(area.latitude, area.longitude)}
-                  className="p-2 text-sm text-left bg-dark-700 hover:bg-dark-600 rounded-lg transition-colors text-dark-200"
+                  className="p-2 text-sm text-left bg-cream-50 hover:bg-cream-100 rounded-xl transition-colors text-brown-600 hover:text-brown-700"
                 >
                   {area.name}
                 </button>
               ))}
             </div>
 
-            <p className="mt-4 text-xs text-dark-500 text-center">
+            <p className="mt-4 text-xs text-brown-400 text-center">
               選択した地域を基準に周辺施設を検索します
             </p>
           </div>
@@ -263,12 +260,12 @@ export function LocationErrorBanner({
   const errorInfo = getLocationErrorInfo(error);
 
   return (
-    <div className="bg-accent/10 border border-accent/30 rounded-xl p-4 mb-4">
+    <div className="bg-gradient-to-r from-peach-50 to-pink-50 border border-peach-200 rounded-2xl p-4 mb-4">
       <div className="flex items-start gap-3">
         <span className="text-xl">📍</span>
         <div className="flex-1">
-          <p className="font-medium text-dark-100 text-sm">{errorInfo.title}</p>
-          <p className="text-xs text-dark-400 mt-1">{errorInfo.message}</p>
+          <p className="font-medium text-brown-700 text-sm">{errorInfo.title}</p>
+          <p className="text-xs text-brown-500 mt-1">{errorInfo.message}</p>
 
           <div className="flex gap-2 mt-3">
             {errorInfo.canRetry && (
@@ -320,30 +317,30 @@ export function LocationRequired({
       <div className="text-center py-8">
         <button
           onClick={() => setShowManual(false)}
-          className="text-sm text-accent mb-4"
+          className="text-sm text-accent font-medium mb-4"
         >
           ← 戻る
         </button>
 
-        <h3 className="text-lg font-bold text-dark-100 mb-4">地域を選択</h3>
+        <h3 className="text-lg font-bold text-brown-700 mb-4">地域を選択</h3>
 
         <div className="flex gap-2 mb-4 justify-center">
           <button
             onClick={() => setSelectedArea('tokyo')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
               selectedArea === 'tokyo'
-                ? 'bg-accent text-dark-900'
-                : 'bg-dark-700 text-dark-300'
+                ? 'bg-gradient-to-r from-accent to-accent-light text-white shadow-sm'
+                : 'bg-cream-100 text-brown-600'
             }`}
           >
             東京23区
           </button>
           <button
             onClick={() => setSelectedArea('other')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
               selectedArea === 'other'
-                ? 'bg-accent text-dark-900'
-                : 'bg-dark-700 text-dark-300'
+                ? 'bg-gradient-to-r from-accent to-accent-light text-white shadow-sm'
+                : 'bg-cream-100 text-brown-600'
             }`}
           >
             その他
@@ -355,7 +352,7 @@ export function LocationRequired({
             <button
               key={area.name}
               onClick={() => onManualSelect(area.latitude, area.longitude)}
-              className="p-2 text-sm bg-dark-700 hover:bg-dark-600 rounded-lg transition-colors text-dark-200"
+              className="p-2 text-sm bg-cream-50 hover:bg-cream-100 rounded-xl transition-colors text-brown-600 hover:text-brown-700"
             >
               {area.name}
             </button>
@@ -367,15 +364,15 @@ export function LocationRequired({
 
   return (
     <div className="text-center py-12">
-      <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-accent/10 flex items-center justify-center">
+      <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-pink-100 to-peach-100 flex items-center justify-center shadow-sm">
         <span className="text-4xl">📍</span>
       </div>
 
-      <h3 className="text-xl font-bold text-dark-100 mb-3">
+      <h3 className="text-xl font-bold text-brown-700 mb-3">
         位置情報が必要です
       </h3>
 
-      <p className="text-dark-400 mb-6 max-w-xs mx-auto">
+      <p className="text-brown-500 mb-6 max-w-xs mx-auto">
         {featureName}を使うには、現在地の取得が必要です。
       </p>
 

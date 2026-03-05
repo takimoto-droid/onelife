@@ -67,8 +67,12 @@ export default function DashboardPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen bg-dark-900 flex items-center justify-center">
-        <div className="spinner" />
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4 animate-bounce-soft">🐕</div>
+          <div className="spinner mx-auto" />
+          <p className="mt-4 text-brown-400 text-sm">読み込み中...</p>
+        </div>
       </div>
     );
   }
@@ -88,7 +92,8 @@ export default function DashboardPage() {
       icon: '🏥',
       title: 'かかりつけ',
       description: '動物病院管理',
-      color: 'feature-health',
+      bgColor: 'bg-mint-50',
+      iconBg: 'bg-mint-100',
       isNew: true,
     },
     {
@@ -96,7 +101,8 @@ export default function DashboardPage() {
       icon: '🐕',
       title: 'ご近所',
       description: '匿名コミュニティ',
-      color: 'feature-family',
+      bgColor: 'bg-pink-50',
+      iconBg: 'bg-pink-100',
       isNew: true,
     },
     {
@@ -105,7 +111,8 @@ export default function DashboardPage() {
       title: '鳴き声翻訳',
       description: 'AIで気持ちを翻訳',
       premium: true,
-      color: 'feature-voice',
+      bgColor: 'bg-lavender-50',
+      iconBg: 'bg-lavender-100',
     },
     {
       href: '/vaccine',
@@ -113,28 +120,32 @@ export default function DashboardPage() {
       title: 'ワクチン',
       description: 'スケジュール管理',
       badge: upcomingVaccines.length > 0 ? `${upcomingVaccines.length}件` : undefined,
-      color: 'feature-health',
+      bgColor: 'bg-mint-50',
+      iconBg: 'bg-mint-100',
     },
     {
       href: '/insurance',
       icon: '🛡️',
       title: '保険',
       description: 'AIレコメンド',
-      color: 'feature-insurance',
+      bgColor: 'bg-blue-50',
+      iconBg: 'bg-blue-100',
     },
     {
       href: '/walk',
       icon: '🚶',
       title: '散歩',
       description: 'ルート提案',
-      color: 'feature-walk',
+      bgColor: 'bg-blue-50',
+      iconBg: 'bg-blue-100',
     },
     {
       href: '/events',
       icon: '🎉',
       title: 'イベント',
       description: '展示会・パピパ',
-      color: 'feature-walk',
+      bgColor: 'bg-lavender-50',
+      iconBg: 'bg-lavender-100',
       isNew: true,
     },
     {
@@ -142,42 +153,48 @@ export default function DashboardPage() {
       icon: '📍',
       title: '周辺施設',
       description: '病院・ドッグラン',
-      color: 'feature-food',
+      bgColor: 'bg-peach-50',
+      iconBg: 'bg-peach-100',
     },
     {
       href: '/restaurants',
       icon: '🍽️',
       title: 'ペット飲食店',
       description: '同伴OKのお店',
-      color: 'feature-food',
+      bgColor: 'bg-peach-50',
+      iconBg: 'bg-peach-100',
     },
     {
       href: '/family',
       icon: '👨‍👩‍👧',
       title: '家族共有',
       description: 'お世話情報シェア',
-      color: 'feature-family',
+      bgColor: 'bg-pink-50',
+      iconBg: 'bg-pink-100',
     },
     {
       href: '/breed-stats',
       icon: '📊',
       title: '犬種分布',
       description: '全国ランキング',
-      color: 'feature-health',
+      bgColor: 'bg-cream-100',
+      iconBg: 'bg-cream-200',
     },
     {
       href: '/sns',
       icon: '📸',
       title: 'SNS投稿',
       description: '投稿文生成',
-      color: 'feature-family',
+      bgColor: 'bg-pink-50',
+      iconBg: 'bg-pink-100',
     },
     {
       href: '/goods',
       icon: '🎁',
       title: 'グッズ',
       description: 'おすすめ情報',
-      color: 'feature-goods',
+      bgColor: 'bg-pink-50',
+      iconBg: 'bg-pink-100',
     },
     {
       href: '/food',
@@ -185,17 +202,21 @@ export default function DashboardPage() {
       title: 'フード見直し',
       description: 'AIおすすめ',
       premium: true,
-      color: 'feature-food',
+      bgColor: 'bg-peach-50',
+      iconBg: 'bg-peach-100',
     },
   ];
 
   return (
-    <div className="min-h-screen bg-dark-900 pb-24">
+    <div className="min-h-screen pb-24">
       {/* ヘッダー */}
       <header className="header p-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-bold gradient-text">わんライフ</h1>
-          <Link href="/settings" className="text-dark-400 hover:text-accent transition-colors">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🐾</span>
+            <h1 className="text-xl font-bold gradient-text">わんライフ</h1>
+          </div>
+          <Link href="/settings" className="text-brown-400 hover:text-accent transition-colors p-2 rounded-full hover:bg-cream-100">
             <svg
               className="w-6 h-6"
               fill="none"
@@ -222,14 +243,16 @@ export default function DashboardPage() {
       <main className="max-w-4xl mx-auto p-4 py-6">
         {/* ウェルカムメッセージ */}
         {dog && (
-          <Card className="mb-6 bg-gradient-to-r from-dark-800 to-dark-700">
+          <div className="mb-6 bg-gradient-to-r from-pink-100 via-cream-100 to-peach-100 rounded-3xl p-5 shadow-card border border-cream-200">
             <div className="flex items-center gap-4">
-              <div className="text-4xl">🐕</div>
+              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-4xl shadow-sm border-2 border-cream-200">
+                🐕
+              </div>
               <div className="flex-1">
-                <h2 className="text-xl font-bold text-dark-50">
-                  {dog.name}ちゃんのダッシュボード
+                <h2 className="text-xl font-bold text-brown-800">
+                  {dog.name}ちゃん
                 </h2>
-                <p className="text-sm text-dark-300">
+                <p className="text-sm text-brown-500">
                   {dog.breed || '犬種未設定'}
                   {dog.dogSize && ` ・ ${getSizeLabel(dog.dogSize)}`}
                   {dog.birthDate && ` ・ ${calculateAge(new Date(dog.birthDate))}`}
@@ -239,15 +262,15 @@ export default function DashboardPage() {
                 <span className="premium-badge">Premium</span>
               )}
             </div>
-          </Card>
+          </div>
         )}
 
         {/* トライアル/プレミアム表示 */}
         {session.user.subscriptionStatus === 'trialing' && (
-          <div className="mb-6 p-4 bg-accent/10 border border-accent/30 rounded-xl">
-            <p className="text-sm text-accent">
+          <div className="mb-6 p-4 bg-gradient-to-r from-lavender-50 to-pink-50 border-2 border-lavender-200 rounded-2xl">
+            <p className="text-sm text-lavender-700">
               <span className="font-bold">無料トライアル中</span>
-              <span className="ml-2 text-dark-300">
+              <span className="ml-2 text-lavender-500">
                 すべての機能をお試しいただけます
               </span>
             </p>
@@ -258,34 +281,34 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
           {menuItems.map((item) => (
             <Link key={item.href} href={item.href}>
-              <Card variant="interactive" className="h-full p-4 relative">
+              <div className={`${item.bgColor} rounded-3xl p-4 relative hover:-translate-y-1 transition-all duration-300 hover:shadow-card-hover border border-white/50`}>
                 {item.isNew && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                  <span className="absolute -top-1.5 -right-1.5 bg-gradient-to-r from-accent to-peach-400 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm">
                     NEW
                   </span>
                 )}
                 <div className="text-center">
-                  <div className={`w-12 h-12 rounded-xl mx-auto mb-2 flex items-center justify-center text-2xl bg-${item.color}/20`}>
+                  <div className={`w-12 h-12 ${item.iconBg} rounded-2xl mx-auto mb-2 flex items-center justify-center text-2xl shadow-sm`}>
                     {item.icon}
                   </div>
                   <div className="flex items-center justify-center gap-1 mb-1">
-                    <h3 className="font-bold text-dark-100 text-sm">
+                    <h3 className="font-bold text-brown-700 text-sm">
                       {item.title}
                     </h3>
                     {item.premium && (
-                      <span className="premium-badge text-[8px] px-1">P</span>
+                      <span className="bg-gradient-premium text-brown-800 text-[8px] px-1.5 py-0.5 rounded-full font-bold">P</span>
                     )}
                   </div>
-                  <p className="text-xs text-dark-400">
+                  <p className="text-xs text-brown-400">
                     {item.description}
                   </p>
                   {item.badge && (
-                    <span className="inline-block mt-2 px-2 py-0.5 bg-accent/20 text-accent text-xs rounded-full">
+                    <span className="inline-block mt-2 px-2 py-0.5 bg-accent/20 text-accent text-xs rounded-full font-medium">
                       {item.badge}
                     </span>
                   )}
                 </div>
-              </Card>
+              </div>
             </Link>
           ))}
         </div>
@@ -294,14 +317,15 @@ export default function DashboardPage() {
         {upcomingVaccines.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-dark-100">
+              <h3 className="text-lg font-bold text-brown-700 flex items-center gap-2">
+                <span>💉</span>
                 直近のワクチン予定
               </h3>
               <Link
                 href="/vaccine"
-                className="text-sm text-accent hover:text-accent-light"
+                className="text-sm text-accent hover:text-accent-dark font-medium"
               >
-                すべて見る
+                すべて見る →
               </Link>
             </div>
             <div className="space-y-4">
@@ -319,13 +343,13 @@ export default function DashboardPage() {
 
         {/* ワクチン未登録の場合 */}
         {dog && upcomingVaccines.length === 0 && (
-          <Card className="mb-8">
+          <Card className="mb-8 bg-gradient-to-br from-mint-50 to-cream-50 border-mint-200">
             <div className="text-center py-4">
-              <div className="text-4xl mb-4">📅</div>
-              <h3 className="font-bold text-dark-100 mb-2">
+              <div className="text-5xl mb-4">📅</div>
+              <h3 className="font-bold text-brown-700 mb-2">
                 ワクチンスケジュールを作成しましょう
               </h3>
-              <p className="text-sm text-dark-400 mb-4">
+              <p className="text-sm text-brown-400 mb-4">
                 {dog.name}ちゃんに必要なワクチンの予定を管理できます
               </p>
               <Link href="/vaccine">
@@ -338,42 +362,51 @@ export default function DashboardPage() {
         {/* クイックアクション */}
         <div className="grid grid-cols-2 gap-4 mb-8">
           <Link href="/walk">
-            <Card className="bg-gradient-to-r from-feature-walk/20 to-feature-walk/10 border-feature-walk/30">
+            <div className="bg-gradient-to-r from-blue-100 to-blue-50 rounded-3xl p-4 border border-blue-200 hover:-translate-y-1 transition-all duration-300 hover:shadow-card-hover">
               <div className="flex items-center gap-3">
-                <span className="text-3xl">🚶</span>
+                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-2xl shadow-sm">
+                  🚶
+                </div>
                 <div>
-                  <h3 className="font-bold text-dark-100">今日の散歩</h3>
-                  <p className="text-xs text-dark-400">ルートを提案</p>
+                  <h3 className="font-bold text-brown-700">今日の散歩</h3>
+                  <p className="text-xs text-brown-400">ルートを提案</p>
                 </div>
               </div>
-            </Card>
+            </div>
           </Link>
           <Link href="/voice">
-            <Card className={`bg-gradient-to-r from-feature-voice/20 to-feature-voice/10 border-feature-voice/30 ${!isPremium && 'opacity-70'}`}>
+            <div className={`bg-gradient-to-r from-lavender-100 to-lavender-50 rounded-3xl p-4 border border-lavender-200 hover:-translate-y-1 transition-all duration-300 hover:shadow-card-hover ${!isPremium && 'opacity-80'}`}>
               <div className="flex items-center gap-3">
-                <span className="text-3xl">🎤</span>
+                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-2xl shadow-sm">
+                  🎤
+                </div>
                 <div>
-                  <h3 className="font-bold text-dark-100 flex items-center gap-1">
+                  <h3 className="font-bold text-brown-700 flex items-center gap-1">
                     鳴き声翻訳
-                    {!isPremium && <span className="premium-badge text-[8px] px-1">P</span>}
+                    {!isPremium && <span className="bg-gradient-premium text-brown-800 text-[8px] px-1.5 py-0.5 rounded-full font-bold">P</span>}
                   </h3>
-                  <p className="text-xs text-dark-400">AIで気持ちを翻訳</p>
+                  <p className="text-xs text-brown-400">AIで気持ちを翻訳</p>
                 </div>
               </div>
-            </Card>
+            </div>
           </Link>
         </div>
 
         {/* 不安なこと */}
         {dog?.mainConcern && (
-          <Card className="mb-8 bg-dark-800/50">
-            <h3 className="font-bold text-dark-100 mb-2">
-              あなたの心配ごと
-            </h3>
-            <p className="text-dark-300">{dog.mainConcern}</p>
-            <p className="text-sm text-dark-400 mt-3">
-              この不安を解消できるよう、わんライフがサポートします。
-            </p>
+          <Card className="mb-8 bg-gradient-to-br from-cream-50 to-pink-50 border-cream-200">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">💭</span>
+              <div>
+                <h3 className="font-bold text-brown-700 mb-2">
+                  あなたの心配ごと
+                </h3>
+                <p className="text-brown-600">{dog.mainConcern}</p>
+                <p className="text-sm text-brown-400 mt-3">
+                  この不安を解消できるよう、わんライフがサポートします
+                </p>
+              </div>
+            </div>
           </Card>
         )}
 

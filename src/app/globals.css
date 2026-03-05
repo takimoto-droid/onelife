@@ -2,124 +2,155 @@
 @tailwind components;
 @tailwind utilities;
 
-/* わんライフ ダークテーマ */
+/* わんライフ パステルテーマ（主婦向け可愛いデザイン） */
 :root {
-  --bg-primary: #0D1B2A;
-  --bg-secondary: #1B263B;
-  --bg-tertiary: #243B53;
-  --text-primary: #D9E2EC;
-  --text-secondary: #9FB3C8;
-  --text-muted: #627D98;
-  --accent: #E8AA42;
-  --accent-light: #F5C96C;
-  --border: #334E68;
+  --bg-primary: #FFF9F5;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary: #FFF3EB;
+  --text-primary: #5D4037;
+  --text-secondary: #8D6E63;
+  --text-muted: #A1887F;
+  --accent: #FF8585;
+  --accent-light: #FFB5B5;
+  --accent-dark: #E86565;
+  --border: #FFE4D1;
+  --border-light: #FFF0EA;
 }
 
 body {
-  background: var(--bg-primary);
+  background: linear-gradient(180deg, #FFF9F5 0%, #FFF5F5 50%, #FFFDFB 100%);
   color: var(--text-primary);
   min-height: 100vh;
-  font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+  font-family: 'Hiragino Maru Gothic ProN', 'Hiragino Sans', 'Meiryo', sans-serif;
 }
 
-/* スクロールバー */
+/* スクロールバー（可愛いピンク） */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
+  background: var(--bg-tertiary);
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
+  background: linear-gradient(180deg, #FFB5B5 0%, #FF8585 100%);
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: linear-gradient(180deg, #FF9B9B 0%, #FF6B6B 100%);
+}
+
+/* セレクション（選択時の色） */
+::selection {
+  background: rgba(255, 133, 133, 0.3);
+  color: #5D4037;
 }
 
 /* カスタムスタイル */
 @layer components {
   /* ボタン */
   .btn-primary {
-    @apply bg-accent text-dark-900 font-bold py-3 px-6 rounded-xl transition-all duration-200
-           hover:bg-accent-light active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
-           shadow-glow-accent;
+    @apply bg-gradient-to-r from-accent to-accent-light text-white font-bold py-3 px-6
+           rounded-full transition-all duration-300 ease-out
+           hover:shadow-button hover:scale-105 active:scale-95
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100;
   }
 
   .btn-secondary {
-    @apply bg-dark-700 text-dark-100 font-medium py-3 px-6 rounded-xl transition-all duration-200
-           hover:bg-dark-600 border border-dark-600;
+    @apply bg-white text-brown-700 font-medium py-3 px-6 rounded-full
+           transition-all duration-200 border-2 border-cream-400
+           hover:border-accent-light hover:bg-cream-50 shadow-card;
   }
 
   .btn-outline {
-    @apply border-2 border-accent text-accent hover:bg-accent hover:text-dark-900
-           font-medium py-3 px-6 rounded-xl transition-all duration-200;
+    @apply border-2 border-accent text-accent hover:bg-accent hover:text-white
+           font-medium py-3 px-6 rounded-full transition-all duration-200;
   }
 
   .btn-ghost {
-    @apply text-dark-200 hover:text-accent hover:bg-dark-700/50
-           font-medium py-2 px-4 rounded-lg transition-all duration-200;
+    @apply text-brown-600 hover:text-accent hover:bg-accent-50
+           font-medium py-2 px-4 rounded-full transition-all duration-200;
+  }
+
+  .btn-cute {
+    @apply bg-gradient-to-r from-pink-300 to-peach-300 text-white font-bold
+           py-3 px-6 rounded-full shadow-soft transition-all duration-300
+           hover:shadow-soft-lg hover:scale-105 active:scale-95;
+  }
+
+  .btn-mint {
+    @apply bg-gradient-to-r from-mint-400 to-mint-300 text-white font-bold
+           py-3 px-6 rounded-full shadow-soft transition-all duration-300
+           hover:shadow-soft-lg hover:scale-105 active:scale-95;
   }
 
   .btn-premium {
-    @apply bg-gradient-premium text-dark-900 font-bold py-3 px-6 rounded-xl
-           transition-all duration-200 shadow-glow-premium hover:scale-105 active:scale-95;
+    @apply bg-gradient-premium text-brown-800 font-bold py-3 px-6 rounded-full
+           transition-all duration-200 shadow-soft hover:scale-105 active:scale-95;
   }
 
   /* 入力フィールド */
   .input-field {
-    @apply w-full px-4 py-3 rounded-xl bg-dark-800 border border-dark-600
-           text-dark-100 placeholder-dark-400
-           focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none
-           transition-all duration-200;
+    @apply w-full px-5 py-3.5 rounded-2xl bg-white border-2 border-cream-300
+           text-brown-700 placeholder-brown-300
+           focus:border-accent focus:ring-4 focus:ring-accent/10 outline-none
+           transition-all duration-200 shadow-inner-soft;
   }
 
   .input-field-error {
-    @apply border-red-500 focus:border-red-500 focus:ring-red-500/20;
+    @apply border-pink-400 focus:border-pink-400 focus:ring-pink-400/20;
   }
 
   /* カード */
   .card {
-    @apply bg-dark-800 rounded-2xl border border-dark-600 p-6 shadow-card-dark;
+    @apply bg-white rounded-3xl border border-cream-200 p-6 shadow-card;
   }
 
   .card-interactive {
-    @apply card cursor-pointer hover:border-accent/50 hover:shadow-glow-accent transition-all duration-200;
+    @apply card cursor-pointer hover:border-accent-light hover:shadow-card-hover
+           transition-all duration-300 hover:-translate-y-1;
   }
 
   .card-feature {
-    @apply bg-dark-800/80 rounded-2xl border border-dark-600 p-4
-           backdrop-blur-sm transition-all duration-200;
+    @apply bg-white/90 rounded-3xl border border-cream-200 p-5
+           backdrop-blur-sm transition-all duration-300 shadow-card;
+  }
+
+  .card-cute {
+    @apply bg-gradient-to-br from-white to-cream-50 rounded-3xl
+           border-2 border-cream-200 p-6 shadow-card
+           hover:border-accent-light hover:shadow-card-hover transition-all duration-300;
   }
 
   .card-premium {
-    @apply bg-gradient-to-br from-dark-800 to-dark-700 rounded-2xl
-           border border-premium-gold/30 p-6 shadow-glow-premium;
+    @apply bg-gradient-to-br from-cream-50 to-white rounded-3xl
+           border-2 border-yellow-200 p-6 shadow-soft;
   }
 
   /* ヘッダー */
   .header {
-    @apply bg-dark-800/90 backdrop-blur-md border-b border-dark-600
-           sticky top-0 z-50;
+    @apply bg-white/90 backdrop-blur-md border-b border-cream-200
+           sticky top-0 z-50 shadow-sm;
   }
 
   /* ナビゲーション */
   .nav-item {
-    @apply flex flex-col items-center gap-1 px-4 py-2 rounded-lg
-           text-dark-300 hover:text-accent transition-colors duration-200;
+    @apply flex flex-col items-center gap-1 px-4 py-2 rounded-2xl
+           text-brown-400 hover:text-accent transition-all duration-200
+           hover:bg-accent-50;
   }
 
   .nav-item-active {
-    @apply text-accent bg-dark-700;
+    @apply text-accent bg-accent-50;
   }
 }
 
 /* タイポグラフィ */
 h1, h2, h3, h4, h5, h6 {
-  @apply font-bold text-dark-50;
+  @apply font-bold text-brown-800;
 }
 
 h1 { @apply text-2xl; }
@@ -128,12 +159,12 @@ h3 { @apply text-lg; }
 
 /* リンク */
 a {
-  @apply text-accent hover:text-accent-light transition-colors duration-200;
+  @apply text-accent hover:text-accent-dark transition-colors duration-200;
 }
 
-/* ダークテーマのソフトシャドウ */
+/* ソフトシャドウ */
 .soft-shadow {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 20px rgba(255, 133, 133, 0.15);
 }
 
 /* アニメーション */
@@ -168,6 +199,13 @@ a {
   }
 }
 
+@keyframes heartBeat {
+  0%, 100% { transform: scale(1); }
+  25% { transform: scale(1.1); }
+  50% { transform: scale(1); }
+  75% { transform: scale(1.1); }
+}
+
 .fade-in {
   animation: fadeIn 0.3s ease-out;
 }
@@ -178,98 +216,109 @@ a {
 
 .shimmer {
   background: linear-gradient(90deg,
-    var(--bg-secondary) 0%,
-    var(--bg-tertiary) 50%,
-    var(--bg-secondary) 100%
+    #FFF9F5 0%,
+    #FFE8E8 50%,
+    #FFF9F5 100%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
 
-/* チャットバブル（ダークテーマ） */
+.heart-beat {
+  animation: heartBeat 1.5s ease-in-out infinite;
+}
+
+/* チャットバブル（パステル版） */
 .chat-bubble-ai {
-  @apply bg-dark-700 text-dark-100 rounded-2xl rounded-tl-md px-4 py-3;
+  @apply bg-gradient-to-br from-cream-100 to-cream-200 text-brown-700
+         rounded-3xl rounded-tl-lg px-5 py-4 shadow-card;
 }
 
 .chat-bubble-user {
-  @apply bg-accent text-dark-900 rounded-2xl rounded-tr-md px-4 py-3;
+  @apply bg-gradient-to-r from-accent to-accent-light text-white
+         rounded-3xl rounded-tr-lg px-5 py-4 shadow-soft;
 }
 
 /* 医療・法的注意書き */
 .disclaimer {
-  @apply text-xs text-dark-400 bg-dark-800/50 border border-dark-600 rounded-lg p-3 mt-4;
+  @apply text-xs text-brown-400 bg-cream-50 border border-cream-300
+         rounded-2xl p-4 mt-4;
 }
 
 /* プレミアムバッジ */
 .premium-badge {
-  @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-         bg-gradient-premium text-dark-900 text-xs font-bold;
+  @apply inline-flex items-center gap-1 px-3 py-1 rounded-full
+         bg-gradient-premium text-brown-800 text-xs font-bold shadow-sm;
 }
 
 /* 機能アイコン背景 */
 .feature-icon {
-  @apply w-12 h-12 rounded-xl flex items-center justify-center text-2xl;
+  @apply w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-sm;
 }
 
-.feature-icon-voice { @apply bg-feature-voice/20 text-feature-voice; }
-.feature-icon-health { @apply bg-feature-health/20 text-feature-health; }
-.feature-icon-walk { @apply bg-feature-walk/20 text-feature-walk; }
-.feature-icon-food { @apply bg-feature-food/20 text-feature-food; }
-.feature-icon-insurance { @apply bg-feature-insurance/20 text-feature-insurance; }
-.feature-icon-family { @apply bg-feature-family/20 text-feature-family; }
-.feature-icon-goods { @apply bg-feature-goods/20 text-feature-goods; }
+.feature-icon-voice { @apply bg-lavender-100 text-lavender-500; }
+.feature-icon-health { @apply bg-mint-100 text-mint-600; }
+.feature-icon-walk { @apply bg-blue-100 text-blue-400; }
+.feature-icon-food { @apply bg-peach-100 text-peach-500; }
+.feature-icon-insurance { @apply bg-cyan-100 text-cyan-500; }
+.feature-icon-family { @apply bg-pink-100 text-pink-400; }
+.feature-icon-goods { @apply bg-pink-100 text-accent; }
+.feature-icon-vet { @apply bg-mint-100 text-mint-500; }
+.feature-icon-community { @apply bg-pink-50 text-pink-400; }
+.feature-icon-events { @apply bg-lavender-100 text-lavender-400; }
 
 /* プログレスバー */
 .progress-bar {
-  @apply h-2 bg-dark-700 rounded-full overflow-hidden;
+  @apply h-3 bg-cream-200 rounded-full overflow-hidden;
 }
 
 .progress-bar-fill {
-  @apply h-full bg-accent rounded-full transition-all duration-500;
+  @apply h-full bg-gradient-to-r from-accent to-accent-light rounded-full
+         transition-all duration-500;
 }
 
 /* タブ */
 .tab-list {
-  @apply flex gap-2 p-1 bg-dark-800 rounded-xl;
+  @apply flex gap-2 p-1.5 bg-cream-100 rounded-full;
 }
 
 .tab-item {
-  @apply flex-1 py-2 px-4 rounded-lg text-sm font-medium text-dark-300
+  @apply flex-1 py-2.5 px-4 rounded-full text-sm font-medium text-brown-400
          transition-all duration-200 text-center cursor-pointer;
 }
 
 .tab-item-active {
-  @apply bg-dark-700 text-accent;
+  @apply bg-white text-accent shadow-card;
 }
 
 /* モーダル背景 */
 .modal-backdrop {
-  @apply fixed inset-0 bg-dark-900/80 backdrop-blur-sm z-50;
+  @apply fixed inset-0 bg-brown-900/30 backdrop-blur-sm z-50;
 }
 
 .modal-content {
-  @apply bg-dark-800 rounded-2xl border border-dark-600 shadow-card-dark
+  @apply bg-white rounded-3xl border border-cream-200 shadow-soft-lg
          max-w-md w-full mx-4 p-6;
 }
 
 /* トースト通知 */
 .toast {
   @apply fixed bottom-20 left-4 right-4 mx-auto max-w-sm
-         bg-dark-700 border border-dark-600 rounded-xl p-4
-         shadow-card-dark z-50;
+         bg-white border border-cream-200 rounded-2xl p-4
+         shadow-soft-lg z-50;
 }
 
 .toast-success {
-  @apply border-l-4 border-l-feature-health;
+  @apply border-l-4 border-l-mint-400;
 }
 
 .toast-error {
-  @apply border-l-4 border-l-red-500;
+  @apply border-l-4 border-l-pink-400;
 }
 
 /* ローディングスピナー */
 .spinner {
-  @apply w-8 h-8 border-4 border-dark-600 border-t-accent rounded-full animate-spin;
+  @apply w-8 h-8 border-4 border-cream-200 border-t-accent rounded-full animate-spin;
 }
 
 /* 空状態 */
@@ -282,16 +331,16 @@ a {
 }
 
 .empty-state-title {
-  @apply text-lg font-bold text-dark-200 mb-2;
+  @apply text-lg font-bold text-brown-600 mb-2;
 }
 
 .empty-state-description {
-  @apply text-sm text-dark-400;
+  @apply text-sm text-brown-400;
 }
 
 /* グラデーションテキスト */
 .gradient-text {
-  @apply bg-gradient-to-r from-accent to-accent-light bg-clip-text text-transparent;
+  @apply bg-gradient-to-r from-accent to-peach-400 bg-clip-text text-transparent;
 }
 
 .gradient-text-premium {
@@ -300,17 +349,17 @@ a {
 
 /* ボトムナビゲーション */
 .bottom-nav {
-  @apply fixed bottom-0 left-0 right-0 bg-dark-800/95 backdrop-blur-md
-         border-t border-dark-600 py-2 px-4 safe-area-bottom;
+  @apply fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md
+         border-t border-cream-200 py-2 px-4 safe-area-bottom shadow-soft;
 }
 
 .bottom-nav-item {
-  @apply flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg
-         text-dark-400 text-xs transition-colors duration-200;
+  @apply flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-2xl
+         text-brown-400 text-xs transition-all duration-200;
 }
 
 .bottom-nav-item-active {
-  @apply text-accent;
+  @apply text-accent bg-accent-50;
 }
 
 /* セーフエリア対応 */
@@ -318,4 +367,131 @@ a {
   .safe-area-bottom {
     padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
   }
+}
+
+/* 肉球デコレーション */
+.paw-decoration::before {
+  content: '🐾';
+  position: absolute;
+  opacity: 0.1;
+  font-size: 4rem;
+}
+
+/* ハートアイコン */
+.heart-icon {
+  @apply text-accent transition-all duration-200;
+}
+
+.heart-icon:hover {
+  @apply scale-125;
+}
+
+/* バッジ */
+.badge {
+  @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium;
+}
+
+.badge-pink {
+  @apply bg-pink-100 text-pink-600;
+}
+
+.badge-mint {
+  @apply bg-mint-100 text-mint-700;
+}
+
+.badge-peach {
+  @apply bg-peach-100 text-peach-600;
+}
+
+.badge-lavender {
+  @apply bg-lavender-100 text-lavender-600;
+}
+
+/* 星評価 */
+.star-filled {
+  @apply text-yellow-400;
+}
+
+.star-empty {
+  @apply text-cream-300;
+}
+
+/* 可愛い区切り線 */
+.divider-cute {
+  @apply flex items-center gap-4 text-brown-300 text-sm;
+}
+
+.divider-cute::before,
+.divider-cute::after {
+  content: '';
+  @apply flex-1 h-px bg-gradient-to-r from-transparent via-cream-300 to-transparent;
+}
+
+/* 吹き出し */
+.speech-bubble {
+  @apply relative bg-white rounded-2xl p-4 shadow-card border border-cream-200;
+}
+
+.speech-bubble::after {
+  content: '';
+  @apply absolute -bottom-2 left-6 w-4 h-4 bg-white border-r border-b
+         border-cream-200 transform rotate-45;
+}
+
+/* カウンター（通知数など） */
+.counter {
+  @apply absolute -top-1 -right-1 min-w-5 h-5 flex items-center justify-center
+         bg-accent text-white text-xs font-bold rounded-full px-1.5;
+}
+
+/* ホバーエフェクト */
+.hover-lift {
+  @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover;
+}
+
+.hover-glow {
+  @apply transition-all duration-300 hover:shadow-soft;
+}
+
+/* 入力フォーカスリング */
+.focus-ring {
+  @apply focus:outline-none focus:ring-4 focus:ring-accent/20 focus:border-accent;
+}
+
+/* アバター */
+.avatar {
+  @apply w-12 h-12 rounded-full bg-cream-100 flex items-center justify-center
+         text-xl border-2 border-cream-200 shadow-sm;
+}
+
+.avatar-lg {
+  @apply w-16 h-16 text-2xl;
+}
+
+/* ステータスドット */
+.status-dot {
+  @apply w-3 h-3 rounded-full;
+}
+
+.status-online {
+  @apply bg-mint-400;
+}
+
+.status-offline {
+  @apply bg-brown-300;
+}
+
+.status-busy {
+  @apply bg-peach-400;
+}
+
+/* ツールチップ */
+.tooltip {
+  @apply absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5
+         bg-brown-700 text-white text-xs rounded-lg whitespace-nowrap
+         opacity-0 invisible transition-all duration-200;
+}
+
+.tooltip-trigger:hover .tooltip {
+  @apply opacity-100 visible;
 }

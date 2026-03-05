@@ -24,13 +24,13 @@ interface Place {
 
 type PlaceType = 'all' | 'vet' | 'dogrun' | 'petshop' | 'trimming' | 'cafe';
 
-const PLACE_TYPES: { value: PlaceType; label: string; emoji: string }[] = [
-  { value: 'all', label: 'すべて', emoji: '📍' },
-  { value: 'vet', label: '動物病院', emoji: '🏥' },
-  { value: 'dogrun', label: 'ドッグラン', emoji: '🐕' },
-  { value: 'petshop', label: 'ペットショップ', emoji: '🛒' },
-  { value: 'trimming', label: 'トリミング', emoji: '✂️' },
-  { value: 'cafe', label: 'ペットカフェ', emoji: '☕' },
+const PLACE_TYPES: { value: PlaceType; label: string; emoji: string; bgColor: string }[] = [
+  { value: 'all', label: 'すべて', emoji: '📍', bgColor: 'bg-cream-100' },
+  { value: 'vet', label: '動物病院', emoji: '🏥', bgColor: 'bg-mint-100' },
+  { value: 'dogrun', label: 'ドッグラン', emoji: '🐕', bgColor: 'bg-blue-100' },
+  { value: 'petshop', label: 'ペットショップ', emoji: '🛒', bgColor: 'bg-peach-100' },
+  { value: 'trimming', label: 'トリミング', emoji: '✂️', bgColor: 'bg-lavender-100' },
+  { value: 'cafe', label: 'ペットカフェ', emoji: '☕', bgColor: 'bg-pink-100' },
 ];
 
 const SEARCH_RADIUS_OPTIONS = [
@@ -58,7 +58,6 @@ export default function PlacesPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // 位置情報（コンテキストから取得）
   const {
     location,
     loading: locationLoading,
@@ -73,19 +72,17 @@ export default function PlacesPage() {
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [searchRadius, setSearchRadius] = useState(1); // km
+  const [searchRadius, setSearchRadius] = useState(1);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [showRadiusSelector, setShowRadiusSelector] = useState(false);
 
-  // 施設検索
   const searchPlaces = useCallback(async (radius: number = searchRadius) => {
     if (!location) return;
 
     setLoading(true);
     setHasSearched(true);
 
-    // モックデータをフィルタリング（実際はAPIを呼び出す）
-    await new Promise(resolve => setTimeout(resolve, 500)); // シミュレーション
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     let filtered = MOCK_PLACES.filter(p => p.distance <= radius * 1000);
 
@@ -93,35 +90,30 @@ export default function PlacesPage() {
       filtered = filtered.filter(p => p.type === placeType);
     }
 
-    // 距離でソート
     filtered.sort((a, b) => a.distance - b.distance);
 
     setPlaces(filtered);
     setLoading(false);
   }, [location, placeType, searchRadius]);
 
-  // 位置情報取得後に自動検索
   useEffect(() => {
     if (isLocationReady && !hasSearched) {
       searchPlaces();
     }
   }, [isLocationReady, hasSearched, searchPlaces]);
 
-  // フィルター変更時に再検索
   useEffect(() => {
     if (hasSearched) {
       searchPlaces();
     }
   }, [placeType]);
 
-  // 検索範囲を変更
   const handleRadiusChange = (radius: number) => {
     setSearchRadius(radius);
     setShowRadiusSelector(false);
     searchPlaces(radius);
   };
 
-  // Googleマップで経路を開く
   const openGoogleMaps = (place: Place) => {
     if (!location) return;
 
@@ -131,33 +123,26 @@ export default function PlacesPage() {
     window.open(url, '_blank');
   };
 
-  // 電話発信
   const handleCall = (phone: string) => {
     window.location.href = `tel:${phone}`;
   };
 
-  // 距離表示
   const formatDistance = (meters: number) => {
     if (meters < 1000) return `${meters}m`;
     return `${(meters / 1000).toFixed(1)}km`;
   };
 
-  // タイプのアイコン
-  const getTypeIcon = (type: string) => {
-    const found = PLACE_TYPES.find(t => t.value === type);
-    return found?.emoji || '📍';
-  };
-
-  // タイプのラベル
-  const getTypeLabel = (type: string) => {
-    const found = PLACE_TYPES.find(t => t.value === type);
-    return found?.label || '';
+  const getTypeInfo = (type: string) => {
+    return PLACE_TYPES.find(t => t.value === type) || PLACE_TYPES[0];
   };
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-dark-900 flex items-center justify-center">
-        <div className="spinner" />
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4 animate-bounce-soft">📍</div>
+          <div className="spinner mx-auto" />
+        </div>
       </div>
     );
   }
@@ -168,14 +153,17 @@ export default function PlacesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-dark-900 pb-24">
+    <div className="min-h-screen pb-24">
       {/* ヘッダー */}
       <header className="header p-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <Link href="/dashboard">
-            <h1 className="text-xl font-bold gradient-text">わんライフ</h1>
-          </Link>
-          <Link href="/dashboard" className="text-accent text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🐾</span>
+            <Link href="/dashboard">
+              <h1 className="text-xl font-bold gradient-text">わんライフ</h1>
+            </Link>
+          </div>
+          <Link href="/dashboard" className="text-accent font-medium text-sm">
             戻る
           </Link>
         </div>
@@ -183,8 +171,11 @@ export default function PlacesPage() {
 
       <main className="max-w-2xl mx-auto p-4 py-6">
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-dark-50 mb-2">📍 周辺施設</h2>
-          <p className="text-dark-400">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-peach-100 rounded-full mb-3">
+            <span className="text-3xl">📍</span>
+          </div>
+          <h2 className="text-2xl font-bold text-brown-700 mb-2">周辺施設</h2>
+          <p className="text-brown-400">
             近くの動物病院・ドッグラン・ペットショップ
           </p>
         </div>
@@ -213,10 +204,10 @@ export default function PlacesPage() {
         {isLocationReady && (
           <>
             {/* 現在地表示 */}
-            <div className="flex items-center justify-between mb-4 p-3 bg-feature-walk/10 border border-feature-walk/30 rounded-xl">
+            <div className="flex items-center justify-between mb-4 p-3 bg-blue-50 border border-blue-200 rounded-2xl">
               <div className="flex items-center gap-2">
-                <span className="text-feature-walk">📍</span>
-                <span className="text-sm text-dark-300">
+                <span className="text-blue-500">📍</span>
+                <span className="text-sm text-brown-500">
                   現在地から検索中
                   {location?.source === 'manual' && '（手動設定）'}
                 </span>
@@ -224,13 +215,13 @@ export default function PlacesPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowRadiusSelector(true)}
-                  className="text-xs bg-dark-700 text-dark-300 px-2 py-1 rounded-full"
+                  className="text-xs bg-white text-brown-600 px-3 py-1.5 rounded-full border border-cream-200 shadow-sm"
                 >
                   {searchRadius}km圏内
                 </button>
                 <button
                   onClick={() => refreshLocation()}
-                  className="text-xs text-accent hover:underline"
+                  className="text-xs text-accent font-medium hover:underline"
                   disabled={locationLoading}
                 >
                   更新
@@ -244,10 +235,10 @@ export default function PlacesPage() {
                 <button
                   key={type.value}
                   onClick={() => setPlaceType(type.value)}
-                  className={`flex items-center gap-1 px-3 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-1 px-3 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-all ${
                     placeType === type.value
-                      ? 'bg-accent text-dark-900'
-                      : 'bg-dark-700 text-dark-300 hover:bg-dark-600'
+                      ? 'bg-gradient-to-r from-accent to-accent-light text-white shadow-sm'
+                      : `${type.bgColor} text-brown-600 hover:shadow-sm`
                   }`}
                 >
                   <span>{type.emoji}</span>
@@ -260,7 +251,7 @@ export default function PlacesPage() {
             {loading && (
               <div className="text-center py-12">
                 <div className="spinner mx-auto mb-4" />
-                <p className="text-dark-400">検索中...</p>
+                <p className="text-brown-400">検索中...</p>
               </div>
             )}
 
@@ -269,74 +260,77 @@ export default function PlacesPage() {
               <>
                 {places.length > 0 ? (
                   <div className="space-y-4">
-                    <p className="text-sm text-dark-400">
+                    <p className="text-sm text-brown-400">
                       {searchRadius}km圏内に{places.length}件見つかりました
                     </p>
-                    {places.map((place) => (
-                      <Card
-                        key={place.id}
-                        className="cursor-pointer hover:ring-1 hover:ring-accent/50 transition-all"
-                        onClick={() => setSelectedPlace(place)}
-                      >
-                        <div className="flex items-start gap-4">
-                          {/* アイコン */}
-                          <div className="w-12 h-12 rounded-xl bg-dark-600 flex items-center justify-center text-2xl flex-shrink-0">
-                            {getTypeIcon(place.type)}
-                          </div>
-
-                          {/* 情報 */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs bg-dark-600 text-dark-300 px-2 py-0.5 rounded">
-                                {getTypeLabel(place.type)}
-                              </span>
-                              {place.openNow !== undefined && (
-                                <span className={`text-xs px-2 py-0.5 rounded ${
-                                  place.openNow
-                                    ? 'bg-green-500/20 text-green-400'
-                                    : 'bg-dark-600 text-dark-400'
-                                }`}>
-                                  {place.openNow ? '営業中' : '営業時間外'}
-                                </span>
-                              )}
+                    {places.map((place) => {
+                      const typeInfo = getTypeInfo(place.type);
+                      return (
+                        <Card
+                          key={place.id}
+                          className="cursor-pointer hover:shadow-card-hover transition-all bg-white"
+                          onClick={() => setSelectedPlace(place)}
+                        >
+                          <div className="flex items-start gap-4">
+                            {/* アイコン */}
+                            <div className={`w-12 h-12 rounded-2xl ${typeInfo.bgColor} flex items-center justify-center text-2xl flex-shrink-0 shadow-sm`}>
+                              {typeInfo.emoji}
                             </div>
 
-                            <h3 className="font-bold text-dark-100 mb-1">{place.name}</h3>
-                            <p className="text-sm text-dark-400 mb-2">{place.address}</p>
-
-                            <div className="flex items-center gap-3 text-sm">
-                              <span className="text-accent font-medium">
-                                {formatDistance(place.distance)}
-                              </span>
-                              {place.rating && (
-                                <span className="text-dark-300">
-                                  ⭐ {place.rating} ({place.reviewCount})
+                            {/* 情報 */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`text-xs ${typeInfo.bgColor} text-brown-600 px-2 py-0.5 rounded-full`}>
+                                  {typeInfo.label}
                                 </span>
-                              )}
-                            </div>
-
-                            {place.features && place.features.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {place.features.map((f, i) => (
-                                  <span key={i} className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded">
-                                    {f}
+                                {place.openNow !== undefined && (
+                                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                    place.openNow
+                                      ? 'bg-mint-100 text-mint-700'
+                                      : 'bg-cream-100 text-brown-400'
+                                  }`}>
+                                    {place.openNow ? '営業中' : '営業時間外'}
                                   </span>
-                                ))}
+                                )}
                               </div>
-                            )}
+
+                              <h3 className="font-bold text-brown-700 mb-1">{place.name}</h3>
+                              <p className="text-sm text-brown-400 mb-2">{place.address}</p>
+
+                              <div className="flex items-center gap-3 text-sm">
+                                <span className="text-accent font-medium">
+                                  {formatDistance(place.distance)}
+                                </span>
+                                {place.rating && (
+                                  <span className="text-brown-500">
+                                    ⭐ {place.rating} ({place.reviewCount})
+                                  </span>
+                                )}
+                              </div>
+
+                              {place.features && place.features.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {place.features.map((f, i) => (
+                                    <span key={i} className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded-full">
+                                      {f}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </Card>
-                    ))}
+                        </Card>
+                      );
+                    })}
                   </div>
                 ) : (
                   /* 結果なし */
                   <div className="text-center py-12">
-                    <span className="text-4xl mb-4 block">🔍</span>
-                    <p className="text-dark-300 mb-2">
+                    <span className="text-5xl mb-4 block">🔍</span>
+                    <p className="text-brown-500 mb-2">
                       近くに施設が見つかりませんでした
                     </p>
-                    <p className="text-sm text-dark-500 mb-6">
+                    <p className="text-sm text-brown-400 mb-6">
                       検索範囲を広げてお試しください
                     </p>
 
@@ -372,14 +366,14 @@ export default function PlacesPage() {
       {/* 検索範囲選択モーダル */}
       {showRadiusSelector && (
         <div
-          className="fixed inset-0 bg-dark-900/90 z-50 flex items-end sm:items-center justify-center"
+          className="fixed inset-0 bg-brown-900/30 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center"
           onClick={() => setShowRadiusSelector(false)}
         >
           <div
-            className="bg-dark-800 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-6"
+            className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm p-6 shadow-soft-lg"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold text-dark-100 mb-4 text-center">
+            <h3 className="text-lg font-bold text-brown-700 mb-4 text-center">
               検索範囲を選択
             </h3>
             <div className="grid grid-cols-2 gap-3">
@@ -387,10 +381,10 @@ export default function PlacesPage() {
                 <button
                   key={option.value}
                   onClick={() => handleRadiusChange(option.value)}
-                  className={`py-3 rounded-xl font-medium transition-colors ${
+                  className={`py-3 rounded-2xl font-medium transition-all ${
                     searchRadius === option.value
-                      ? 'bg-accent text-dark-900'
-                      : 'bg-dark-700 text-dark-300 hover:bg-dark-600'
+                      ? 'bg-gradient-to-r from-accent to-accent-light text-white shadow-sm'
+                      : 'bg-cream-50 text-brown-600 hover:bg-cream-100'
                   }`}
                 >
                   {option.label}
@@ -404,32 +398,32 @@ export default function PlacesPage() {
       {/* 施設詳細モーダル */}
       {selectedPlace && (
         <div
-          className="fixed inset-0 bg-dark-900/90 z-50 flex items-end sm:items-center justify-center"
+          className="fixed inset-0 bg-brown-900/30 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center"
           onClick={() => setSelectedPlace(null)}
         >
           <div
-            className="bg-dark-800 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto"
+            className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto shadow-soft-lg"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
               {/* ヘッダー */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-dark-600 flex items-center justify-center text-2xl">
-                    {getTypeIcon(selectedPlace.type)}
+                  <div className={`w-14 h-14 rounded-2xl ${getTypeInfo(selectedPlace.type).bgColor} flex items-center justify-center text-2xl shadow-sm`}>
+                    {getTypeInfo(selectedPlace.type).emoji}
                   </div>
                   <div>
-                    <span className="text-xs bg-dark-600 text-dark-300 px-2 py-0.5 rounded">
-                      {getTypeLabel(selectedPlace.type)}
+                    <span className={`text-xs ${getTypeInfo(selectedPlace.type).bgColor} text-brown-600 px-2 py-0.5 rounded-full`}>
+                      {getTypeInfo(selectedPlace.type).label}
                     </span>
-                    <h3 className="text-lg font-bold text-dark-100 mt-1">
+                    <h3 className="text-lg font-bold text-brown-700 mt-1">
                       {selectedPlace.name}
                     </h3>
                   </div>
                 </div>
                 <button
                   onClick={() => setSelectedPlace(null)}
-                  className="text-dark-400 hover:text-dark-200 text-2xl"
+                  className="text-brown-400 hover:text-brown-600 text-2xl"
                 >
                   ×
                 </button>
@@ -437,22 +431,22 @@ export default function PlacesPage() {
 
               {/* 情報 */}
               <div className="space-y-3 mb-6">
-                <div className="flex items-center gap-3 text-dark-200">
+                <div className="flex items-center gap-3 text-brown-600">
                   <span className="text-xl">📍</span>
                   <span>{selectedPlace.address}</span>
                 </div>
-                <div className="flex items-center gap-3 text-dark-200">
+                <div className="flex items-center gap-3 text-brown-600">
                   <span className="text-xl">🚶</span>
                   <span>現在地から{formatDistance(selectedPlace.distance)}</span>
                 </div>
                 {selectedPlace.rating && (
-                  <div className="flex items-center gap-3 text-dark-200">
+                  <div className="flex items-center gap-3 text-brown-600">
                     <span className="text-xl">⭐</span>
                     <span>{selectedPlace.rating} ({selectedPlace.reviewCount}件の口コミ)</span>
                   </div>
                 )}
                 {selectedPlace.phone && (
-                  <div className="flex items-center gap-3 text-dark-200">
+                  <div className="flex items-center gap-3 text-brown-600">
                     <span className="text-xl">📞</span>
                     <span>{selectedPlace.phone}</span>
                   </div>
@@ -462,7 +456,7 @@ export default function PlacesPage() {
               {/* 特徴 */}
               {selectedPlace.features && selectedPlace.features.length > 0 && (
                 <div className="mb-6">
-                  <p className="text-sm text-dark-400 mb-2">特徴</p>
+                  <p className="text-sm text-brown-400 mb-2">特徴</p>
                   <div className="flex flex-wrap gap-2">
                     {selectedPlace.features.map((f, i) => (
                       <span key={i} className="text-sm bg-accent/10 text-accent px-3 py-1 rounded-full">
@@ -498,7 +492,7 @@ export default function PlacesPage() {
 
               {/* かかりつけ登録（動物病院の場合） */}
               {selectedPlace.type === 'vet' && (
-                <div className="mt-4 pt-4 border-t border-dark-700">
+                <div className="mt-4 pt-4 border-t border-cream-200">
                   <Link href="/vet">
                     <Button variant="outline" className="w-full">
                       🏥 かかりつけ病院として登録
