@@ -18,6 +18,8 @@ const MOCK_DESTINATIONS = {
       description: '広々とした芝生エリアが人気。ドッグランも併設。',
       features: ['芝生広場', 'ドッグラン', 'ベンチ多数'],
       landmark: '大きな噴水が目印',
+      atmosphere: 'active', // active, relaxing, nature, social
+      routeCharacter: ['芝生', 'ドッグラン'],
     },
     {
       id: 'park-2',
@@ -28,6 +30,8 @@ const MOCK_DESTINATIONS = {
       description: '桜の名所。春は花見客で賑わう。',
       features: ['桜並木', '池', '遊歩道'],
       landmark: '赤い橋が目印',
+      atmosphere: 'nature',
+      routeCharacter: ['花', '池'],
     },
     {
       id: 'park-3',
@@ -38,6 +42,8 @@ const MOCK_DESTINATIONS = {
       description: '木陰が多く夏でも涼しい。',
       features: ['木陰', '小川', '野鳥観察'],
       landmark: '大きなケヤキの木',
+      atmosphere: 'relaxing',
+      routeCharacter: ['木陰', '小川'],
     },
     {
       id: 'park-4',
@@ -48,6 +54,8 @@ const MOCK_DESTINATIONS = {
       description: '川沿いの遊歩道が気持ちいい。',
       features: ['河川敷', 'サイクリングロード', '広場'],
       landmark: '青い歩道橋',
+      atmosphere: 'active',
+      routeCharacter: ['川沿い', '広々'],
     },
     {
       id: 'park-5',
@@ -58,6 +66,8 @@ const MOCK_DESTINATIONS = {
       description: '小さいけど穴場の公園。',
       features: ['花壇', 'ベンチ', '静か'],
       landmark: '黄色いフェンス',
+      atmosphere: 'relaxing',
+      routeCharacter: ['花', '静か'],
     },
   ],
   shopping: [
@@ -70,6 +80,8 @@ const MOCK_DESTINATIONS = {
       description: '昔ながらの商店街。ペット同伴可の店も多い。',
       features: ['飲食店', 'ペットショップ', 'コンビニ'],
       landmark: '赤いアーケード',
+      atmosphere: 'social',
+      routeCharacter: ['にぎやか', 'お買い物'],
     },
     {
       id: 'shop-2',
@@ -80,6 +92,8 @@ const MOCK_DESTINATIONS = {
       description: '飲食店やカフェが並ぶ人気スポット。',
       features: ['カフェ', 'テラス席あり', '犬OK店多数'],
       landmark: '大きな時計台',
+      atmosphere: 'social',
+      routeCharacter: ['カフェ', 'テラス'],
     },
     {
       id: 'shop-3',
@@ -90,8 +104,126 @@ const MOCK_DESTINATIONS = {
       description: 'ペット用品店が集まるエリア。',
       features: ['ペット用品', 'トリミング', 'おやつ'],
       landmark: '犬の看板',
+      atmosphere: 'social',
+      routeCharacter: ['ペット用品', 'おやつ'],
     },
   ],
+};
+
+// ルート名生成用テンプレート
+const ROUTE_NAME_TEMPLATES = {
+  park: {
+    active: [
+      '芝生でのびのびコース',
+      'ワンコ元気いっぱいコース',
+      'しっかりお散歩コース',
+      'アクティブわんこコース',
+    ],
+    relaxing: [
+      '木陰でまったりコース',
+      'のんびりお散歩コース',
+      'ゆったり癒しコース',
+      'リラックスさんぽコース',
+    ],
+    nature: [
+      '自然満喫コース',
+      '季節を感じるお散歩コース',
+      'お花見さんぽコース',
+      'わんこと自然探検コース',
+    ],
+    social: [
+      'お友達できるかなコース',
+      'わいわいお散歩コース',
+      'みんなと仲良しコース',
+    ],
+  },
+  shopping: {
+    social: [
+      'カフェでひと息コース',
+      'お買い物ついでコース',
+      'ワンコと街ブラコース',
+      'テラス席でまったりコース',
+      'ペット用品お買い物コース',
+    ],
+  },
+  combo: [
+    '公園＆カフェ欲張りコース',
+    'お散歩もお買い物も！満喫コース',
+    '気分転換お散歩コース',
+    'ワンコと街と緑を楽しむコース',
+  ],
+  short: [
+    'ちょこっとお外コース',
+    'サクッとお散歩コース',
+    '朝の爽快ショートコース',
+    'トイレ休憩ついでコース',
+  ],
+  long: [
+    'たっぷり探検コース',
+    'がんばり屋さんコース',
+    'しっかりお散歩コース',
+    '冒険家わんこコース',
+  ],
+};
+
+// ランダムにルート名を選択
+const getRandomRouteName = (
+  type: 'park' | 'shopping' | 'combo' | 'short' | 'long',
+  atmosphere?: string,
+  usedNames: Set<string> = new Set()
+): string => {
+  let names: string[];
+
+  if (type === 'combo') {
+    names = ROUTE_NAME_TEMPLATES.combo;
+  } else if (type === 'short') {
+    names = ROUTE_NAME_TEMPLATES.short;
+  } else if (type === 'long') {
+    names = ROUTE_NAME_TEMPLATES.long;
+  } else if (type === 'shopping') {
+    names = ROUTE_NAME_TEMPLATES.shopping.social;
+  } else {
+    const atmos = (atmosphere as keyof typeof ROUTE_NAME_TEMPLATES.park) || 'active';
+    names = ROUTE_NAME_TEMPLATES.park[atmos] || ROUTE_NAME_TEMPLATES.park.active;
+  }
+
+  // 使われていない名前を優先的に選択
+  const availableNames = names.filter(n => !usedNames.has(n));
+  const pool = availableNames.length > 0 ? availableNames : names;
+
+  return pool[Math.floor(Math.random() * pool.length)];
+};
+
+// ルート説明文生成
+const generateRouteDescription = (
+  dest: { name: string; description?: string; features?: string[]; routeCharacter?: string[] },
+  routeName: string
+): string => {
+  const character = dest.routeCharacter || [];
+  const features = dest.features || [];
+
+  if (routeName.includes('カフェ')) {
+    return `${dest.name}周辺でカフェタイム。テラス席でワンコと一緒にひと息つきましょう。`;
+  }
+  if (routeName.includes('木陰') || routeName.includes('まったり')) {
+    return `涼しい木陰を歩きながら${dest.name}へ。ワンコもリラックスできるコース。`;
+  }
+  if (routeName.includes('芝生') || routeName.includes('のびのび')) {
+    return `${dest.name}の広い芝生でワンコを思いっきり遊ばせましょう！`;
+  }
+  if (routeName.includes('自然') || routeName.includes('季節')) {
+    return `${dest.name}で季節の自然を感じながらお散歩。四季折々の景色を楽しめます。`;
+  }
+  if (routeName.includes('お買い物')) {
+    return `${dest.name}でペット用品をチェック。ワンコのおやつも見つかるかも！`;
+  }
+  if (routeName.includes('探検') || routeName.includes('冒険')) {
+    return `${dest.name}まで少し遠出。新しい発見がたくさんあるかも！`;
+  }
+
+  // デフォルト
+  const characterStr = character.length > 0 ? `${character.slice(0, 2).join('と')}を楽しめる` : '';
+  return `${dest.name}まで${characterStr}お散歩コース。${dest.description || ''}`;
 };
 
 interface Waypoint {
@@ -205,6 +337,7 @@ export async function POST(request: NextRequest) {
 
     // ルートを生成（最低3つ確保）
     const routes: WalkRoute[] = [];
+    const usedRouteNames = new Set<string>();
 
     // ウェイポイントを生成するヘルパー関数
     const generateWaypoints = (dest: RouteDestination, isReturn: boolean = false): Waypoint[] => {
@@ -255,21 +388,42 @@ export async function POST(request: NextRequest) {
       .filter(d => d.type === 'park')
       .sort((a, b) => (b.rating || 0) - (a.rating || 0));
 
-    parkDests.forEach((dest, index) => {
+    // 元のデータから atmosphere を取得するヘルパー
+    const getDestAtmosphere = (destId: string): string => {
+      const original = [...MOCK_DESTINATIONS.park, ...MOCK_DESTINATIONS.shopping].find(d => d.id === destId);
+      return (original as { atmosphere?: string })?.atmosphere || 'active';
+    };
+
+    const getDestRouteCharacter = (destId: string): string[] => {
+      const original = [...MOCK_DESTINATIONS.park, ...MOCK_DESTINATIONS.shopping].find(d => d.id === destId);
+      return (original as { routeCharacter?: string[] })?.routeCharacter || [];
+    };
+
+    parkDests.forEach((dest) => {
       if (routes.length >= 5) return;
+
+      const atmosphere = getDestAtmosphere(dest.id);
+      const routeName = getRandomRouteName('park', atmosphere, usedRouteNames);
+      usedRouteNames.add(routeName);
+
+      const routeCharacter = getDestRouteCharacter(dest.id);
+      const description = generateRouteDescription(
+        { ...dest, routeCharacter },
+        routeName
+      );
 
       routes.push({
         id: `route-park-${dest.id}-${Date.now()}`,
-        name: index === 0 ? `${dest.name}コース（おすすめ）` : `${dest.name}コース`,
-        description: `${dest.name}まで往復する${dest.isWithinTime ? '定番' : 'ゆったり'}コース。${dest.description || ''}`,
+        name: routeName,
+        description,
         totalDistance: dest.distance.roundTrip,
         totalDuration: dest.duration.roundTrip,
         isWithinTime: dest.isWithinTime,
         destinations: [dest],
         waypoints: generateWaypoints(dest),
         recommendReason: dest.isWithinTime
-          ? `評価★${dest.rating}の人気スポット。${durationMinutes}分以内で往復できます。`
-          : `評価★${dest.rating}の人気スポット。少し時間に余裕を持って出かけましょう。`,
+          ? `${dest.name}への往復コース。★${dest.rating}の人気スポットを${durationMinutes}分以内で楽しめます。`
+          : `${dest.name}への往復コース。★${dest.rating}の人気スポット。少し時間に余裕を持って出かけましょう。`,
         difficulty: dest.distance.roundTrip < 800 ? 'easy' : dest.distance.roundTrip < 1500 ? 'normal' : 'challenging',
         scenery: dest.features || [],
         tips: dest.isWithinTime
@@ -286,16 +440,25 @@ export async function POST(request: NextRequest) {
     shopDests.forEach((dest) => {
       if (routes.length >= 5) return;
 
+      const routeName = getRandomRouteName('shopping', 'social', usedRouteNames);
+      usedRouteNames.add(routeName);
+
+      const routeCharacter = getDestRouteCharacter(dest.id);
+      const description = generateRouteDescription(
+        { ...dest, routeCharacter },
+        routeName
+      );
+
       routes.push({
         id: `route-shop-${dest.id}-${Date.now()}`,
-        name: `${dest.name}コース`,
-        description: `にぎやかな通りを歩くコース。${dest.description || ''}`,
+        name: routeName,
+        description,
         totalDistance: dest.distance.roundTrip,
         totalDuration: dest.duration.roundTrip,
         isWithinTime: dest.isWithinTime,
         destinations: [dest],
         waypoints: generateWaypoints(dest),
-        recommendReason: '社会化トレーニングにも◎。人通りがあるので安心です。',
+        recommendReason: `${dest.name}への往復コース。社会化トレーニングにも◎。人通りがあるので安心です。`,
         difficulty: 'easy',
         scenery: dest.features || [],
         tips: 'お店の前では立ち止まって、他の人の邪魔にならないようにしましょう',
@@ -311,10 +474,13 @@ export async function POST(request: NextRequest) {
       const combinedDuration = Math.round(combinedDistance / WALKING_SPEED_M_PER_MIN);
       const isWithinTime = combinedDuration <= durationMinutes;
 
+      const comboRouteName = getRandomRouteName('combo', undefined, usedRouteNames);
+      usedRouteNames.add(comboRouteName);
+
       routes.push({
         id: `route-combo-${Date.now()}`,
-        name: '公園＋商店街コース',
-        description: `${nearShop.name}を経由して${nearPark.name}まで。変化のあるルート。`,
+        name: comboRouteName,
+        description: `${nearShop.name}でお買い物してから${nearPark.name}でワンコと遊ぶ。欲張りだけど大満足のコース！`,
         totalDistance: combinedDistance,
         totalDuration: combinedDuration,
         isWithinTime,
@@ -343,10 +509,13 @@ export async function POST(request: NextRequest) {
         .sort((a, b) => a.distance.oneWay - b.distance.oneWay)[0];
 
       if (shortDest) {
+        const shortRouteName = getRandomRouteName('short', undefined, usedRouteNames);
+        usedRouteNames.add(shortRouteName);
+
         routes.push({
           id: `route-short-${Date.now()}`,
-          name: 'ご近所お散歩コース',
-          description: '近場をサクッと歩くコース。トイレ休憩にもぴったり。',
+          name: shortRouteName,
+          description: `${shortDest.name}までサクッとお散歩。短い時間でもワンコは大満足！`,
           totalDistance: shortDest.distance.roundTrip,
           totalDuration: shortDest.duration.roundTrip,
           isWithinTime: true,
@@ -366,10 +535,13 @@ export async function POST(request: NextRequest) {
         .sort((a, b) => b.distance.oneWay - a.distance.oneWay)[0];
 
       if (farDest && !routes.find(r => r.destinations.some(d => d.id === farDest.id))) {
+        const longRouteName = getRandomRouteName('long', undefined, usedRouteNames);
+        usedRouteNames.add(longRouteName);
+
         routes.push({
           id: `route-long-${Date.now()}`,
-          name: 'のんびり探検コース',
-          description: `少し遠出して${farDest.name}まで。探検気分で楽しもう。`,
+          name: longRouteName,
+          description: `${farDest.name}まで冒険！いつもより少し遠くまで、新しい景色を見に行こう。`,
           totalDistance: farDest.distance.roundTrip,
           totalDuration: farDest.duration.roundTrip,
           isWithinTime: farDest.isWithinTime,
