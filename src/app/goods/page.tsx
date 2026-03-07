@@ -106,22 +106,22 @@ export default function GoodsPage() {
   };
 
   // ================================================
-  // Amazon外部リンクを開く
+  // Amazon外部リンクを新しいタブで開く
   // ================================================
   //
   // 【処理フロー】
   // 1. URLの存在確認
   // 2. URLフォーマット検証
-  // 3. 外部ブラウザで開く
+  // 3. 新しいタブで開く（アンカー要素を動的生成）
   // 4. エラー時はトースト表示
   //
   // 【対応環境】
-  // - デスクトップブラウザ: 新しいタブ
-  // - モバイルSafari/Chrome: 外部ブラウザ
-  // - PWA: 外部ブラウザ
+  // - デスクトップブラウザ: 新しいタブで開く
+  // - モバイルSafari/Chrome: 新しいタブで開く
+  // - PWA: 外部ブラウザで開く
   // ================================================
   const openAmazonLink = useCallback((amazonUrl: string | undefined, productTitle: string) => {
-    console.log('[Amazon Link] Opening:', amazonUrl);
+    console.log('[Amazon Link] Opening in new tab:', amazonUrl);
 
     // URL存在確認
     if (!amazonUrl) {
@@ -138,9 +138,15 @@ export default function GoodsPage() {
     }
 
     try {
-      // 方法1: window.location.hrefで直接遷移（最も確実）
-      // モバイルブラウザでも確実に動作する
-      window.location.href = amazonUrl;
+      // 新しいタブで開く方法:
+      // アンカー要素を動的に作成してクリック（ポップアップブロッカー回避）
+      const link = document.createElement('a');
+      link.href = amazonUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (error) {
       console.error('[Amazon Link] Failed to open:', error);
       showToast('error', '商品ページを開けませんでした');
