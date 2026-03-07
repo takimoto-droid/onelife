@@ -182,7 +182,11 @@ export default function GoodsPage() {
                   href={item.amazonUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    window.open(item.amazonUrl, '_blank', 'noopener,noreferrer');
+                  }}
+                  className="block cursor-pointer"
                 >
                   <Card
                     variant="warm"
@@ -292,14 +296,16 @@ export default function GoodsPage() {
                     href={item.amazonUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block mt-4"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.open(item.amazonUrl, '_blank', 'noopener,noreferrer');
+                    }}
+                    className="block mt-4 w-full py-3 px-4 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#FF9900] to-[#FFB84D] text-white hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-soft cursor-pointer"
                   >
-                    <button className="w-full py-3 px-4 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#FF9900] to-[#FFB84D] text-white hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-soft">
-                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93s3.05-7.44 7-7.93v15.86zm2-15.86c3.94.49 7 3.85 7 7.93s-3.05 7.44-7 7.93V4.07z"/>
-                      </svg>
-                      Amazonで見る
-                    </button>
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93s3.05-7.44 7-7.93v15.86zm2-15.86c3.94.49 7 3.85 7 7.93s-3.05 7.44-7 7.93V4.07z"/>
+                    </svg>
+                    Amazonで見る
                   </a>
                 )}
               </Card>
