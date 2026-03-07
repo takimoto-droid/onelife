@@ -1,11 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
-import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 
 interface GoodsItem {
@@ -44,6 +42,7 @@ export default function GoodsPage() {
   const [category, setCategory] = useState<CategoryType>('all');
   const [loading, setLoading] = useState(true);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchGoods = async () => {
@@ -81,6 +80,53 @@ export default function GoodsPage() {
   const handleImageError = (itemId: string) => {
     setImageErrors(prev => new Set([...prev, itemId]));
   };
+
+  // 外部リンクを開く関数（モバイル対応）
+  const openExternalLink = useCallback((url: string | undefined, itemTitle: string) => {
+    // エラーメッセージをクリア
+    setLinkError(null);
+
+    // URL検証
+    if (!url) {
+      setLinkError('商品ページを開けませんでした');
+      setTimeout(() => setLinkError(null), 3000);
+      return;
+    }
+
+    // URLフォーマット検証
+    try {
+      const parsedUrl = new URL(url);
+      if (!parsedUrl.protocol.startsWith('http')) {
+        throw new Error('Invalid protocol');
+      }
+    } catch {
+      setLinkError('商品ページを開けませんでした');
+      setTimeout(() => setLinkError(null), 3000);
+      return;
+    }
+
+    // 外部リンクを開く
+    // モバイルブラウザ対応: location.hrefを使用して確実に遷移
+    // PWA/WebView環境でも外部ブラウザが開く
+    try {
+      // まずwindow.openを試行（デスクトップ向け）
+      const newWindow = window.open(url, '_blank');
+
+      // window.openがブロックされた場合（モバイルSafari等）
+      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+        // location.hrefで直接遷移（確実に開く）
+        window.location.href = url;
+      }
+    } catch {
+      // エラー時はlocation.hrefにフォールバック
+      try {
+        window.location.href = url;
+      } catch {
+        setLinkError('商品ページを開けませんでした');
+        setTimeout(() => setLinkError(null), 3000);
+      }
+    }
+  }, []);
 
   // 商品画像コンポーネント
   const ProductImage = ({ item, size = 'medium' }: { item: GoodsItem; size?: 'small' | 'medium' | 'large' }) => {
@@ -127,6 +173,16 @@ export default function GoodsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50 pb-24">
+      {/* エラートースト */}
+      {linkError && (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 animate-fade-in">
+          <div className="bg-red-500 text-white px-6 py-3 rounded-2xl shadow-lg flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{linkError}</span>
+          </div>
+        </div>
+      )}
+
       {/* ヘッダー */}
       <header className="bg-white/80 backdrop-blur-md border-b border-cream-200 p-4 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
@@ -177,16 +233,10 @@ export default function GoodsPage() {
             </div>
             <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
               {goods.slice(0, 3).map((item, index) => (
-                <a
+                <div
                   key={item.id}
-                  href={item.amazonUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    window.open(item.amazonUrl, '_blank', 'noopener,noreferrer');
-                  }}
-                  className="block cursor-pointer"
+                  onClick={() => openExternalLink(item.amazonUrl, item.title)}
+                  className="cursor-pointer active:scale-95 transition-transform"
                 >
                   <Card
                     variant="warm"
@@ -214,7 +264,7 @@ export default function GoodsPage() {
                       )}
                     </div>
                   </Card>
-                </a>
+                </div>
               ))}
             </div>
           </div>
@@ -291,23 +341,20 @@ export default function GoodsPage() {
                 </div>
 
                 {/* Amazonで見るボタン */}
-                {item.amazonUrl && (
-                  <a
-                    href={item.amazonUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      window.open(item.amazonUrl, '_blank', 'noopener,noreferrer');
-                    }}
-                    className="block mt-4 w-full py-3 px-4 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#FF9900] to-[#FFB84D] text-white hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-soft cursor-pointer"
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93s3.05-7.44 7-7.93v15.86zm2-15.86c3.94.49 7 3.85 7 7.93s-3.05 7.44-7 7.93V4.07z"/>
-                    </svg>
-                    Amazonで見る
-                  </a>
-                )}
+                <button
+                  type="button"
+                  onClick={() => openExternalLink(item.amazonUrl, item.title)}
+                  className="block mt-4 w-full py-3 px-4 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#FF9900] to-[#FFB84D] text-white hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-soft cursor-pointer"
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M21.5 12c0-5.25-4.25-9.5-9.5-9.5S2.5 6.75 2.5 12s4.25 9.5 9.5 9.5 9.5-4.25 9.5-9.5zm-9.5 7.5c-4.14 0-7.5-3.36-7.5-7.5S7.86 4.5 12 4.5s7.5 3.36 7.5 7.5-3.36 7.5-7.5 7.5z"/>
+                    <path d="M12 7v5l4 2"/>
+                  </svg>
+                  <span>Amazonで見る</span>
+                  <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </button>
               </Card>
             ))}
           </div>
