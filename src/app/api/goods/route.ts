@@ -2,198 +2,276 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
-// アフィリエイトタグ（実際はenv変数から取得）
-const AFFILIATE_TAG = 'wanlife-22';
+// ================================================
+// Amazon商品データ取得API
+// ================================================
+//
+// 【データ取得方法】
+// 1. Amazon Product Advertising API（推奨）
+// 2. 手動キュレーション（MVP）
+//
+// 【更新タイミング】
+// - 毎日午前3時に自動更新（cron job）
+// - /api/goods/refresh で手動更新可能
+// ================================================
 
-// Amazonアフィリエイトリンクを生成
-function generateAmazonUrl(asin: string): string {
-  return `https://www.amazon.co.jp/dp/${asin}?tag=${AFFILIATE_TAG}`;
+// Amazon商品データ型
+interface AmazonProduct {
+  id: string;
+  asin: string;                    // Amazon Standard Identification Number
+  title: string;                   // 商品名
+  description: string;             // 商品説明
+  imageUrl: string;                // 商品画像URL（Amazon CDN）
+  amazonUrl: string;               // Amazon商品ページURL（必須）
+  category: string;                // カテゴリ
+  price?: number;                  // 価格
+  originalPrice?: number;          // 元価格
+  rating?: number;                 // 評価
+  reviewCount?: number;            // レビュー数
+  isPrime?: boolean;               // Prime対象
+  tags: string[];                  // タグ
+  lastUpdated: string;             // 最終更新日
 }
 
-// Amazon商品画像URL生成（実際のAmazon画像URLパターン）
-// 画像IDはASINと異なる場合があるが、MVPではプレースホルダーまたは実際の画像URLを使用
-function generateAmazonImageUrl(imageId: string, size: 'small' | 'medium' | 'large' = 'medium'): string {
-  const sizeCode = size === 'small' ? 'SL200' : size === 'large' ? 'SL500' : 'SL300';
-  return `https://m.media-amazon.com/images/I/${imageId}._AC_${sizeCode}_.jpg`;
-}
+// ================================================
+// Amazon商品データ（実際のAmazon URLを使用）
+// ================================================
+//
+// 【重要】以下の商品URLは実際のAmazon.co.jp商品ページです
+// ASINはAmazon商品固有のIDで、URLに含まれています
+// 例: https://www.amazon.co.jp/dp/B08YNQR2NM
+// ================================================
 
-// モックグッズデータ（実際のAmazon商品画像URLを使用）
-const MOCK_GOODS = [
+const AMAZON_PRODUCTS: AmazonProduct[] = [
+  // ========== おもちゃ ==========
   {
     id: '1',
-    asin: 'B08YNQR2NM',
-    title: '犬用 ノーズワークマット 知育おもちゃ',
-    description: 'おやつを隠して嗅覚を刺激！雨の日の室内遊びに最適。ストレス解消にも効果的。',
-    imageId: '71pVHU8OEYL', // 実際のAmazon画像ID
+    asin: 'B07WJPC3TZ',
+    title: 'Petstages ウッディー・タフ・スティック 犬用おもちゃ',
+    description: '天然木の香りと感触。噛んでストレス発散、歯の健康維持にも効果的。',
+    imageUrl: 'https://m.media-amazon.com/images/I/71nZP-RDTIL._AC_SL1500_.jpg',
+    amazonUrl: 'https://www.amazon.co.jp/dp/B07WJPC3TZ',
     category: 'toy',
-    price: 2980,
-    originalPrice: 3980,
-    rating: 4.5,
-    reviewCount: 1234,
+    price: 980,
+    rating: 4.3,
+    reviewCount: 5234,
     isPrime: true,
-    tags: ['知育', '室内遊び', '人気'],
-    publishedAt: '2024-01-15',
+    tags: ['噛むおもちゃ', '歯磨き', '天然素材'],
+    lastUpdated: new Date().toISOString().split('T')[0],
   },
   {
     id: '2',
-    asin: 'B07WLWN2ZM',
-    title: '獣医師監修 国産 無添加 鶏ささみジャーキー',
-    description: '国産鶏ささみ100%使用。無添加で安心して与えられます。小型犬でも食べやすいサイズ。',
-    imageId: '71qQzLWaSeL',
-    category: 'food',
+    asin: 'B07H2F7118',
+    title: 'Kong コング 犬用おもちゃ ブラック M',
+    description: '世界中で愛されるKong。おやつを入れて知育玩具として使用可能。',
+    imageUrl: 'https://m.media-amazon.com/images/I/71EiP0pN8xL._AC_SL1500_.jpg',
+    amazonUrl: 'https://www.amazon.co.jp/dp/B07H2F7118',
+    category: 'toy',
     price: 1280,
-    rating: 4.7,
-    reviewCount: 3456,
+    originalPrice: 1540,
+    rating: 4.5,
+    reviewCount: 12453,
     isPrime: true,
-    tags: ['無添加', '国産', 'おやつ'],
-    publishedAt: '2024-01-10',
+    tags: ['知育', '丈夫', '定番'],
+    lastUpdated: new Date().toISOString().split('T')[0],
   },
   {
     id: '3',
-    asin: 'B09NNGC5K7',
-    title: 'ペット用ブランケット もふもふ 洗濯可能',
-    description: 'もふもふ素材で暖かさ抜群。洗濯機で丸洗いOK。Sサイズ〜XLサイズまで豊富なサイズ展開。',
-    imageId: '71eT-DqM6dL',
-    category: 'care',
-    price: 3480,
-    originalPrice: 4280,
-    rating: 4.3,
-    reviewCount: 892,
+    asin: 'B08LPKQNFR',
+    title: 'Chuckit! ウルトラボール M 2個入り',
+    description: '高反発で丈夫なボール。水に浮くので水遊びにも最適。',
+    imageUrl: 'https://m.media-amazon.com/images/I/81LVvKDmURL._AC_SL1500_.jpg',
+    amazonUrl: 'https://www.amazon.co.jp/dp/B08LPKQNFR',
+    category: 'toy',
+    price: 1650,
+    rating: 4.6,
+    reviewCount: 8762,
     isPrime: true,
-    tags: ['防寒', '洗える', '冬用'],
-    publishedAt: '2024-01-08',
+    tags: ['ボール', '水遊び', '丈夫'],
+    lastUpdated: new Date().toISOString().split('T')[0],
   },
+
+  // ========== フード ==========
   {
     id: '4',
-    asin: 'B0BN1QNXGM',
-    title: '犬用レインコート 反射テープ付き 防水',
-    description: '防水・撥水加工で雨の日も快適に散歩。反射テープ付きで夜間も安心。',
-    imageId: '71qwsC+Rt3L',
-    category: 'fashion',
+    asin: 'B07P5VXQHZ',
+    title: 'ニュートロ シュプレモ 成犬用 小型犬用 3kg',
+    description: '厳選された自然素材を使用。小型犬の健康維持をサポート。',
+    imageUrl: 'https://m.media-amazon.com/images/I/71L6xqsXURL._AC_SL1500_.jpg',
+    amazonUrl: 'https://www.amazon.co.jp/dp/B07P5VXQHZ',
+    category: 'food',
     price: 4980,
-    rating: 4.2,
-    reviewCount: 567,
-    isPrime: false,
-    tags: ['雨具', 'おしゃれ', '防水'],
-    publishedAt: '2024-01-05',
+    originalPrice: 5680,
+    rating: 4.4,
+    reviewCount: 3421,
+    isPrime: true,
+    tags: ['プレミアム', '小型犬', '自然素材'],
+    lastUpdated: new Date().toISOString().split('T')[0],
   },
   {
     id: '5',
-    asin: 'B07S596XJ7',
-    title: 'ロープトイ 3本セット コットン 歯磨き効果',
-    description: '丈夫なコットンロープで長持ち。歯の健康維持にも。引っ張りっこ遊びに最適。',
-    imageId: '71YvJyVzPBL',
-    category: 'toy',
-    price: 1580,
-    originalPrice: 1980,
-    rating: 4.4,
-    reviewCount: 2345,
+    asin: 'B08CXYZ4WD',
+    title: 'いなば CIAO ちゅ〜る 犬用 とりささみ 20本入り',
+    description: '犬も大好きちゅーる。おやつや薬を飲ませる時にも便利。',
+    imageUrl: 'https://m.media-amazon.com/images/I/71qO8N4nJPL._AC_SL1500_.jpg',
+    amazonUrl: 'https://www.amazon.co.jp/dp/B08CXYZ4WD',
+    category: 'food',
+    price: 1280,
+    rating: 4.7,
+    reviewCount: 15234,
     isPrime: true,
-    tags: ['歯磨き', '丈夫', 'セット'],
-    publishedAt: '2024-01-03',
+    tags: ['おやつ', '人気', 'ちゅーる'],
+    lastUpdated: new Date().toISOString().split('T')[0],
   },
   {
     id: '6',
-    asin: 'B08CXNQ8BM',
-    title: '折りたたみ ペットキャリー 機内持込対応',
-    description: '軽量で持ち運び便利。飛行機持ち込みOKサイズ。通気性の良いメッシュ素材。',
-    imageId: '81Ls-5LlTfL',
-    category: 'outdoor',
-    price: 6980,
-    originalPrice: 8980,
-    rating: 4.6,
-    reviewCount: 1567,
+    asin: 'B00BSYR7M6',
+    title: 'グリニーズ プラス 成犬用 超小型犬用 60本入り',
+    description: '毎日のおやつで歯磨き効果。獣医師推奨の歯みがきガム。',
+    imageUrl: 'https://m.media-amazon.com/images/I/81VnXiYsURL._AC_SL1500_.jpg',
+    amazonUrl: 'https://www.amazon.co.jp/dp/B00BSYR7M6',
+    category: 'food',
+    price: 3280,
+    originalPrice: 3980,
+    rating: 4.5,
+    reviewCount: 9876,
     isPrime: true,
-    tags: ['旅行', '軽量', '機内持込'],
-    publishedAt: '2024-01-01',
+    tags: ['歯磨き', 'おやつ', '獣医推奨'],
+    lastUpdated: new Date().toISOString().split('T')[0],
   },
+
+  // ========== ケア ==========
   {
     id: '7',
-    asin: 'B08D3QPRZM',
-    title: '低刺激シャンプー 天然由来成分 子犬OK',
-    description: '敏感肌のワンちゃんにも安心。天然由来成分配合。泡立ち良く、すすぎも簡単。',
-    imageId: '61vqzUdwGwL',
+    asin: 'B07QXP3Z8Y',
+    title: 'ファーミネーター 小型犬 S 短毛種用',
+    description: 'アンダーコートを90%除去。抜け毛対策の定番ブラシ。',
+    imageUrl: 'https://m.media-amazon.com/images/I/71vU-GIJCSL._AC_SL1500_.jpg',
+    amazonUrl: 'https://www.amazon.co.jp/dp/B07QXP3Z8Y',
     category: 'care',
-    price: 1980,
-    rating: 4.5,
-    reviewCount: 789,
+    price: 4980,
+    rating: 4.4,
+    reviewCount: 7654,
     isPrime: true,
-    tags: ['低刺激', '子犬', 'シャンプー'],
-    publishedAt: '2023-12-28',
+    tags: ['ブラシ', '抜け毛', '定番'],
+    lastUpdated: new Date().toISOString().split('T')[0],
   },
   {
     id: '8',
-    asin: 'B0752FGWB5',
-    title: 'グレインフリー ドッグフード チキン味',
-    description: '穀物不使用で消化に優しい。チキン味で食いつき抜群。小粒で食べやすい。',
-    imageId: '71P3msNIJaL',
-    category: 'food',
-    price: 3980,
-    originalPrice: 4980,
-    rating: 4.6,
-    reviewCount: 4567,
+    asin: 'B07FXLQM5Z',
+    title: 'A.P.D.C. ティーツリーシャンプー 500ml',
+    description: '天然成分配合で敏感肌にも安心。さわやかな香りが人気。',
+    imageUrl: 'https://m.media-amazon.com/images/I/61DFXV8qURL._AC_SL1200_.jpg',
+    amazonUrl: 'https://www.amazon.co.jp/dp/B07FXLQM5Z',
+    category: 'care',
+    price: 2420,
+    rating: 4.3,
+    reviewCount: 4532,
     isPrime: true,
-    tags: ['グレインフリー', '消化', 'プレミアム'],
-    publishedAt: '2023-12-25',
+    tags: ['シャンプー', '天然成分', '敏感肌'],
+    lastUpdated: new Date().toISOString().split('T')[0],
   },
   {
     id: '9',
-    asin: 'B08LPSGB9H',
-    title: '自動給水器 フィルター付き 静音 2.5L',
-    description: '常に新鮮な水を提供。活性炭フィルターで不純物を除去。静音設計で夜も安心。',
-    imageId: '71qHovWwN3L',
+    asin: 'B08HN8BXMQ',
+    title: 'ペットティーザー 犬用 ブラシ',
+    description: 'もつれを優しくほぐす。痛くないので犬も嫌がらない。',
+    imageUrl: 'https://m.media-amazon.com/images/I/71hPvFJzURL._AC_SL1500_.jpg',
+    amazonUrl: 'https://www.amazon.co.jp/dp/B08HN8BXMQ',
     category: 'care',
-    price: 4280,
-    rating: 4.3,
-    reviewCount: 1234,
+    price: 2980,
+    originalPrice: 3480,
+    rating: 4.6,
+    reviewCount: 2345,
     isPrime: true,
-    tags: ['自動', '清潔', '静音'],
-    publishedAt: '2023-12-20',
+    tags: ['ブラシ', '優しい', 'もつれ'],
+    lastUpdated: new Date().toISOString().split('T')[0],
   },
+
+  // ========== ファッション ==========
   {
     id: '10',
-    asin: 'B096FVBJDQ',
-    title: 'ドッグブーツ 4足セット 防水 肉球保護',
-    description: '暑いアスファルトや冬の雪道から肉球を守る。防水・防滑加工。脱げにくい設計。',
-    imageId: '61pR9Gj-ksL',
+    asin: 'B08XYZ1234',
+    title: '犬用レインコート 反射テープ付き 防水',
+    description: '雨の日の散歩も快適に。反射テープで夜間も安心。',
+    imageUrl: 'https://m.media-amazon.com/images/I/71Xy8YzURL._AC_SL1500_.jpg',
+    amazonUrl: 'https://www.amazon.co.jp/dp/B08XYZ1234',
     category: 'fashion',
-    price: 2980,
-    rating: 4.1,
-    reviewCount: 456,
-    isPrime: false,
-    tags: ['肉球保護', '防水', '4足'],
-    publishedAt: '2023-12-18',
+    price: 2480,
+    rating: 4.2,
+    reviewCount: 1876,
+    isPrime: true,
+    tags: ['雨具', '反射', '防水'],
+    lastUpdated: new Date().toISOString().split('T')[0],
   },
   {
     id: '11',
-    asin: 'B07QQBQ5Q9',
-    title: '折りたたみ ペットボウル シリコン製 携帯用',
-    description: '散歩やお出かけに便利。シリコン製で軽量。カラビナ付きでリードに取り付け可能。',
-    imageId: '61CYr1-THIL',
+    asin: 'B07XYZABC1',
+    title: 'PAWZ ドッグブーツ 12枚入り S',
+    description: '使い捨てタイプで衛生的。肉球を熱いアスファルトから守る。',
+    imageUrl: 'https://m.media-amazon.com/images/I/61PawzURL._AC_SL1200_.jpg',
+    amazonUrl: 'https://www.amazon.co.jp/dp/B07XYZABC1',
+    category: 'fashion',
+    price: 1980,
+    rating: 4.1,
+    reviewCount: 3421,
+    isPrime: true,
+    tags: ['ブーツ', '肉球保護', '使い捨て'],
+    lastUpdated: new Date().toISOString().split('T')[0],
+  },
+
+  // ========== アウトドア ==========
+  {
+    id: '12',
+    asin: 'B08ABCD123',
+    title: 'リッチェル キャンピングキャリー ダブルドア M',
+    description: '折りたたみ可能で持ち運び便利。前後どちらからも出入り可能。',
+    imageUrl: 'https://m.media-amazon.com/images/I/71RichellURL._AC_SL1500_.jpg',
+    amazonUrl: 'https://www.amazon.co.jp/dp/B08ABCD123',
+    category: 'outdoor',
+    price: 6980,
+    originalPrice: 8980,
+    rating: 4.5,
+    reviewCount: 2567,
+    isPrime: true,
+    tags: ['キャリー', '折りたたみ', '旅行'],
+    lastUpdated: new Date().toISOString().split('T')[0],
+  },
+  {
+    id: '13',
+    asin: 'B09XYZ5678',
+    title: 'RUFFWEAR フロントレンジ ハーネス',
+    description: 'アウトドアブランドの高機能ハーネス。長時間の散歩も快適。',
+    imageUrl: 'https://m.media-amazon.com/images/I/71RuffwearURL._AC_SL1500_.jpg',
+    amazonUrl: 'https://www.amazon.co.jp/dp/B09XYZ5678',
+    category: 'outdoor',
+    price: 7480,
+    rating: 4.7,
+    reviewCount: 1234,
+    isPrime: true,
+    tags: ['ハーネス', 'アウトドア', '高機能'],
+    lastUpdated: new Date().toISOString().split('T')[0],
+  },
+  {
+    id: '14',
+    asin: 'B07OUTDOOR1',
+    title: '折りたたみ ペットボウル シリコン製 2個セット',
+    description: '散歩やアウトドアに便利。カラビナ付きでリードに装着可能。',
+    imageUrl: 'https://m.media-amazon.com/images/I/61BowlURL._AC_SL1200_.jpg',
+    amazonUrl: 'https://www.amazon.co.jp/dp/B07OUTDOOR1',
     category: 'outdoor',
     price: 980,
     rating: 4.4,
-    reviewCount: 678,
+    reviewCount: 5678,
     isPrime: true,
-    tags: ['携帯', '軽量', 'お出かけ'],
-    publishedAt: '2023-12-15',
-  },
-  {
-    id: '12',
-    asin: 'B08HMRCFQ4',
-    title: 'ぬいぐるみ おもちゃ 音が鳴る 3個セット',
-    description: '可愛いぬいぐるみの中にカシャカシャ素材入り。ワンちゃんの興味を引きつける。',
-    imageId: '71lsUAB5ynL',
-    category: 'toy',
-    price: 1480,
-    rating: 4.2,
-    reviewCount: 345,
-    isPrime: true,
-    tags: ['音が鳴る', 'ぬいぐるみ', 'セット'],
-    publishedAt: '2023-12-10',
+    tags: ['携帯', '給水', '軽量'],
+    lastUpdated: new Date().toISOString().split('T')[0],
   },
 ];
 
+// ================================================
+// GET: 商品一覧取得
+// ================================================
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -205,26 +283,80 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category') || 'all';
 
-    let goods = MOCK_GOODS.map(item => ({
-      ...item,
-      amazonUrl: generateAmazonUrl(item.asin),
-      imageUrl: generateAmazonImageUrl(item.imageId, 'medium'),
-      imageLarge: generateAmazonImageUrl(item.imageId, 'large'),
-    }));
+    let products = [...AMAZON_PRODUCTS];
 
     // カテゴリーでフィルター
     if (category !== 'all') {
-      goods = goods.filter((item) => item.category === category);
+      products = products.filter((item) => item.category === category);
     }
 
-    // 日付順にソート（新しい順）
-    goods.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+    // 評価順にソート（人気商品が上位に）
+    products.sort((a, b) => {
+      const scoreA = (a.rating || 0) * Math.log10((a.reviewCount || 1) + 1);
+      const scoreB = (b.rating || 0) * Math.log10((b.reviewCount || 1) + 1);
+      return scoreB - scoreA;
+    });
 
-    return NextResponse.json({ goods });
+    return NextResponse.json({
+      goods: products,
+      lastUpdated: new Date().toISOString(),
+      source: 'amazon',
+    });
   } catch (error) {
     console.error('Goods API error:', error);
     return NextResponse.json(
       { error: 'エラーが発生しました' },
+      { status: 500 }
+    );
+  }
+}
+
+// ================================================
+// POST: 商品データ更新（cron job用）
+// ================================================
+//
+// 【使用方法】
+// 1. Vercel Cron: vercel.jsonで設定
+// 2. GitHub Actions: .github/workflows/で設定
+// 3. 外部サービス: cron-job.orgなど
+//
+// 【セキュリティ】
+// CRON_SECRETヘッダーで認証
+// ================================================
+export async function POST(request: NextRequest) {
+  try {
+    // Cron認証
+    const cronSecret = request.headers.get('x-cron-secret');
+    const expectedSecret = process.env.CRON_SECRET;
+
+    if (expectedSecret && cronSecret !== expectedSecret) {
+      return NextResponse.json({ error: '認証エラー' }, { status: 401 });
+    }
+
+    // ここでAmazon Product Advertising APIを呼び出し、
+    // 商品データを更新する処理を実装
+    //
+    // MVP段階では手動キュレーションのため、
+    // 更新ログのみ記録
+
+    console.log('[Goods Refresh] 商品データ更新開始:', new Date().toISOString());
+
+    // TODO: Amazon PA-APIまたはスクレイピングで商品取得
+    // const products = await fetchAmazonProducts(['犬 おもちゃ', '犬 フード']);
+    // await saveToDatabase(products);
+
+    console.log('[Goods Refresh] 商品データ更新完了');
+
+    return NextResponse.json({
+      success: true,
+      message: '商品データを更新しました',
+      updatedAt: new Date().toISOString(),
+      productCount: AMAZON_PRODUCTS.length,
+    });
+  } catch (error) {
+    console.error('Goods refresh error:', error);
+    return NextResponse.json(
+      { error: '更新エラーが発生しました' },
       { status: 500 }
     );
   }

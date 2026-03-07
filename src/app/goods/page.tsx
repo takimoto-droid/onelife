@@ -6,18 +6,31 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 
+// ================================================
+// おすすめグッズページ
+// ================================================
+//
+// 【機能】
+// - Amazon商品を表示
+// - カテゴリーフィルター
+// - 商品タップでAmazonページへ遷移
+//
+// 【データソース】
+// - /api/goods から取得
+// - Amazonの実際の商品URL使用
+// ================================================
+
 interface GoodsItem {
   id: string;
+  asin: string;
   title: string;
   description: string;
   imageUrl: string;
-  imageLarge?: string;
   category: string;
   price?: number;
   originalPrice?: number;
   tags: string[];
-  publishedAt: string;
-  amazonUrl?: string;
+  amazonUrl: string;  // 必須: Amazon商品ページURL
   rating?: number;
   reviewCount?: number;
   isPrime?: boolean;
@@ -25,8 +38,8 @@ interface GoodsItem {
 
 type CategoryType = 'all' | 'toy' | 'food' | 'care' | 'fashion' | 'outdoor';
 
-// 画像読み込みエラー時のフォールバック
-const FALLBACK_IMAGES: Record<string, string> = {
+// 画像エラー時のフォールバック絵文字
+const CATEGORY_EMOJI: Record<string, string> = {
   toy: '🎾',
   food: '🍖',
   care: '🛁',
@@ -42,8 +55,9 @@ export default function GoodsPage() {
   const [category, setCategory] = useState<CategoryType>('all');
   const [loading, setLoading] = useState(true);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
-  const [linkError, setLinkError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
 
+  // 商品データ取得
   useEffect(() => {
     const fetchGoods = async () => {
       setLoading(true);
@@ -55,6 +69,7 @@ export default function GoodsPage() {
         }
       } catch (error) {
         console.error('Failed to fetch goods:', error);
+        showToast('error', '商品データの取得に失敗しました');
       }
       setLoading(false);
     };
@@ -64,6 +79,13 @@ export default function GoodsPage() {
     }
   }, [session, category]);
 
+  // トースト表示
+  const showToast = (type: 'error' | 'success', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // カテゴリー定義
   const categories: { value: CategoryType; label: string; emoji: string }[] = [
     { value: 'all', label: 'すべて', emoji: '🏠' },
     { value: 'toy', label: 'おもちゃ', emoji: '🎾' },
@@ -73,58 +95,55 @@ export default function GoodsPage() {
     { value: 'outdoor', label: 'アウトドア', emoji: '⛺' },
   ];
 
+  // カテゴリー絵文字取得
   const getCategoryEmoji = (cat: string) => {
-    return FALLBACK_IMAGES[cat] || FALLBACK_IMAGES.default;
+    return CATEGORY_EMOJI[cat] || CATEGORY_EMOJI.default;
   };
 
+  // 画像エラーハンドリング
   const handleImageError = (itemId: string) => {
     setImageErrors(prev => new Set([...prev, itemId]));
   };
 
-  // 外部リンクを開く関数（モバイル対応）
-  const openExternalLink = useCallback((url: string | undefined, itemTitle: string) => {
-    // エラーメッセージをクリア
-    setLinkError(null);
+  // ================================================
+  // Amazon外部リンクを開く
+  // ================================================
+  //
+  // 【処理フロー】
+  // 1. URLの存在確認
+  // 2. URLフォーマット検証
+  // 3. 外部ブラウザで開く
+  // 4. エラー時はトースト表示
+  //
+  // 【対応環境】
+  // - デスクトップブラウザ: 新しいタブ
+  // - モバイルSafari/Chrome: 外部ブラウザ
+  // - PWA: 外部ブラウザ
+  // ================================================
+  const openAmazonLink = useCallback((amazonUrl: string | undefined, productTitle: string) => {
+    console.log('[Amazon Link] Opening:', amazonUrl);
 
-    // URL検証
-    if (!url) {
-      setLinkError('商品ページを開けませんでした');
-      setTimeout(() => setLinkError(null), 3000);
+    // URL存在確認
+    if (!amazonUrl) {
+      console.error('[Amazon Link] URL is empty');
+      showToast('error', '商品ページを開けませんでした');
       return;
     }
 
     // URLフォーマット検証
-    try {
-      const parsedUrl = new URL(url);
-      if (!parsedUrl.protocol.startsWith('http')) {
-        throw new Error('Invalid protocol');
-      }
-    } catch {
-      setLinkError('商品ページを開けませんでした');
-      setTimeout(() => setLinkError(null), 3000);
+    if (!amazonUrl.includes('amazon.co.jp') && !amazonUrl.includes('amazon.com')) {
+      console.error('[Amazon Link] Invalid Amazon URL:', amazonUrl);
+      showToast('error', '商品ページを開けませんでした');
       return;
     }
 
-    // 外部リンクを開く
-    // モバイルブラウザ対応: location.hrefを使用して確実に遷移
-    // PWA/WebView環境でも外部ブラウザが開く
     try {
-      // まずwindow.openを試行（デスクトップ向け）
-      const newWindow = window.open(url, '_blank');
-
-      // window.openがブロックされた場合（モバイルSafari等）
-      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-        // location.hrefで直接遷移（確実に開く）
-        window.location.href = url;
-      }
-    } catch {
-      // エラー時はlocation.hrefにフォールバック
-      try {
-        window.location.href = url;
-      } catch {
-        setLinkError('商品ページを開けませんでした');
-        setTimeout(() => setLinkError(null), 3000);
-      }
+      // 方法1: window.location.hrefで直接遷移（最も確実）
+      // モバイルブラウザでも確実に動作する
+      window.location.href = amazonUrl;
+    } catch (error) {
+      console.error('[Amazon Link] Failed to open:', error);
+      showToast('error', '商品ページを開けませんでした');
     }
   }, []);
 
@@ -158,6 +177,7 @@ export default function GoodsPage() {
     );
   };
 
+  // ローディング
   if (status === 'loading') {
     return (
       <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50 flex items-center justify-center">
@@ -166,6 +186,7 @@ export default function GoodsPage() {
     );
   }
 
+  // 未ログイン
   if (!session) {
     router.push('/');
     return null;
@@ -173,12 +194,14 @@ export default function GoodsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50 pb-24">
-      {/* エラートースト */}
-      {linkError && (
+      {/* トースト通知 */}
+      {toast && (
         <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 animate-fade-in">
-          <div className="bg-red-500 text-white px-6 py-3 rounded-2xl shadow-lg flex items-center gap-2">
-            <span>⚠️</span>
-            <span>{linkError}</span>
+          <div className={`px-6 py-3 rounded-2xl shadow-lg flex items-center gap-2 ${
+            toast.type === 'error' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'
+          }`}>
+            <span>{toast.type === 'error' ? '⚠️' : '✓'}</span>
+            <span>{toast.message}</span>
           </div>
         </div>
       )}
@@ -196,6 +219,7 @@ export default function GoodsPage() {
       </header>
 
       <main className="max-w-2xl mx-auto p-4 py-6">
+        {/* ページタイトル */}
         <div className="text-center mb-6">
           <h2 className="text-2xl font-bold text-brown-700 mb-2 flex items-center justify-center gap-2">
             <span>🛍️</span>
@@ -229,14 +253,17 @@ export default function GoodsPage() {
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-4">
               <span className="text-xl">🔥</span>
-              <h3 className="font-bold text-brown-700">今週の人気</h3>
+              <h3 className="font-bold text-brown-700">人気商品</h3>
             </div>
             <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
               {goods.slice(0, 3).map((item, index) => (
                 <div
                   key={item.id}
-                  onClick={() => openExternalLink(item.amazonUrl, item.title)}
-                  className="cursor-pointer active:scale-95 transition-transform"
+                  onClick={() => openAmazonLink(item.amazonUrl, item.title)}
+                  className="cursor-pointer active:scale-95 transition-transform touch-manipulation"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && openAmazonLink(item.amazonUrl, item.title)}
                 >
                   <Card
                     variant="warm"
@@ -328,9 +355,9 @@ export default function GoodsPage() {
 
                     {/* タグ */}
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {item.tags.slice(0, 3).map((tag, index) => (
+                      {item.tags.slice(0, 3).map((tag, idx) => (
                         <span
-                          key={index}
+                          key={idx}
                           className="text-xs bg-cream-100 text-brown-500 px-2 py-0.5 rounded-full"
                         >
                           {tag}
@@ -343,16 +370,18 @@ export default function GoodsPage() {
                 {/* Amazonで見るボタン */}
                 <button
                   type="button"
-                  onClick={() => openExternalLink(item.amazonUrl, item.title)}
-                  className="block mt-4 w-full py-3 px-4 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#FF9900] to-[#FFB84D] text-white hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-soft cursor-pointer"
+                  onClick={() => openAmazonLink(item.amazonUrl, item.title)}
+                  className="mt-4 w-full py-3 px-4 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#FF9900] to-[#FFB84D] text-white hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-soft touch-manipulation"
                 >
+                  {/* Amazonロゴ風アイコン */}
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M21.5 12c0-5.25-4.25-9.5-9.5-9.5S2.5 6.75 2.5 12s4.25 9.5 9.5 9.5 9.5-4.25 9.5-9.5zm-9.5 7.5c-4.14 0-7.5-3.36-7.5-7.5S7.86 4.5 12 4.5s7.5 3.36 7.5 7.5-3.36 7.5-7.5 7.5z"/>
-                    <path d="M12 7v5l4 2"/>
+                    <path d="M.045 18.02c.072-.116.187-.124.348-.022 3.636 2.11 7.594 3.166 11.87 3.166 2.852 0 5.668-.533 8.447-1.595l.315-.14c.138-.06.234-.1.293-.13.226-.088.39-.046.488.126.112.188.032.382-.192.49-.224.11-.6.282-1.134.524-.596.27-1.273.548-2.035.83-1.754.64-3.576.96-5.47.96-2.127 0-4.186-.353-6.177-1.06-1.98-.706-3.776-1.755-5.384-3.15-.11-.09-.135-.2-.07-.34z"/>
+                    <path d="M6.065 14.203c-.196-.31-.147-.618.148-.92l.098-.107c.142-.135.278-.256.407-.364.262-.22.584-.446.966-.68.96-.582 2.026-.873 3.197-.873 1.463 0 2.644.463 3.542 1.388.77.79 1.155 1.765 1.155 2.924 0 .29-.028.583-.084.878-.108.554-.358 1.12-.754 1.702-.396.58-.91 1.052-1.54 1.414-.63.36-1.318.542-2.066.542-.64 0-1.222-.137-1.747-.41-.524-.273-.91-.65-1.155-1.134l-.073-.172c-.05-.136-.08-.308-.086-.516v-3.672c-.002-.144-.046-.233-.132-.266-.086-.034-.19-.02-.31.04l-.13.063c-.15.074-.278.163-.382.267-.21.21-.316.46-.316.753 0 .082.01.167.032.256.02.09.037.147.05.172.058.11.13.21.217.302l.106.107c.05.05.11.114.178.192.07.078.12.155.15.23.06.152.03.3-.088.44z"/>
                   </svg>
                   <span>Amazonで見る</span>
-                  <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  {/* 外部リンクアイコン */}
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
                 </button>
               </Card>
@@ -371,13 +400,13 @@ export default function GoodsPage() {
         {/* 注意書き */}
         <div className="mt-6 text-center text-xs text-brown-400 bg-cream-50 p-4 rounded-2xl">
           <p className="mb-1">
-            ※ 掲載されている商品情報は参考情報です。
+            ※ 商品情報はAmazon.co.jpより取得しています
           </p>
           <p className="mb-1">
-            価格や在庫は変動する場合があります。
+            価格や在庫状況は変動する場合があります
           </p>
           <p>
-            本ページにはAmazonアソシエイトリンクが含まれています。
+            本ページにはAmazonアソシエイトリンクが含まれています
           </p>
         </div>
       </main>
