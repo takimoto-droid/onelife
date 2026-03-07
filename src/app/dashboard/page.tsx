@@ -197,6 +197,15 @@ export default function DashboardPage() {
       iconBg: 'bg-pink-100',
     },
     {
+      href: '/recipe',
+      icon: '🍳',
+      title: 'AIレシピ',
+      description: '手作りごはん',
+      bgColor: 'bg-peach-50',
+      iconBg: 'bg-peach-100',
+      isNew: true,
+    },
+    {
       href: '/food',
       icon: '🍖',
       title: 'フード見直し',
