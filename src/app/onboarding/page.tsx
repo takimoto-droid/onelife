@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 
-type UserType = 'new_owner' | 'reviewing' | null;
+type UserType = 'new_owner' | 'reviewing' | 'want_dog' | null;
 
 export default function OnboardingPage() {
   const { data: session, status } = useSession();
@@ -19,8 +19,8 @@ export default function OnboardingPage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-dark-900 flex items-center justify-center">
-        <div className="spinner" />
+      <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-pink-200 border-t-pink-500 rounded-full" />
       </div>
     );
   }
@@ -32,6 +32,13 @@ export default function OnboardingPage() {
 
   const handleSelectUserType = async (type: UserType) => {
     setUserType(type);
+
+    // 「これから犬を飼いたい」の場合は犬種診断へ
+    if (type === 'want_dog') {
+      router.push('/breed-match');
+      return;
+    }
+
     // ユーザータイプを保存
     try {
       await fetch('/api/user/type', {
@@ -68,63 +75,63 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-dark-900 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50 py-8 px-4">
       <div className="max-w-md mx-auto">
         {/* プログレス */}
         <div className="flex justify-center gap-2 mb-8">
           <div
             className={`w-3 h-3 rounded-full transition-colors ${
-              step >= 1 ? 'bg-accent' : 'bg-dark-600'
+              step >= 1 ? 'bg-pink-400' : 'bg-cream-200'
             }`}
           />
           <div
             className={`w-3 h-3 rounded-full transition-colors ${
-              step >= 2 ? 'bg-accent' : 'bg-dark-600'
+              step >= 2 ? 'bg-pink-400' : 'bg-cream-200'
             }`}
           />
           <div
             className={`w-3 h-3 rounded-full transition-colors ${
-              step >= 3 ? 'bg-accent' : 'bg-dark-600'
+              step >= 3 ? 'bg-pink-400' : 'bg-cream-200'
             }`}
           />
         </div>
 
-        <Card>
+        <Card variant="warm">
           {/* Step 1: 歓迎画面 */}
           {step === 1 && (
             <div className="text-center fade-in">
               <div className="text-6xl mb-6">🎉</div>
-              <h2 className="text-2xl font-bold text-dark-50 mb-4">
+              <h2 className="text-2xl font-bold text-brown-700 mb-4">
                 ようこそ、<span className="gradient-text">わんライフ</span>へ！
               </h2>
-              <p className="text-dark-300 mb-6 leading-relaxed">
+              <p className="text-brown-500 mb-6 leading-relaxed">
                 犬を飼い始めたばかりの方も、
-                すでに飼っている方も、
+                これから飼いたい方も、
                 わんライフが一緒にサポートします。
               </p>
 
               <div className="space-y-3 text-left mb-8">
-                <div className="flex items-center gap-3 p-3 bg-dark-700/50 rounded-lg border border-dark-600">
+                <div className="flex items-center gap-3 p-3 bg-pink-50 rounded-2xl border border-pink-100">
                   <span className="text-2xl">🎤</span>
-                  <p className="text-sm text-dark-200">
+                  <p className="text-sm text-brown-600">
                     鳴き声をAIが翻訳
                   </p>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-dark-700/50 rounded-lg border border-dark-600">
+                <div className="flex items-center gap-3 p-3 bg-mint-50 rounded-2xl border border-mint-100">
                   <span className="text-2xl">🏥</span>
-                  <p className="text-sm text-dark-200">
+                  <p className="text-sm text-brown-600">
                     あなたに合った保険をAIが提案
                   </p>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-dark-700/50 rounded-lg border border-dark-600">
+                <div className="flex items-center gap-3 p-3 bg-lavender-50 rounded-2xl border border-lavender-100">
                   <span className="text-2xl">📅</span>
-                  <p className="text-sm text-dark-200">
+                  <p className="text-sm text-brown-600">
                     ワクチン・健康管理をサポート
                   </p>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-dark-700/50 rounded-lg border border-dark-600">
+                <div className="flex items-center gap-3 p-3 bg-peach-50 rounded-2xl border border-peach-100">
                   <span className="text-2xl">🚶</span>
-                  <p className="text-sm text-dark-200">
+                  <p className="text-sm text-brown-600">
                     散歩ルートをAIが提案
                   </p>
                 </div>
@@ -141,10 +148,10 @@ export default function OnboardingPage() {
             <div className="fade-in">
               <div className="text-center mb-8">
                 <div className="text-5xl mb-4">🐕</div>
-                <h2 className="text-xl font-bold text-dark-50">
+                <h2 className="text-xl font-bold text-brown-700">
                   あなたの状況を教えてください
                 </h2>
-                <p className="text-sm text-dark-400 mt-2">
+                <p className="text-sm text-brown-400 mt-2">
                   最適なサポートをご提案するために
                 </p>
               </div>
@@ -152,16 +159,16 @@ export default function OnboardingPage() {
               <div className="space-y-4">
                 <button
                   onClick={() => handleSelectUserType('new_owner')}
-                  className="w-full p-5 text-left rounded-xl border-2 border-dark-600 hover:border-accent hover:bg-dark-700 transition-all duration-200"
+                  className="w-full p-5 text-left rounded-2xl border-2 border-cream-200 hover:border-pink-300 hover:bg-pink-50 transition-all duration-200"
                 >
                   <div className="flex items-center gap-4">
                     <span className="text-3xl">🐶</span>
                     <div>
-                      <p className="font-bold text-dark-100">
+                      <p className="font-bold text-brown-700">
                         犬を飼い始めたばかり
                       </p>
-                      <p className="text-sm text-dark-400 mt-1">
-                        最近お迎えした / これからお迎えする予定
+                      <p className="text-sm text-brown-400 mt-1">
+                        最近お迎えした方
                       </p>
                     </div>
                   </div>
@@ -169,17 +176,37 @@ export default function OnboardingPage() {
 
                 <button
                   onClick={() => handleSelectUserType('reviewing')}
-                  className="w-full p-5 text-left rounded-xl border-2 border-dark-600 hover:border-accent hover:bg-dark-700 transition-all duration-200"
+                  className="w-full p-5 text-left rounded-2xl border-2 border-cream-200 hover:border-pink-300 hover:bg-pink-50 transition-all duration-200"
                 >
                   <div className="flex items-center gap-4">
                     <span className="text-3xl">🔄</span>
                     <div>
-                      <p className="font-bold text-dark-100">
+                      <p className="font-bold text-brown-700">
                         すでに飼っていて見直したい
                       </p>
-                      <p className="text-sm text-dark-400 mt-1">
+                      <p className="text-sm text-brown-400 mt-1">
                         保険や生活管理を見直したい
                       </p>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => handleSelectUserType('want_dog')}
+                  className="w-full p-5 text-left rounded-2xl border-2 border-lavender-200 hover:border-lavender-400 hover:bg-lavender-50 transition-all duration-200 bg-gradient-to-r from-lavender-50 to-pink-50"
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="text-3xl">✨</span>
+                    <div>
+                      <p className="font-bold text-brown-700">
+                        これから犬を飼いたい
+                      </p>
+                      <p className="text-sm text-brown-400 mt-1">
+                        AIがあなたにぴったりの犬種を診断！
+                      </p>
+                      <span className="inline-block mt-2 text-xs bg-pink-100 text-pink-600 px-2 py-1 rounded-full">
+                        🆕 犬種診断
+                      </span>
                     </div>
                   </div>
                 </button>
@@ -187,7 +214,7 @@ export default function OnboardingPage() {
 
               <button
                 onClick={() => setStep(1)}
-                className="w-full mt-6 text-sm text-dark-400 hover:text-accent transition-colors"
+                className="w-full mt-6 text-sm text-brown-400 hover:text-pink-500 transition-colors"
               >
                 戻る
               </button>
@@ -199,10 +226,10 @@ export default function OnboardingPage() {
             <div className="fade-in">
               <div className="text-center mb-6">
                 <div className="text-5xl mb-4">🐕</div>
-                <h2 className="text-xl font-bold text-dark-50">
+                <h2 className="text-xl font-bold text-brown-700">
                   ワンちゃんのお名前は？
                 </h2>
-                <p className="text-sm text-dark-400 mt-2">
+                <p className="text-sm text-brown-400 mt-2">
                   まずはお名前を教えてください
                 </p>
               </div>
@@ -226,7 +253,7 @@ export default function OnboardingPage() {
 
                 <button
                   onClick={() => setStep(2)}
-                  className="w-full text-sm text-dark-400 hover:text-accent transition-colors"
+                  className="w-full text-sm text-brown-400 hover:text-pink-500 transition-colors"
                 >
                   戻る
                 </button>
@@ -236,7 +263,7 @@ export default function OnboardingPage() {
         </Card>
 
         {/* 注意書き */}
-        <div className="disclaimer mt-6">
+        <div className="mt-6 text-center text-xs text-brown-400">
           <p>
             ※ 入力いただいた情報は、あなたに合ったサポートを提供するために使用します。
           </p>
