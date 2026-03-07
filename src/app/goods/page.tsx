@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 
@@ -12,6 +13,7 @@ interface GoodsItem {
   title: string;
   description: string;
   imageUrl: string;
+  imageLarge?: string;
   category: string;
   price?: number;
   originalPrice?: number;
@@ -25,15 +27,27 @@ interface GoodsItem {
 
 type CategoryType = 'all' | 'toy' | 'food' | 'care' | 'fashion' | 'outdoor';
 
+// 画像読み込みエラー時のフォールバック
+const FALLBACK_IMAGES: Record<string, string> = {
+  toy: '🎾',
+  food: '🍖',
+  care: '🛁',
+  fashion: '👕',
+  outdoor: '⛺',
+  default: '📦',
+};
+
 export default function GoodsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [goods, setGoods] = useState<GoodsItem[]>([]);
   const [category, setCategory] = useState<CategoryType>('all');
   const [loading, setLoading] = useState(true);
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchGoods = async () => {
+      setLoading(true);
       try {
         const res = await fetch(`/api/goods?category=${category}`);
         const data = await res.json();
@@ -61,14 +75,47 @@ export default function GoodsPage() {
   ];
 
   const getCategoryEmoji = (cat: string) => {
-    const found = categories.find((c) => c.value === cat);
-    return found ? found.emoji : '📦';
+    return FALLBACK_IMAGES[cat] || FALLBACK_IMAGES.default;
+  };
+
+  const handleImageError = (itemId: string) => {
+    setImageErrors(prev => new Set([...prev, itemId]));
+  };
+
+  // 商品画像コンポーネント
+  const ProductImage = ({ item, size = 'medium' }: { item: GoodsItem; size?: 'small' | 'medium' | 'large' }) => {
+    const hasError = imageErrors.has(item.id);
+    const sizeClasses = {
+      small: 'w-full h-24',
+      medium: 'w-24 h-24',
+      large: 'w-full h-48',
+    };
+
+    if (hasError) {
+      return (
+        <div className={`${sizeClasses[size]} bg-cream-100 rounded-2xl flex items-center justify-center`}>
+          <span className="text-4xl">{getCategoryEmoji(item.category)}</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className={`${sizeClasses[size]} relative rounded-2xl overflow-hidden bg-white`}>
+        <img
+          src={item.imageUrl}
+          alt={item.title}
+          className="w-full h-full object-contain"
+          onError={() => handleImageError(item.id)}
+          loading="lazy"
+        />
+      </div>
+    );
   };
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-dark-900 flex items-center justify-center">
-        <div className="spinner" />
+      <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-pink-200 border-t-pink-500 rounded-full" />
       </div>
     );
   }
@@ -79,14 +126,14 @@ export default function GoodsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-dark-900 pb-24">
+    <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50 pb-24">
       {/* ヘッダー */}
-      <header className="header p-4">
+      <header className="bg-white/80 backdrop-blur-md border-b border-cream-200 p-4 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <Link href="/dashboard">
             <h1 className="text-xl font-bold gradient-text">わんライフ</h1>
           </Link>
-          <Link href="/dashboard" className="text-accent text-sm">
+          <Link href="/dashboard" className="text-pink-500 text-sm hover:text-pink-600">
             戻る
           </Link>
         </div>
@@ -94,22 +141,25 @@ export default function GoodsPage() {
 
       <main className="max-w-2xl mx-auto p-4 py-6">
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-dark-50 mb-2">おすすめグッズ</h2>
-          <p className="text-dark-400">
+          <h2 className="text-2xl font-bold text-brown-700 mb-2 flex items-center justify-center gap-2">
+            <span>🛍️</span>
+            おすすめグッズ
+          </h2>
+          <p className="text-brown-400">
             愛犬にぴったりのアイテムを探そう
           </p>
         </div>
 
         {/* カテゴリー選択 */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
           {categories.map((cat) => (
             <button
               key={cat.value}
               onClick={() => setCategory(cat.value)}
-              className={`flex items-center gap-1 px-4 py-2 rounded-full whitespace-nowrap text-sm transition-colors ${
+              className={`flex items-center gap-1 px-4 py-2 rounded-full whitespace-nowrap text-sm transition-all ${
                 category === cat.value
-                  ? 'bg-accent text-dark-900 font-bold'
-                  : 'bg-dark-700 text-dark-300 hover:bg-dark-600'
+                  ? 'bg-gradient-to-r from-pink-400 to-peach-400 text-white font-bold shadow-soft'
+                  : 'bg-white text-brown-500 border border-cream-200 hover:border-pink-200 hover:bg-pink-50'
               }`}
             >
               <span>{cat.emoji}</span>
@@ -119,67 +169,84 @@ export default function GoodsPage() {
         </div>
 
         {/* 人気ランキング */}
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-xl">🔥</span>
-            <h3 className="font-bold text-dark-100">今週の人気</h3>
+        {goods.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-xl">🔥</span>
+              <h3 className="font-bold text-brown-700">今週の人気</h3>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+              {goods.slice(0, 3).map((item, index) => (
+                <a
+                  key={item.id}
+                  href={item.amazonUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block"
+                >
+                  <Card
+                    variant="warm"
+                    className="p-3 min-w-[160px] flex-shrink-0 hover:shadow-soft-lg transition-shadow"
+                  >
+                    <div className="relative">
+                      {/* ランキングバッジ */}
+                      <div className="absolute -top-1 -left-1 w-7 h-7 rounded-full bg-gradient-to-br from-pink-400 to-peach-400 text-white text-sm font-bold flex items-center justify-center shadow-soft z-10">
+                        {index + 1}
+                      </div>
+                      {/* 商品画像 */}
+                      <div className="mb-2">
+                        <ProductImage item={item} size="small" />
+                      </div>
+                      <p className="text-sm font-bold text-brown-700 line-clamp-2">{item.title}</p>
+                      {item.price && (
+                        <p className="text-pink-500 font-bold mt-1">
+                          ¥{item.price.toLocaleString()}
+                        </p>
+                      )}
+                      {item.isPrime && (
+                        <span className="inline-block mt-1 text-xs px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full">
+                          Prime
+                        </span>
+                      )}
+                    </div>
+                  </Card>
+                </a>
+              ))}
+            </div>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {goods.slice(0, 3).map((item, index) => (
-              <Card
-                key={item.id}
-                variant="feature"
-                className="p-3 min-w-[140px] flex-shrink-0"
-              >
-                <div className="relative">
-                  <div className="absolute -top-1 -left-1 w-6 h-6 rounded-full bg-accent text-dark-900 text-xs font-bold flex items-center justify-center">
-                    {index + 1}
-                  </div>
-                  <div className="w-full h-24 bg-dark-700 rounded-lg flex items-center justify-center text-3xl mb-2">
-                    {getCategoryEmoji(item.category)}
-                  </div>
-                  <p className="text-sm font-bold text-dark-100 line-clamp-2">{item.title}</p>
-                  {item.price && (
-                    <p className="text-accent font-bold mt-1">
-                      ¥{item.price.toLocaleString()}
-                    </p>
-                  )}
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
+        )}
 
         {/* グッズリスト */}
         {loading ? (
           <div className="flex justify-center py-12">
-            <div className="spinner" />
+            <div className="animate-spin w-8 h-8 border-4 border-pink-200 border-t-pink-500 rounded-full" />
           </div>
         ) : goods.length > 0 ? (
           <div className="space-y-4">
             {goods.map((item) => (
-              <Card key={item.id} variant="interactive" className="p-4">
+              <Card key={item.id} variant="warm" className="p-4">
                 <div className="flex gap-4">
-                  {/* 画像 */}
-                  <div className="w-24 h-24 bg-dark-700 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <span className="text-4xl">{getCategoryEmoji(item.category)}</span>
+                  {/* 商品画像 */}
+                  <div className="flex-shrink-0">
+                    <ProductImage item={item} size="medium" />
                   </div>
-                  {/* 情報 */}
+
+                  {/* 商品情報 */}
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-dark-100 line-clamp-2 mb-1">
+                    <h3 className="font-bold text-brown-700 line-clamp-2 mb-1">
                       {item.title}
                     </h3>
-                    <p className="text-sm text-dark-400 line-clamp-2 mb-2">
+                    <p className="text-sm text-brown-400 line-clamp-2 mb-2">
                       {item.description}
                     </p>
 
                     {/* 評価 */}
                     {item.rating && (
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-accent">★ {item.rating}</span>
-                        <span className="text-xs text-dark-500">({item.reviewCount}件)</span>
+                        <span className="text-yellow-500">★ {item.rating}</span>
+                        <span className="text-xs text-brown-400">({item.reviewCount?.toLocaleString()}件)</span>
                         {item.isPrime && (
-                          <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded">
+                          <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full">
                             Prime
                           </span>
                         )}
@@ -187,18 +254,18 @@ export default function GoodsPage() {
                     )}
 
                     {/* 価格 */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {item.price && (
-                        <span className="text-lg font-bold text-accent">
+                        <span className="text-lg font-bold text-pink-600">
                           ¥{item.price.toLocaleString()}
                         </span>
                       )}
                       {item.originalPrice && item.originalPrice > (item.price || 0) && (
                         <>
-                          <span className="text-sm text-dark-500 line-through">
+                          <span className="text-sm text-brown-300 line-through">
                             ¥{item.originalPrice.toLocaleString()}
                           </span>
-                          <span className="text-xs px-2 py-0.5 bg-feature-goods/20 text-feature-goods rounded">
+                          <span className="text-xs px-2 py-0.5 bg-pink-100 text-pink-600 rounded-full font-bold">
                             {Math.round((1 - (item.price || 0) / item.originalPrice) * 100)}%OFF
                           </span>
                         </>
@@ -207,10 +274,10 @@ export default function GoodsPage() {
 
                     {/* タグ */}
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {item.tags.slice(0, 2).map((tag, index) => (
+                      {item.tags.slice(0, 3).map((tag, index) => (
                         <span
                           key={index}
-                          className="text-xs bg-dark-700 text-dark-400 px-2 py-0.5 rounded-full"
+                          className="text-xs bg-cream-100 text-brown-500 px-2 py-0.5 rounded-full"
                         >
                           {tag}
                         </span>
@@ -227,56 +294,63 @@ export default function GoodsPage() {
                     rel="noopener noreferrer"
                     className="block mt-4"
                   >
-                    <Button variant="secondary" className="w-full bg-[#FF9900]/20 text-[#FF9900] border-[#FF9900]/30 hover:bg-[#FF9900]/30">
+                    <button className="w-full py-3 px-4 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#FF9900] to-[#FFB84D] text-white hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-soft">
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93s3.05-7.44 7-7.93v15.86zm2-15.86c3.94.49 7 3.85 7 7.93s-3.05 7.44-7 7.93V4.07z"/>
+                      </svg>
                       Amazonで見る
-                    </Button>
+                    </button>
                   </a>
                 )}
               </Card>
             ))}
           </div>
         ) : (
-          <div className="empty-state">
-            <div className="empty-state-icon">📦</div>
-            <p className="empty-state-title">アイテムが見つかりません</p>
-            <p className="empty-state-description">
+          <Card variant="warm" className="text-center py-12">
+            <div className="text-5xl mb-4">📦</div>
+            <p className="font-bold text-brown-700 mb-2">アイテムが見つかりません</p>
+            <p className="text-brown-400 text-sm">
               別のカテゴリーを選択してみてください
             </p>
-          </div>
+          </Card>
         )}
 
         {/* 注意書き */}
-        <div className="disclaimer mt-6">
-          <p>
+        <div className="mt-6 text-center text-xs text-brown-400 bg-cream-50 p-4 rounded-2xl">
+          <p className="mb-1">
             ※ 掲載されている商品情報は参考情報です。
+          </p>
+          <p className="mb-1">
             価格や在庫は変動する場合があります。
-            本ページにはアフィリエイトリンクが含まれています。
+          </p>
+          <p>
+            本ページにはAmazonアソシエイトリンクが含まれています。
           </p>
         </div>
       </main>
 
       {/* ボトムナビゲーション */}
-      <nav className="bottom-nav">
-        <div className="max-w-4xl mx-auto flex justify-around">
-          <Link href="/dashboard" className="bottom-nav-item">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-cream-200 safe-area-inset-bottom z-40">
+        <div className="max-w-4xl mx-auto flex justify-around py-2">
+          <Link href="/dashboard" className="flex flex-col items-center py-2 px-4 text-brown-400">
             <span className="text-xl">🏠</span>
-            <span>ホーム</span>
+            <span className="text-xs mt-1">ホーム</span>
           </Link>
-          <Link href="/walk" className="bottom-nav-item">
+          <Link href="/walk" className="flex flex-col items-center py-2 px-4 text-brown-400">
             <span className="text-xl">🚶</span>
-            <span>散歩</span>
+            <span className="text-xs mt-1">散歩</span>
           </Link>
-          <Link href="/voice" className="bottom-nav-item">
-            <span className="text-xl">🎤</span>
-            <span>翻訳</span>
+          <Link href="/goods" className="flex flex-col items-center py-2 px-4 text-pink-500">
+            <span className="text-xl">🛍️</span>
+            <span className="text-xs mt-1 font-bold">グッズ</span>
           </Link>
-          <Link href="/family" className="bottom-nav-item">
-            <span className="text-xl">👨‍👩‍👧</span>
-            <span>家族</span>
+          <Link href="/community" className="flex flex-col items-center py-2 px-4 text-brown-400">
+            <span className="text-xl">💬</span>
+            <span className="text-xs mt-1">コミュニティ</span>
           </Link>
-          <Link href="/settings" className="bottom-nav-item">
+          <Link href="/settings" className="flex flex-col items-center py-2 px-4 text-brown-400">
             <span className="text-xl">⚙️</span>
-            <span>設定</span>
+            <span className="text-xs mt-1">設定</span>
           </Link>
         </div>
       </nav>
