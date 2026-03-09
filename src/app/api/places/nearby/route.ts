@@ -3,16 +3,16 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
 // ================================================
-// 周辺施設検索API
+// 周辺施設検索API（Google Places API対応）
 // ================================================
 //
 // 【機能】
 // ユーザーの現在地から指定範囲内の施設を検索
-// Haversine公式で距離を計算し、近い順にソート
+// Google Places APIで実際の施設を取得
 //
-// 【MVP実装】
-// 現在地周辺にモック施設を動的生成
-// 本番環境ではGoogle Places APIに置き換え
+// 【API】
+// GOOGLE_PLACES_API_KEYが設定されている場合: 本番API
+// 設定されていない場合: モックデータ
 // ================================================
 
 interface Place {
@@ -35,6 +35,16 @@ interface PlaceWithDistance extends Place {
   distanceText: string;
   mapUrl: string;
 }
+
+// 施設タイプとGoogle Places APIの検索クエリのマッピング
+const TYPE_SEARCH_QUERIES: Record<string, { query: string; googleType?: string }> = {
+  vet: { query: '動物病院', googleType: 'veterinary_care' },
+  dogrun: { query: 'ドッグラン' },
+  petshop: { query: 'ペットショップ', googleType: 'pet_store' },
+  trimming: { query: 'トリミングサロン 犬' },
+  cafe: { query: 'ドッグカフェ' },
+  walkspot: { query: '公園 犬', googleType: 'park' },
+};
 
 // Haversine公式：2点間の距離を計算（メートル）
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -59,136 +69,148 @@ function generateMapUrl(userLat: number, userLon: number, placeLat: number, plac
 }
 
 // ================================================
-// ユーザーの現在地周辺に施設を動的生成
+// Google Places API（Text Search）を使用
 // ================================================
-function generateNearbyPlaces(userLat: number, userLon: number): Place[] {
-  // 施設テンプレート
+async function searchGooglePlaces(
+  lat: number,
+  lng: number,
+  radius: number,
+  type: string,
+  apiKey: string
+): Promise<Place[]> {
+  const places: Place[] = [];
+  const typesToSearch = type === 'all'
+    ? Object.keys(TYPE_SEARCH_QUERIES)
+    : [type];
+
+  for (const placeType of typesToSearch) {
+    const searchConfig = TYPE_SEARCH_QUERIES[placeType];
+    if (!searchConfig) continue;
+
+    try {
+      // Google Places API (New) - Text Search
+      const url = 'https://places.googleapis.com/v1/places:searchText';
+
+      const requestBody = {
+        textQuery: searchConfig.query,
+        locationBias: {
+          circle: {
+            center: {
+              latitude: lat,
+              longitude: lng,
+            },
+            radius: radius,
+          },
+        },
+        languageCode: 'ja',
+        maxResultCount: 10,
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.currentOpeningHours,places.regularOpeningHours',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        console.error(`[Google Places API] Error for ${placeType}:`, response.status, await response.text());
+        continue;
+      }
+
+      const data = await response.json();
+
+      if (data.places) {
+        for (const place of data.places) {
+          // 営業時間のテキストを生成
+          let hoursText: string | undefined;
+          if (place.regularOpeningHours?.weekdayDescriptions) {
+            hoursText = place.regularOpeningHours.weekdayDescriptions[0];
+          }
+
+          places.push({
+            id: place.id,
+            name: place.displayName?.text || '名称不明',
+            address: place.formattedAddress || '',
+            latitude: place.location?.latitude || 0,
+            longitude: place.location?.longitude || 0,
+            phone: place.nationalPhoneNumber,
+            rating: place.rating,
+            reviewCount: place.userRatingCount,
+            openNow: place.currentOpeningHours?.openNow,
+            type: placeType as Place['type'],
+            hours: hoursText,
+          });
+        }
+      }
+    } catch (error) {
+      console.error(`[Google Places API] Error fetching ${placeType}:`, error);
+    }
+  }
+
+  return places;
+}
+
+// ================================================
+// モックデータ生成（APIキーがない場合のフォールバック）
+// ================================================
+function generateMockPlaces(userLat: number, userLon: number): Place[] {
   const templates = {
     vet: [
       { name: 'さくら動物病院', features: ['夜間対応', '駐車場あり'] },
       { name: 'ペットクリニック', features: ['予約制', '日曜診療'] },
       { name: 'アニマルケアセンター', features: ['24時間', '救急対応'] },
-      { name: 'どうぶつ医療センター', features: ['専門医在籍'] },
-      { name: 'わんにゃん病院', features: ['トリミング併設'] },
     ],
     dogrun: [
-      { name: '○○公園ドッグラン', features: ['無料', '大型犬OK', '水飲み場'] },
+      { name: '中央公園ドッグラン', features: ['無料', '大型犬OK'] },
       { name: 'わんわんパーク', features: ['会員制', '小型犬エリア'] },
-      { name: 'ドッグフィールド', features: ['貸切可', '駐車場あり'] },
-      { name: '緑地ドッグラン', features: ['芝生', '日陰あり'] },
     ],
     cafe: [
       { name: 'ドッグカフェ PAWS', features: ['室内OK', 'テラス席'] },
-      { name: 'カフェ わんこ家', features: ['ドッグメニュー', '誕生日ケーキ'] },
-      { name: 'Dog Cafe Terrace', features: ['予約可', '大型犬OK'] },
-      { name: 'ペットカフェ ハッピー', features: ['個室あり'] },
+      { name: 'カフェ わんこ家', features: ['ドッグメニュー'] },
     ],
     petshop: [
       { name: 'ペットショップ わんにゃん', features: ['品揃え豊富'] },
-      { name: 'コジマ', features: ['大型店', 'トリミング'] },
-      { name: 'イオンペット', features: ['駐車場無料'] },
-      { name: 'ペットの専門店', features: ['相談コーナー'] },
     ],
     trimming: [
-      { name: 'わんわんトリミング', features: ['完全予約制', '送迎あり'] },
-      { name: 'ペットサロン HAPPY', features: ['オーガニック', '小型犬専門'] },
-      { name: 'グルーミングサロン', features: ['当日予約OK'] },
-      { name: 'ドッグビューティー', features: ['カット専門'] },
+      { name: 'わんわんトリミング', features: ['完全予約制'] },
     ],
     walkspot: [
-      { name: '○○公園', features: ['広い芝生', '木陰多い'] },
-      { name: '○○緑道', features: ['遊歩道', '桜の名所'] },
-      { name: '河川敷公園', features: ['ランニングコース'] },
-      { name: '森林公園', features: ['自然豊か', '駐車場あり'] },
+      { name: '緑地公園', features: ['広い芝生', '木陰多い'] },
     ],
   };
 
   const places: Place[] = [];
-  const types: Array<keyof typeof templates> = ['vet', 'dogrun', 'cafe', 'petshop', 'trimming', 'walkspot'];
+  const types = Object.keys(templates) as Array<keyof typeof templates>;
 
-  // 各タイプごとに施設を生成
   types.forEach((type, typeIndex) => {
     const typeTemplates = templates[type];
-
     typeTemplates.forEach((template, i) => {
-      // ユーザーの現在地からランダムな距離・方角に配置
-      const distanceKm = 0.1 + Math.random() * 4; // 100m〜4km
-      const angle = (typeIndex * 60 + i * 30 + Math.random() * 20) * (Math.PI / 180);
-
-      // 緯度経度のオフセット（1度 ≈ 111km）
+      const distanceKm = 0.2 + Math.random() * 3;
+      const angle = (typeIndex * 60 + i * 45) * (Math.PI / 180);
       const latOffset = (distanceKm / 111) * Math.cos(angle);
       const lonOffset = (distanceKm / (111 * Math.cos(userLat * Math.PI / 180))) * Math.sin(angle);
 
-      const placeLat = userLat + latOffset;
-      const placeLon = userLon + lonOffset;
-
-      // 住所を生成（緯度経度から概算）
-      const address = generateAddress(placeLat, placeLon);
-
       places.push({
-        id: `${type}-${i}`,
-        name: template.name.replace('○○', getAreaName(placeLat, placeLon)),
-        address,
-        latitude: placeLat,
-        longitude: placeLon,
-        phone: type === 'vet' || type === 'trimming' ? generatePhone() : undefined,
+        id: `mock-${type}-${i}`,
+        name: template.name,
+        address: '東京都○○区○○',
+        latitude: userLat + latOffset,
+        longitude: userLon + lonOffset,
         rating: 3.5 + Math.random() * 1.5,
-        reviewCount: Math.floor(50 + Math.random() * 300),
-        openNow: Math.random() > 0.2,
+        reviewCount: Math.floor(50 + Math.random() * 200),
+        openNow: Math.random() > 0.3,
         type,
         features: template.features,
-        hours: getHours(type),
+        hours: '10:00-19:00',
       });
     });
   });
 
   return places;
-}
-
-// 緯度経度からエリア名を推定
-function getAreaName(lat: number, lon: number): string {
-  // 日本国内かどうかで分岐
-  if (lat >= 24 && lat <= 46 && lon >= 122 && lon <= 154) {
-    const areas = ['中央', '東', '西', '南', '北', '本町', '緑', '桜', '若葉', '青葉'];
-    return areas[Math.floor(Math.random() * areas.length)];
-  }
-  return 'Central';
-}
-
-// 緯度経度から住所を生成
-function generateAddress(lat: number, lon: number): string {
-  // 日本国内かどうかで分岐
-  if (lat >= 24 && lat <= 46 && lon >= 122 && lon <= 154) {
-    const prefectures = ['東京都', '神奈川県', '千葉県', '埼玉県', '大阪府', '愛知県', '福岡県'];
-    const cities = ['中央区', '港区', '新宿区', '渋谷区', '品川区', '目黒区', '世田谷区'];
-    const pref = prefectures[Math.floor(Math.random() * prefectures.length)];
-    const city = cities[Math.floor(Math.random() * cities.length)];
-    const chome = Math.floor(1 + Math.random() * 5);
-    const ban = Math.floor(1 + Math.random() * 20);
-    return `${pref}${city}${chome}-${ban}`;
-  }
-  return `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-}
-
-// 電話番号を生成
-function generatePhone(): string {
-  const area = ['03', '045', '044', '048', '043'][Math.floor(Math.random() * 5)];
-  const num1 = Math.floor(1000 + Math.random() * 9000);
-  const num2 = Math.floor(1000 + Math.random() * 9000);
-  return `${area}-${num1}-${num2}`;
-}
-
-// 営業時間を取得
-function getHours(type: string): string {
-  switch (type) {
-    case 'vet': return '9:00-19:00';
-    case 'dogrun': return '日の出〜日没';
-    case 'cafe': return '11:00-20:00';
-    case 'petshop': return '10:00-21:00';
-    case 'trimming': return '10:00-18:00';
-    case 'walkspot': return '24時間';
-    default: return '10:00-18:00';
-  }
 }
 
 // ================================================
@@ -214,38 +236,47 @@ export async function GET(request: NextRequest) {
 
     console.log(`[Places API] 検索: lat=${lat.toFixed(6)}, lng=${lng.toFixed(6)}, radius=${radius}m, type=${type}`);
 
-    // ユーザーの現在地周辺に施設を生成
-    let places = generateNearbyPlaces(lat, lng);
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    let places: Place[];
 
-    // タイプでフィルター
-    if (type !== 'all') {
-      places = places.filter(p => p.type === type);
+    if (apiKey) {
+      console.log('[Places API] Google Places APIを使用');
+      places = await searchGooglePlaces(lat, lng, radius, type, apiKey);
+    } else {
+      console.log('[Places API] モックデータを使用（APIキー未設定）');
+      places = generateMockPlaces(lat, lng);
+      if (type !== 'all') {
+        places = places.filter(p => p.type === type);
+      }
     }
 
-    // 距離を計算
-    const placesWithDistance: PlaceWithDistance[] = places.map(place => {
-      const distance = calculateDistance(lat, lng, place.latitude, place.longitude);
-      return {
-        ...place,
-        distance,
-        distanceText: formatDistance(distance),
-        mapUrl: generateMapUrl(lat, lng, place.latitude, place.longitude),
-      };
-    });
+    // 距離を計算してソート
+    const placesWithDistance: PlaceWithDistance[] = places
+      .map(place => {
+        const distance = calculateDistance(lat, lng, place.latitude, place.longitude);
+        return {
+          ...place,
+          distance,
+          distanceText: formatDistance(distance),
+          mapUrl: generateMapUrl(lat, lng, place.latitude, place.longitude),
+        };
+      })
+      .filter(p => p.distance <= radius)
+      .sort((a, b) => a.distance - b.distance);
 
-    // 範囲内のみ
-    const filtered = placesWithDistance.filter(p => p.distance <= radius);
+    // 重複除去（同じ名前の施設）
+    const uniquePlaces = placesWithDistance.filter((place, index, self) =>
+      index === self.findIndex(p => p.name === place.name)
+    );
 
-    // 距離順ソート
-    filtered.sort((a, b) => a.distance - b.distance);
-
-    console.log(`[Places API] 結果: ${filtered.length}件`);
+    console.log(`[Places API] 結果: ${uniquePlaces.length}件`);
 
     return NextResponse.json({
-      places: filtered,
-      count: filtered.length,
+      places: uniquePlaces,
+      count: uniquePlaces.length,
       userLocation: { latitude: lat, longitude: lng },
       searchParams: { radius, type },
+      source: apiKey ? 'google' : 'mock',
     });
   } catch (error) {
     console.error('Places API error:', error);
