@@ -51,85 +51,6 @@ const SEARCH_RADIUS_OPTIONS = [
   { value: 10, label: '10km' },
 ];
 
-// モックデータ
-const MOCK_RESTAURANTS: Restaurant[] = [
-  {
-    id: 'r1',
-    name: 'Dog Cafe PAWS',
-    category: 'カフェ',
-    address: '東京都渋谷区神宮前3-4-5',
-    phone: '03-1111-2222',
-    distance: 450,
-    rating: 4.6,
-    reviewCount: 234,
-    priceRange: '¥1,000〜¥2,000',
-    petPolicy: { dogAllowed: true, sizeLimit: 'all', indoorAllowed: true, terraceOnly: false, petMenu: true, waterBowl: true },
-    features: ['室内OK', '大型犬OK', 'ペットメニュー'],
-    openingHours: '10:00〜20:00',
-    description: '愛犬と一緒にくつろげるドッグカフェ。ペット用メニューも充実。',
-  },
-  {
-    id: 'r2',
-    name: 'Terrace Italian',
-    category: 'イタリアン',
-    address: '東京都渋谷区恵比寿2-3-4',
-    phone: '03-2222-3333',
-    distance: 820,
-    rating: 4.3,
-    reviewCount: 156,
-    priceRange: '¥2,000〜¥4,000',
-    petPolicy: { dogAllowed: true, sizeLimit: 'medium', indoorAllowed: false, terraceOnly: true, petMenu: false, waterBowl: true },
-    features: ['テラス席', '中型犬まで'],
-    openingHours: '11:30〜22:00',
-    description: 'テラス席でペット同伴可能なイタリアンレストラン。',
-  },
-  {
-    id: 'r3',
-    name: 'わんこ亭',
-    category: '和食',
-    address: '東京都渋谷区代々木1-2-3',
-    phone: '03-3333-4444',
-    distance: 1200,
-    rating: 4.4,
-    reviewCount: 98,
-    priceRange: '¥1,500〜¥3,000',
-    petPolicy: { dogAllowed: true, sizeLimit: 'small', indoorAllowed: true, terraceOnly: false, petMenu: true, waterBowl: true },
-    features: ['室内OK', '小型犬限定', 'ペットメニュー'],
-    openingHours: '11:00〜21:00',
-    description: '小型犬と一緒に入れる和食店。犬用おやつもあり。',
-  },
-  {
-    id: 'r4',
-    name: 'Beer Garden DOG',
-    category: 'ビアガーデン',
-    address: '東京都渋谷区道玄坂1-2-3',
-    phone: '03-4444-5555',
-    distance: 2100,
-    rating: 4.1,
-    reviewCount: 312,
-    priceRange: '¥2,000〜¥4,000',
-    petPolicy: { dogAllowed: true, sizeLimit: 'all', indoorAllowed: false, terraceOnly: true, petMenu: false, waterBowl: true },
-    features: ['屋外席', '大型犬OK'],
-    openingHours: '17:00〜23:00（季節限定）',
-    description: '愛犬と一緒にビールを楽しめる季節限定ビアガーデン。',
-  },
-  {
-    id: 'r5',
-    name: 'Café Bow Wow',
-    category: 'カフェ',
-    address: '東京都世田谷区三軒茶屋1-2-3',
-    phone: '03-5555-6666',
-    distance: 3500,
-    rating: 4.7,
-    reviewCount: 189,
-    priceRange: '¥800〜¥1,500',
-    petPolicy: { dogAllowed: true, sizeLimit: 'all', indoorAllowed: true, terraceOnly: false, petMenu: true, waterBowl: true },
-    features: ['室内OK', '大型犬OK', 'ペットメニュー', 'ドッグラン併設'],
-    openingHours: '9:00〜19:00',
-    description: 'ドッグラン併設のカフェ。遊んだ後にゆっくりできます。',
-  },
-];
-
 export default function RestaurantsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -160,30 +81,26 @@ export default function RestaurantsPage() {
     setLoading(true);
     setHasSearched(true);
 
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    let filtered = MOCK_RESTAURANTS.filter(r => r.distance <= radius * 1000);
-
-    if (selectedCategory !== 'すべて') {
-      filtered = filtered.filter(r => r.category === selectedCategory);
-    }
-
-    if (sizeFilter !== 'all') {
-      filtered = filtered.filter(r => {
-        if (sizeFilter === 'medium') {
-          return r.petPolicy.sizeLimit === 'all' || r.petPolicy.sizeLimit === 'medium';
-        }
-        return r.petPolicy.sizeLimit === sizeFilter || r.petPolicy.sizeLimit === 'all' || r.petPolicy.sizeLimit === 'medium';
+    try {
+      const params = new URLSearchParams({
+        lat: location.latitude.toString(),
+        lng: location.longitude.toString(),
+        radius: (radius * 1000).toString(),
+        category: selectedCategory,
+        size: sizeFilter,
+        indoor: indoorOnly.toString(),
       });
+
+      const res = await fetch(`/api/restaurants/search?${params}`);
+      const data = await res.json();
+
+      if (data.restaurants) {
+        setRestaurants(data.restaurants);
+      }
+    } catch (error) {
+      console.error('飲食店検索エラー:', error);
     }
 
-    if (indoorOnly) {
-      filtered = filtered.filter(r => r.petPolicy.indoorAllowed);
-    }
-
-    filtered.sort((a, b) => a.distance - b.distance);
-
-    setRestaurants(filtered);
     setLoading(false);
   }, [location, selectedCategory, sizeFilter, indoorOnly, searchRadius]);
 

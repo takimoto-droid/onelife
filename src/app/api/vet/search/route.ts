@@ -1,179 +1,231 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
 
-// 動物病院モックデータ（実際はGoogle Places APIを使用）
-const MOCK_VET_CLINICS = [
-  {
-    id: 'vet-1',
-    name: '代々木動物病院',
-    address: '東京都渋谷区代々木1-2-3',
-    phone: '03-1234-5678',
-    latitude: 35.6836,
-    longitude: 139.7022,
-    rating: 4.5,
-    reviewCount: 128,
-    businessHours: {
-      mon: '9:00-19:00',
-      tue: '9:00-19:00',
-      wed: '9:00-19:00',
-      thu: '9:00-19:00',
-      fri: '9:00-19:00',
-      sat: '9:00-17:00',
-      sun: '休診',
-    },
-    distance: 0.3,
-  },
-  {
-    id: 'vet-2',
-    name: '渋谷ペットクリニック',
-    address: '東京都渋谷区神南1-4-5',
-    phone: '03-2345-6789',
-    latitude: 35.6625,
-    longitude: 139.6997,
-    rating: 4.8,
-    reviewCount: 256,
-    businessHours: {
-      mon: '10:00-20:00',
-      tue: '10:00-20:00',
-      wed: '休診',
-      thu: '10:00-20:00',
-      fri: '10:00-20:00',
-      sat: '10:00-18:00',
-      sun: '10:00-15:00',
-    },
-    distance: 0.8,
-  },
-  {
-    id: 'vet-3',
-    name: 'さくら動物病院',
-    address: '東京都渋谷区恵比寿2-3-4',
-    phone: '03-3456-7890',
-    latitude: 35.6467,
-    longitude: 139.7103,
-    rating: 4.2,
-    reviewCount: 89,
-    businessHours: {
-      mon: '9:30-18:30',
-      tue: '9:30-18:30',
-      wed: '9:30-18:30',
-      thu: '休診',
-      fri: '9:30-18:30',
-      sat: '9:30-16:00',
-      sun: '休診',
-    },
-    distance: 1.2,
-  },
-  {
-    id: 'vet-4',
-    name: '目黒アニマルホスピタル',
-    address: '東京都目黒区中目黒3-5-6',
-    phone: '03-4567-8901',
-    latitude: 35.6442,
-    longitude: 139.6986,
-    rating: 4.6,
-    reviewCount: 312,
-    businessHours: {
-      mon: '8:00-21:00',
-      tue: '8:00-21:00',
-      wed: '8:00-21:00',
-      thu: '8:00-21:00',
-      fri: '8:00-21:00',
-      sat: '9:00-19:00',
-      sun: '9:00-17:00',
-    },
-    distance: 1.5,
-  },
-  {
-    id: 'vet-5',
-    name: '新宿どうぶつ病院',
-    address: '東京都新宿区西新宿7-8-9',
-    phone: '03-5678-9012',
-    latitude: 35.6938,
-    longitude: 139.6917,
-    rating: 4.3,
-    reviewCount: 178,
-    businessHours: {
-      mon: '9:00-18:00',
-      tue: '9:00-18:00',
-      wed: '9:00-18:00',
-      thu: '9:00-18:00',
-      fri: '9:00-18:00',
-      sat: '9:00-15:00',
-      sun: '休診',
-    },
-    distance: 2.1,
-  },
-  {
-    id: 'vet-6',
-    name: 'はな動物クリニック',
-    address: '東京都世田谷区三軒茶屋1-2-3',
-    phone: '03-6789-0123',
-    latitude: 35.6437,
-    longitude: 139.6702,
-    rating: 4.7,
-    reviewCount: 203,
-    businessHours: {
-      mon: '9:00-19:00',
-      tue: '9:00-19:00',
-      wed: '休診',
-      thu: '9:00-19:00',
-      fri: '9:00-19:00',
-      sat: '9:00-17:00',
-      sun: '10:00-14:00',
-    },
-    distance: 2.8,
-  },
-];
+// ================================================
+// 動物病院検索API（Yahoo! YOLP対応）
+// ================================================
 
-// Google Maps URLを生成
-function generateGoogleMapsUrl(name: string, address: string): string {
-  const query = encodeURIComponent(`${name} ${address}`);
-  return `https://www.google.com/maps/search/?api=1&query=${query}`;
+interface VetClinic {
+  id: string;
+  name: string;
+  address: string;
+  phone?: string;
+  latitude: number;
+  longitude: number;
+  rating?: number;
+  reviewCount?: number;
+  distance: number;
+  distanceText: string;
+  features?: string[];
+  businessHours?: Record<string, string>;
+  googleMapsUrl: string;
+}
+
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000;
+  const toRad = (deg: number) => deg * (Math.PI / 180);
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
+function formatDistance(meters: number): string {
+  if (meters < 1000) return `${meters}m`;
+  return `${(meters / 1000).toFixed(1)}km`;
+}
+
+function generateMapUrl(userLat: number, userLon: number, placeLat: number, placeLon: number): string {
+  return `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLon}&destination=${placeLat},${placeLon}&travelmode=driving`;
+}
+
+// Yahoo! YOLP で動物病院を検索
+async function searchYahooYOLP(
+  lat: number,
+  lng: number,
+  radius: number,
+  appId: string
+): Promise<VetClinic[]> {
+  const clinics: VetClinic[] = [];
+
+  try {
+    const params = new URLSearchParams({
+      appid: appId,
+      lat: lat.toString(),
+      lon: lng.toString(),
+      dist: (radius / 1000).toString(),
+      query: '動物病院',
+      results: '30',
+      output: 'json',
+      sort: 'dist',
+    });
+
+    const url = `https://map.yahooapis.jp/search/local/V1/localSearch?${params}`;
+    console.log('[Yahoo YOLP] 動物病院検索中...');
+
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'WansapoApp/1.0' },
+    });
+
+    if (!response.ok) {
+      console.error('[Yahoo YOLP] Error:', response.status);
+      return clinics;
+    }
+
+    const data = await response.json();
+
+    if (data.Feature) {
+      for (const feature of data.Feature) {
+        const geometry = feature.Geometry?.Coordinates;
+        if (!geometry) continue;
+
+        const [lon, placeLat] = geometry.split(',').map(Number);
+        const property = feature.Property || {};
+        const distance = calculateDistance(lat, lng, placeLat, lon);
+
+        // 特徴を抽出
+        const features: string[] = [];
+        const catchcopy = property.CatchCopy || '';
+        if (catchcopy.includes('24時間') || catchcopy.includes('夜間')) features.push('夜間対応');
+        if (catchcopy.includes('駐車')) features.push('駐車場あり');
+        if (catchcopy.includes('日曜') || catchcopy.includes('休日')) features.push('日曜診療');
+        if (catchcopy.includes('予約')) features.push('予約制');
+        if (catchcopy.includes('救急')) features.push('救急対応');
+
+        clinics.push({
+          id: `yahoo-vet-${feature.Id || Math.random().toString(36).substr(2, 9)}`,
+          name: feature.Name || '名称不明',
+          address: property.Address || '',
+          phone: property.Tel1,
+          latitude: placeLat,
+          longitude: lon,
+          distance,
+          distanceText: formatDistance(distance),
+          features: features.length > 0 ? features : undefined,
+          googleMapsUrl: generateMapUrl(lat, lng, placeLat, lon),
+        });
+      }
+    }
+
+    console.log(`[Yahoo YOLP] ${clinics.length}件の動物病院を取得`);
+  } catch (error) {
+    console.error('[Yahoo YOLP] Error:', error);
+  }
+
+  return clinics;
+}
+
+// OpenStreetMap フォールバック
+async function searchOverpassFallback(
+  lat: number,
+  lng: number,
+  radius: number
+): Promise<VetClinic[]> {
+  const clinics: VetClinic[] = [];
+
+  try {
+    const overpassQuery = `[out:json][timeout:25];
+(
+  node["amenity"="veterinary"](around:${radius},${lat},${lng});
+  way["amenity"="veterinary"](around:${radius},${lat},${lng});
+  node["healthcare"="veterinary"](around:${radius},${lat},${lng});
+);
+out center body;`;
+
+    const response = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `data=${encodeURIComponent(overpassQuery)}`,
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.elements) {
+        for (const element of data.elements) {
+          const placeLat = element.lat || element.center?.lat;
+          const placeLon = element.lon || element.center?.lon;
+          const tags = element.tags || {};
+
+          if (!placeLat || !placeLon || !tags.name) continue;
+
+          const distance = calculateDistance(lat, lng, placeLat, placeLon);
+
+          clinics.push({
+            id: `osm-vet-${element.id}`,
+            name: tags['name:ja'] || tags.name,
+            address: tags['addr:full'] || tags.address || '住所情報なし',
+            phone: tags.phone,
+            latitude: placeLat,
+            longitude: placeLon,
+            distance,
+            distanceText: formatDistance(distance),
+            googleMapsUrl: generateMapUrl(lat, lng, placeLat, placeLon),
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[Overpass] Error:', error);
+  }
+
+  return clinics;
 }
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-
     if (!session?.user?.id) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
-    const lat = parseFloat(searchParams.get('lat') || '35.6812');
-    const lng = parseFloat(searchParams.get('lng') || '139.7671');
-    const radius = parseFloat(searchParams.get('radius') || '5'); // km
+    const lat = parseFloat(searchParams.get('lat') || '0');
+    const lng = parseFloat(searchParams.get('lng') || '0');
+    const radius = parseInt(searchParams.get('radius') || '3000', 10);
 
-    // モックデータに距離を計算して追加
-    const clinicsWithDistance = MOCK_VET_CLINICS.map(clinic => {
-      // 簡易的な距離計算（Haversine formula の簡略版）
-      const dLat = (clinic.latitude - lat) * 111;
-      const dLng = (clinic.longitude - lng) * 111 * Math.cos(lat * Math.PI / 180);
-      const distance = Math.sqrt(dLat * dLat + dLng * dLng);
+    if (lat === 0 || lng === 0) {
+      return NextResponse.json({ error: '位置情報が必要です' }, { status: 400 });
+    }
 
-      return {
-        ...clinic,
-        distance: Math.round(distance * 10) / 10,
-        googleMapsUrl: generateGoogleMapsUrl(clinic.name, clinic.address),
-      };
-    });
+    console.log(`[Vet API] 検索: lat=${lat.toFixed(6)}, lng=${lng.toFixed(6)}, radius=${radius}m`);
 
-    // 距離でフィルタリング・ソート
-    const filteredClinics = clinicsWithDistance
-      .filter(c => c.distance <= radius)
-      .sort((a, b) => a.distance - b.distance);
+    const yahooAppId = process.env.YAHOO_APP_ID;
+    let clinics: VetClinic[];
+
+    if (yahooAppId) {
+      clinics = await searchYahooYOLP(lat, lng, radius, yahooAppId);
+
+      // 結果が少ない場合はOSMで補完
+      if (clinics.length < 5) {
+        const osmClinics = await searchOverpassFallback(lat, lng, radius);
+        for (const osm of osmClinics) {
+          if (!clinics.find(c => c.name === osm.name)) {
+            clinics.push(osm);
+          }
+        }
+      }
+    } else {
+      clinics = await searchOverpassFallback(lat, lng, radius);
+    }
+
+    // 距離でソート
+    clinics.sort((a, b) => a.distance - b.distance);
+
+    // 重複除去
+    const unique = clinics.filter((c, i, self) =>
+      i === self.findIndex(x => x.name === c.name)
+    );
 
     return NextResponse.json({
-      clinics: filteredClinics,
-      total: filteredClinics.length,
+      clinics: unique,
+      total: unique.length,
     });
   } catch (error) {
-    console.error('Vet search error:', error);
-    return NextResponse.json(
-      { error: 'エラーが発生しました' },
-      { status: 500 }
-    );
+    console.error('Vet API error:', error);
+    return NextResponse.json({ error: 'エラーが発生しました' }, { status: 500 });
   }
 }

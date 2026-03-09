@@ -40,73 +40,6 @@ const SEARCH_RADIUS_OPTIONS = [
   { value: 10, label: '10km' },
 ];
 
-// モック病院データ
-const MOCK_VET_CLINICS: VetClinic[] = [
-  {
-    id: 'vet-1',
-    name: '代々木動物病院',
-    address: '東京都渋谷区代々木1-2-3',
-    phone: '03-1234-5678',
-    latitude: 35.6836,
-    longitude: 139.7022,
-    rating: 4.5,
-    reviewCount: 128,
-    businessHours: { mon: '9:00-19:00', tue: '9:00-19:00', wed: '9:00-19:00', thu: '9:00-19:00', fri: '9:00-19:00', sat: '9:00-17:00', sun: '休診' },
-    distance: 350,
-    features: ['夜間対応', '駐車場あり'],
-  },
-  {
-    id: 'vet-2',
-    name: '渋谷ペットクリニック',
-    address: '東京都渋谷区神南1-4-5',
-    phone: '03-2345-6789',
-    latitude: 35.6625,
-    longitude: 139.6997,
-    rating: 4.8,
-    reviewCount: 256,
-    businessHours: { mon: '10:00-20:00', tue: '10:00-20:00', wed: '休診', thu: '10:00-20:00', fri: '10:00-20:00', sat: '10:00-18:00', sun: '10:00-15:00' },
-    distance: 850,
-    features: ['日曜診療', 'カード可'],
-  },
-  {
-    id: 'vet-3',
-    name: 'さくら動物病院',
-    address: '東京都渋谷区恵比寿2-3-4',
-    phone: '03-3456-7890',
-    latitude: 35.6467,
-    longitude: 139.7103,
-    rating: 4.2,
-    reviewCount: 89,
-    businessHours: { mon: '9:30-18:30', tue: '9:30-18:30', wed: '9:30-18:30', thu: '休診', fri: '9:30-18:30', sat: '9:30-16:00', sun: '休診' },
-    distance: 1500,
-  },
-  {
-    id: 'vet-4',
-    name: '目黒アニマルホスピタル',
-    address: '東京都目黒区中目黒3-5-6',
-    phone: '03-4567-8901',
-    latitude: 35.6442,
-    longitude: 139.6986,
-    rating: 4.6,
-    reviewCount: 312,
-    businessHours: { mon: '8:00-21:00', tue: '8:00-21:00', wed: '8:00-21:00', thu: '8:00-21:00', fri: '8:00-21:00', sat: '9:00-19:00', sun: '9:00-17:00' },
-    distance: 2100,
-    features: ['24時間対応', '救急', '大型犬OK'],
-  },
-  {
-    id: 'vet-5',
-    name: '新宿どうぶつ病院',
-    address: '東京都新宿区西新宿7-8-9',
-    phone: '03-5678-9012',
-    latitude: 35.6938,
-    longitude: 139.6917,
-    rating: 4.3,
-    reviewCount: 178,
-    businessHours: { mon: '9:00-18:00', tue: '9:00-18:00', wed: '9:00-18:00', thu: '9:00-18:00', fri: '9:00-18:00', sat: '9:00-15:00', sun: '休診' },
-    distance: 3500,
-  },
-];
-
 export default function VetPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -164,19 +97,30 @@ export default function VetPage() {
     }
   }, []);
 
-  // 近くの病院を検索
+  // 近くの病院を検索（Yahoo! YOLP API使用）
   const searchNearbyClinics = useCallback(async (radius: number = searchRadius) => {
     if (!location) return;
 
     setSearchLoading(true);
     setHasSearched(true);
 
-    await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+      const params = new URLSearchParams({
+        lat: location.latitude.toString(),
+        lng: location.longitude.toString(),
+        radius: (radius * 1000).toString(),
+      });
 
-    const filtered = MOCK_VET_CLINICS.filter(c => (c.distance || 0) <= radius * 1000);
-    filtered.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+      const res = await fetch(`/api/vet/search?${params}`);
+      const data = await res.json();
 
-    setNearbyClinics(filtered);
+      if (data.clinics) {
+        setNearbyClinics(data.clinics);
+      }
+    } catch (error) {
+      console.error('病院検索エラー:', error);
+    }
+
     setSearchLoading(false);
   }, [location, searchRadius]);
 
