@@ -3,16 +3,16 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
 // ================================================
-// 周辺施設検索API（Google Places API対応）
+// 周辺施設検索API（OpenStreetMap / Overpass API）
 // ================================================
 //
 // 【機能】
 // ユーザーの現在地から指定範囲内の施設を検索
-// Google Places APIで実際の施設を取得
+// OpenStreetMap（無料・APIキー不要）を使用
 //
-// 【API】
-// GOOGLE_PLACES_API_KEYが設定されている場合: 本番API
-// 設定されていない場合: モックデータ
+// 【データソース】
+// Overpass API: OpenStreetMapのデータを検索
+// 完全無料、商用利用可、日本全国対応
 // ================================================
 
 interface Place {
@@ -36,14 +36,32 @@ interface PlaceWithDistance extends Place {
   mapUrl: string;
 }
 
-// 施設タイプとGoogle Places APIの検索クエリのマッピング
-const TYPE_SEARCH_QUERIES: Record<string, { query: string; googleType?: string }> = {
-  vet: { query: '動物病院', googleType: 'veterinary_care' },
-  dogrun: { query: 'ドッグラン' },
-  petshop: { query: 'ペットショップ', googleType: 'pet_store' },
-  trimming: { query: 'トリミングサロン 犬' },
-  cafe: { query: 'ドッグカフェ' },
-  walkspot: { query: '公園 犬', googleType: 'park' },
+// OpenStreetMapタグと施設タイプのマッピング
+const OSM_QUERIES: Record<string, { tags: string[]; label: string }> = {
+  vet: {
+    tags: ['amenity=veterinary', 'healthcare=veterinary'],
+    label: '動物病院',
+  },
+  dogrun: {
+    tags: ['leisure=dog_park'],
+    label: 'ドッグラン',
+  },
+  petshop: {
+    tags: ['shop=pet', 'shop=pet_supply'],
+    label: 'ペットショップ',
+  },
+  trimming: {
+    tags: ['shop=pet_grooming', 'craft=pet_grooming'],
+    label: 'トリミング',
+  },
+  cafe: {
+    tags: ['amenity=cafe', 'cuisine=coffee_shop'],
+    label: 'カフェ',
+  },
+  walkspot: {
+    tags: ['leisure=park', 'leisure=garden', 'landuse=recreation_ground'],
+    label: '公園・散歩スポット',
+  },
 };
 
 // Haversine公式：2点間の距離を計算（メートル）
@@ -69,148 +87,168 @@ function generateMapUrl(userLat: number, userLon: number, placeLat: number, plac
 }
 
 // ================================================
-// Google Places API（Text Search）を使用
+// Overpass API（OpenStreetMap）で施設を検索
 // ================================================
-async function searchGooglePlaces(
+async function searchOverpassAPI(
   lat: number,
   lng: number,
   radius: number,
-  type: string,
-  apiKey: string
+  type: string
 ): Promise<Place[]> {
   const places: Place[] = [];
-  const typesToSearch = type === 'all'
-    ? Object.keys(TYPE_SEARCH_QUERIES)
-    : [type];
+  const typesToSearch = type === 'all' ? Object.keys(OSM_QUERIES) : [type];
+
+  // Overpassクエリを構築
+  let overpassQuery = '[out:json][timeout:25];\n(\n';
 
   for (const placeType of typesToSearch) {
-    const searchConfig = TYPE_SEARCH_QUERIES[placeType];
-    if (!searchConfig) continue;
+    const config = OSM_QUERIES[placeType];
+    if (!config) continue;
 
-    try {
-      // Google Places API (New) - Text Search
-      const url = 'https://places.googleapis.com/v1/places:searchText';
-
-      const requestBody = {
-        textQuery: searchConfig.query,
-        locationBias: {
-          circle: {
-            center: {
-              latitude: lat,
-              longitude: lng,
-            },
-            radius: radius,
-          },
-        },
-        languageCode: 'ja',
-        maxResultCount: 10,
-      };
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': apiKey,
-          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.currentOpeningHours,places.regularOpeningHours',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        console.error(`[Google Places API] Error for ${placeType}:`, response.status, await response.text());
-        continue;
-      }
-
-      const data = await response.json();
-
-      if (data.places) {
-        for (const place of data.places) {
-          // 営業時間のテキストを生成
-          let hoursText: string | undefined;
-          if (place.regularOpeningHours?.weekdayDescriptions) {
-            hoursText = place.regularOpeningHours.weekdayDescriptions[0];
-          }
-
-          places.push({
-            id: place.id,
-            name: place.displayName?.text || '名称不明',
-            address: place.formattedAddress || '',
-            latitude: place.location?.latitude || 0,
-            longitude: place.location?.longitude || 0,
-            phone: place.nationalPhoneNumber,
-            rating: place.rating,
-            reviewCount: place.userRatingCount,
-            openNow: place.currentOpeningHours?.openNow,
-            type: placeType as Place['type'],
-            hours: hoursText,
-          });
-        }
-      }
-    } catch (error) {
-      console.error(`[Google Places API] Error fetching ${placeType}:`, error);
+    for (const tag of config.tags) {
+      const [key, value] = tag.split('=');
+      // node, way, relationすべてを検索
+      overpassQuery += `  node["${key}"="${value}"](around:${radius},${lat},${lng});\n`;
+      overpassQuery += `  way["${key}"="${value}"](around:${radius},${lat},${lng});\n`;
     }
+  }
+
+  overpassQuery += ');\nout center body;\n>;out skel qt;';
+
+  try {
+    console.log('[Overpass API] クエリ実行中...');
+
+    const response = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `data=${encodeURIComponent(overpassQuery)}`,
+    });
+
+    if (!response.ok) {
+      console.error('[Overpass API] Error:', response.status);
+      return places;
+    }
+
+    const data = await response.json();
+
+    if (data.elements) {
+      for (const element of data.elements) {
+        // 座標を取得（wayの場合はcenterを使用）
+        const placeLat = element.lat || element.center?.lat;
+        const placeLon = element.lon || element.center?.lon;
+
+        if (!placeLat || !placeLon) continue;
+
+        const tags = element.tags || {};
+
+        // 名前がない施設はスキップ
+        if (!tags.name && !tags['name:ja']) continue;
+
+        // 施設タイプを判定
+        let detectedType: Place['type'] = 'walkspot';
+        for (const [typeKey, config] of Object.entries(OSM_QUERIES)) {
+          for (const tag of config.tags) {
+            const [key, value] = tag.split('=');
+            if (tags[key] === value) {
+              detectedType = typeKey as Place['type'];
+              break;
+            }
+          }
+        }
+
+        // 住所を構築
+        const address = buildAddress(tags);
+
+        // 営業時間
+        const hours = tags.opening_hours;
+
+        // 電話番号
+        const phone = tags.phone || tags['contact:phone'];
+
+        // 特徴を抽出
+        const features: string[] = [];
+        if (tags.wheelchair === 'yes') features.push('バリアフリー');
+        if (tags.internet_access === 'wlan' || tags.internet_access === 'yes') features.push('WiFi');
+        if (tags.outdoor_seating === 'yes') features.push('テラス席');
+        if (tags.takeaway === 'yes') features.push('テイクアウト');
+        if (tags.dog === 'yes' || tags.dogs === 'yes') features.push('犬OK');
+        if (tags.parking) features.push('駐車場');
+
+        places.push({
+          id: `osm-${element.id}`,
+          name: tags['name:ja'] || tags.name,
+          address,
+          latitude: placeLat,
+          longitude: placeLon,
+          phone,
+          type: detectedType,
+          features: features.length > 0 ? features : undefined,
+          hours,
+        });
+      }
+    }
+
+    console.log(`[Overpass API] ${places.length}件の施設を取得`);
+  } catch (error) {
+    console.error('[Overpass API] Error:', error);
   }
 
   return places;
 }
 
+// 住所を構築
+function buildAddress(tags: Record<string, string>): string {
+  const parts: string[] = [];
+
+  // 日本式住所
+  if (tags['addr:province'] || tags['addr:city'] || tags['addr:street']) {
+    if (tags['addr:province']) parts.push(tags['addr:province']);
+    if (tags['addr:city']) parts.push(tags['addr:city']);
+    if (tags['addr:district']) parts.push(tags['addr:district']);
+    if (tags['addr:street']) parts.push(tags['addr:street']);
+    if (tags['addr:housenumber']) parts.push(tags['addr:housenumber']);
+  }
+  // 完全な住所
+  else if (tags['addr:full']) {
+    return tags['addr:full'];
+  }
+  // フォールバック
+  else if (tags.address) {
+    return tags.address;
+  }
+
+  return parts.length > 0 ? parts.join('') : '住所情報なし';
+}
+
 // ================================================
-// モックデータ生成（APIキーがない場合のフォールバック）
+// 日本の逆ジオコーディング（Nominatim）
 // ================================================
-function generateMockPlaces(userLat: number, userLon: number): Place[] {
-  const templates = {
-    vet: [
-      { name: 'さくら動物病院', features: ['夜間対応', '駐車場あり'] },
-      { name: 'ペットクリニック', features: ['予約制', '日曜診療'] },
-      { name: 'アニマルケアセンター', features: ['24時間', '救急対応'] },
-    ],
-    dogrun: [
-      { name: '中央公園ドッグラン', features: ['無料', '大型犬OK'] },
-      { name: 'わんわんパーク', features: ['会員制', '小型犬エリア'] },
-    ],
-    cafe: [
-      { name: 'ドッグカフェ PAWS', features: ['室内OK', 'テラス席'] },
-      { name: 'カフェ わんこ家', features: ['ドッグメニュー'] },
-    ],
-    petshop: [
-      { name: 'ペットショップ わんにゃん', features: ['品揃え豊富'] },
-    ],
-    trimming: [
-      { name: 'わんわんトリミング', features: ['完全予約制'] },
-    ],
-    walkspot: [
-      { name: '緑地公園', features: ['広い芝生', '木陰多い'] },
-    ],
-  };
+async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&addressdetails=1&accept-language=ja`,
+      {
+        headers: {
+          'User-Agent': 'WansapoApp/1.0',
+        },
+      }
+    );
 
-  const places: Place[] = [];
-  const types = Object.keys(templates) as Array<keyof typeof templates>;
+    if (response.ok) {
+      const data = await response.json();
+      if (data.display_name) {
+        // 日本の住所形式に整形
+        const parts = data.display_name.split(', ').reverse();
+        return parts.slice(0, 4).join('');
+      }
+    }
+  } catch (error) {
+    console.error('[Nominatim] Error:', error);
+  }
 
-  types.forEach((type, typeIndex) => {
-    const typeTemplates = templates[type];
-    typeTemplates.forEach((template, i) => {
-      const distanceKm = 0.2 + Math.random() * 3;
-      const angle = (typeIndex * 60 + i * 45) * (Math.PI / 180);
-      const latOffset = (distanceKm / 111) * Math.cos(angle);
-      const lonOffset = (distanceKm / (111 * Math.cos(userLat * Math.PI / 180))) * Math.sin(angle);
-
-      places.push({
-        id: `mock-${type}-${i}`,
-        name: template.name,
-        address: '東京都○○区○○',
-        latitude: userLat + latOffset,
-        longitude: userLon + lonOffset,
-        rating: 3.5 + Math.random() * 1.5,
-        reviewCount: Math.floor(50 + Math.random() * 200),
-        openNow: Math.random() > 0.3,
-        type,
-        features: template.features,
-        hours: '10:00-19:00',
-      });
-    });
-  });
-
-  return places;
+  return '';
 }
 
 // ================================================
@@ -236,19 +274,8 @@ export async function GET(request: NextRequest) {
 
     console.log(`[Places API] 検索: lat=${lat.toFixed(6)}, lng=${lng.toFixed(6)}, radius=${radius}m, type=${type}`);
 
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-    let places: Place[];
-
-    if (apiKey) {
-      console.log('[Places API] Google Places APIを使用');
-      places = await searchGooglePlaces(lat, lng, radius, type, apiKey);
-    } else {
-      console.log('[Places API] モックデータを使用（APIキー未設定）');
-      places = generateMockPlaces(lat, lng);
-      if (type !== 'all') {
-        places = places.filter(p => p.type === type);
-      }
-    }
+    // OpenStreetMap (Overpass API) で検索
+    const places = await searchOverpassAPI(lat, lng, radius, type);
 
     // 距離を計算してソート
     const placesWithDistance: PlaceWithDistance[] = places
@@ -264,9 +291,9 @@ export async function GET(request: NextRequest) {
       .filter(p => p.distance <= radius)
       .sort((a, b) => a.distance - b.distance);
 
-    // 重複除去（同じ名前の施設）
+    // 重複除去
     const uniquePlaces = placesWithDistance.filter((place, index, self) =>
-      index === self.findIndex(p => p.name === place.name)
+      index === self.findIndex(p => p.name === place.name && p.type === place.type)
     );
 
     console.log(`[Places API] 結果: ${uniquePlaces.length}件`);
@@ -276,7 +303,7 @@ export async function GET(request: NextRequest) {
       count: uniquePlaces.length,
       userLocation: { latitude: lat, longitude: lng },
       searchParams: { radius, type },
-      source: apiKey ? 'google' : 'mock',
+      source: 'openstreetmap',
     });
   } catch (error) {
     console.error('Places API error:', error);

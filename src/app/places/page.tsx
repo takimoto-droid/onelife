@@ -76,7 +76,6 @@ export default function PlacesPage() {
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [dataSource, setDataSource] = useState<'google' | 'mock' | null>(null);
 
   // UI状態
   const [showRadiusSelector, setShowRadiusSelector] = useState(false);
@@ -191,7 +190,6 @@ export default function PlacesPage() {
 
       if (data.places) {
         setPlaces(data.places);
-        setDataSource(data.source || 'mock');
       }
     } catch (error) {
       console.error('検索エラー:', error);
@@ -397,21 +395,6 @@ export default function PlacesPage() {
             {/* 検索結果 */}
             {!loading && hasSearched && (
               <>
-                {/* モックデータ使用時の警告 */}
-                {dataSource === 'mock' && (
-                  <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-xl">
-                    <div className="flex items-start gap-2">
-                      <span className="text-lg">⚠️</span>
-                      <div>
-                        <p className="text-sm font-bold text-yellow-800">デモデータを表示中</p>
-                        <p className="text-xs text-yellow-700 mt-1">
-                          本番環境ではGoogle Places APIで実際の施設を表示します。
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {places.length > 0 ? (
                   <div className="space-y-4">
                     <p className="text-sm text-brown-400">
