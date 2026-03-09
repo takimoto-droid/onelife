@@ -6,20 +6,15 @@ import { authOptions } from '@/lib/auth';
 // 周辺施設検索API
 // ================================================
 //
-// 【処理フロー】
-// 1. フロントからGPS座標（緯度・経度）を受信
-// 2. モックDBから施設データを取得
-// 3. Haversine公式で各施設との距離を計算
-// 4. 指定範囲内の施設をフィルタリング
-// 5. 距離で昇順ソート
-// 6. JSONで返却
+// 【機能】
+// ユーザーの現在地から指定範囲内の施設を検索
+// Haversine公式で距離を計算し、近い順にソート
 //
-// 【将来的な拡張】
-// - Google Places API連携
-// - OpenStreetMap API連携
+// 【MVP実装】
+// 現在地周辺にモック施設を動的生成
+// 本番環境ではGoogle Places APIに置き換え
 // ================================================
 
-// 施設の型定義
 interface Place {
   id: string;
   name: string;
@@ -35,342 +30,166 @@ interface Place {
   hours?: string;
 }
 
-// レスポンス用（距離を追加）
 interface PlaceWithDistance extends Place {
-  distance: number;      // メートル
-  distanceText: string;  // 表示用（"0.8km"など）
-  mapUrl: string;        // Google Maps URL
+  distance: number;
+  distanceText: string;
+  mapUrl: string;
 }
 
-// ================================================
-// Haversine公式：2点間の距離を計算
-// ================================================
-//
-// 【計算式】
-// a = sin²(Δφ/2) + cos(φ1) × cos(φ2) × sin²(Δλ/2)
-// c = 2 × atan2(√a, √(1−a))
-// d = R × c
-//
-// φ = 緯度, λ = 経度, R = 地球の半径（6371km）
-// ================================================
-function calculateDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371000; // 地球の半径（メートル）
-
+// Haversine公式：2点間の距離を計算（メートル）
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000;
   const toRad = (deg: number) => deg * (Math.PI / 180);
-
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
-
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) *
-    Math.cos(toRad(lat2)) *
-    Math.sin(dLon / 2) *
-    Math.sin(dLon / 2);
-
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return Math.round(R * c); // メートル単位で返却
+  return Math.round(R * c);
 }
 
-// 距離をテキストにフォーマット
 function formatDistance(meters: number): string {
-  if (meters < 1000) {
-    return `${meters}m`;
-  }
+  if (meters < 1000) return `${meters}m`;
   return `${(meters / 1000).toFixed(1)}km`;
 }
 
-// Google Maps URLを生成
-function generateMapUrl(
-  userLat: number,
-  userLon: number,
-  placeLat: number,
-  placeLon: number,
-  placeName: string
-): string {
-  const origin = `${userLat},${userLon}`;
-  const destination = `${placeLat},${placeLon}`;
-  return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&destination_place_id=${encodeURIComponent(placeName)}&travelmode=walking`;
+function generateMapUrl(userLat: number, userLon: number, placeLat: number, placeLon: number): string {
+  return `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLon}&destination=${placeLat},${placeLon}&travelmode=walking`;
 }
 
 // ================================================
-// モック施設データベース
+// ユーザーの現在地周辺に施設を動的生成
 // ================================================
-//
-// 【注意】
-// 実際の緯度経度を使用（東京都内）
-// 本番環境ではGoogle Places APIまたはDBから取得
-// ================================================
-const PLACES_DATABASE: Place[] = [
-  // === 動物病院 ===
-  {
-    id: 'vet-1',
-    name: '代々木動物病院',
-    address: '東京都渋谷区代々木1-30-1',
-    latitude: 35.6833,
-    longitude: 139.7022,
-    phone: '03-3379-5811',
-    rating: 4.5,
-    reviewCount: 128,
-    openNow: true,
-    type: 'vet',
-    hours: '9:00-19:00',
-  },
-  {
-    id: 'vet-2',
-    name: '渋谷ペットクリニック',
-    address: '東京都渋谷区神南1-20-8',
-    latitude: 35.6625,
-    longitude: 139.6997,
-    phone: '03-3461-0012',
-    rating: 4.8,
-    reviewCount: 256,
-    openNow: true,
-    type: 'vet',
-    hours: '10:00-20:00',
-  },
-  {
-    id: 'vet-3',
-    name: 'アニマルケアセンター恵比寿',
-    address: '東京都渋谷区恵比寿1-5-5',
-    latitude: 35.6467,
-    longitude: 139.7100,
-    phone: '03-5421-1234',
-    rating: 4.3,
-    reviewCount: 89,
-    openNow: true,
-    type: 'vet',
-    hours: '9:30-18:30',
-  },
-  {
-    id: 'vet-4',
-    name: '新宿どうぶつ病院',
-    address: '東京都新宿区新宿3-15-2',
-    latitude: 35.6896,
-    longitude: 139.7006,
-    phone: '03-3354-0303',
-    rating: 4.6,
-    reviewCount: 312,
-    openNow: true,
-    type: 'vet',
-    hours: '9:00-21:00',
-  },
-  {
-    id: 'vet-5',
-    name: '目黒ペットケアクリニック',
-    address: '東京都目黒区中目黒2-10-3',
-    latitude: 35.6433,
-    longitude: 139.6994,
-    phone: '03-3710-0022',
-    rating: 4.4,
-    reviewCount: 156,
-    openNow: false,
-    type: 'vet',
-    hours: '10:00-18:00',
-  },
+function generateNearbyPlaces(userLat: number, userLon: number): Place[] {
+  // 施設テンプレート
+  const templates = {
+    vet: [
+      { name: 'さくら動物病院', features: ['夜間対応', '駐車場あり'] },
+      { name: 'ペットクリニック', features: ['予約制', '日曜診療'] },
+      { name: 'アニマルケアセンター', features: ['24時間', '救急対応'] },
+      { name: 'どうぶつ医療センター', features: ['専門医在籍'] },
+      { name: 'わんにゃん病院', features: ['トリミング併設'] },
+    ],
+    dogrun: [
+      { name: '○○公園ドッグラン', features: ['無料', '大型犬OK', '水飲み場'] },
+      { name: 'わんわんパーク', features: ['会員制', '小型犬エリア'] },
+      { name: 'ドッグフィールド', features: ['貸切可', '駐車場あり'] },
+      { name: '緑地ドッグラン', features: ['芝生', '日陰あり'] },
+    ],
+    cafe: [
+      { name: 'ドッグカフェ PAWS', features: ['室内OK', 'テラス席'] },
+      { name: 'カフェ わんこ家', features: ['ドッグメニュー', '誕生日ケーキ'] },
+      { name: 'Dog Cafe Terrace', features: ['予約可', '大型犬OK'] },
+      { name: 'ペットカフェ ハッピー', features: ['個室あり'] },
+    ],
+    petshop: [
+      { name: 'ペットショップ わんにゃん', features: ['品揃え豊富'] },
+      { name: 'コジマ', features: ['大型店', 'トリミング'] },
+      { name: 'イオンペット', features: ['駐車場無料'] },
+      { name: 'ペットの専門店', features: ['相談コーナー'] },
+    ],
+    trimming: [
+      { name: 'わんわんトリミング', features: ['完全予約制', '送迎あり'] },
+      { name: 'ペットサロン HAPPY', features: ['オーガニック', '小型犬専門'] },
+      { name: 'グルーミングサロン', features: ['当日予約OK'] },
+      { name: 'ドッグビューティー', features: ['カット専門'] },
+    ],
+    walkspot: [
+      { name: '○○公園', features: ['広い芝生', '木陰多い'] },
+      { name: '○○緑道', features: ['遊歩道', '桜の名所'] },
+      { name: '河川敷公園', features: ['ランニングコース'] },
+      { name: '森林公園', features: ['自然豊か', '駐車場あり'] },
+    ],
+  };
 
-  // === ドッグラン ===
-  {
-    id: 'dogrun-1',
-    name: '代々木公園ドッグラン',
-    address: '東京都渋谷区代々木神園町2-1',
-    latitude: 35.6720,
-    longitude: 139.6948,
-    rating: 4.2,
-    reviewCount: 523,
-    openNow: true,
-    type: 'dogrun',
-    features: ['大型犬OK', '水飲み場', '無料'],
-    hours: '日の出〜日没',
-  },
-  {
-    id: 'dogrun-2',
-    name: '駒沢公園ドッグラン',
-    address: '東京都世田谷区駒沢公園1-1',
-    latitude: 35.6307,
-    longitude: 139.6612,
-    rating: 4.6,
-    reviewCount: 412,
-    openNow: true,
-    type: 'dogrun',
-    features: ['大型犬エリア', '小型犬エリア', '日陰あり'],
-    hours: '9:00-17:00',
-  },
-  {
-    id: 'dogrun-3',
-    name: '城南島海浜公園ドッグラン',
-    address: '東京都大田区城南島4-2-2',
-    latitude: 35.5836,
-    longitude: 139.7647,
-    rating: 4.5,
-    reviewCount: 287,
-    openNow: true,
-    type: 'dogrun',
-    features: ['海が見える', '大型犬OK', '駐車場あり'],
-    hours: '7:00-21:00',
-  },
+  const places: Place[] = [];
+  const types: Array<keyof typeof templates> = ['vet', 'dogrun', 'cafe', 'petshop', 'trimming', 'walkspot'];
 
-  // === ペットショップ ===
-  {
-    id: 'petshop-1',
-    name: 'ペットショップ わんにゃん渋谷',
-    address: '東京都渋谷区道玄坂2-10-10',
-    latitude: 35.6584,
-    longitude: 139.6989,
-    phone: '03-3461-5050',
-    rating: 4.1,
-    reviewCount: 76,
-    openNow: true,
-    type: 'petshop',
-    hours: '10:00-21:00',
-  },
-  {
-    id: 'petshop-2',
-    name: 'コジマ 渋谷店',
-    address: '東京都渋谷区神南1-21-3',
-    latitude: 35.6631,
-    longitude: 139.7012,
-    phone: '03-3477-1122',
-    rating: 4.4,
-    reviewCount: 198,
-    openNow: true,
-    type: 'petshop',
-    hours: '10:00-20:00',
-  },
-  {
-    id: 'petshop-3',
-    name: 'イオンペット 品川シーサイド店',
-    address: '東京都品川区東品川4-12-6',
-    latitude: 35.6095,
-    longitude: 139.7488,
-    phone: '03-5796-4570',
-    rating: 4.2,
-    reviewCount: 134,
-    openNow: true,
-    type: 'petshop',
-    hours: '10:00-21:00',
-  },
+  // 各タイプごとに施設を生成
+  types.forEach((type, typeIndex) => {
+    const typeTemplates = templates[type];
 
-  // === トリミング ===
-  {
-    id: 'trimming-1',
-    name: 'わんわんトリミング 恵比寿',
-    address: '東京都渋谷区恵比寿西1-8-8',
-    latitude: 35.6478,
-    longitude: 139.7066,
-    phone: '03-5489-3344',
-    rating: 4.7,
-    reviewCount: 178,
-    openNow: true,
-    type: 'trimming',
-    hours: '10:00-19:00',
-  },
-  {
-    id: 'trimming-2',
-    name: 'ペットサロン HAPPY 代官山',
-    address: '東京都渋谷区猿楽町24-7',
-    latitude: 35.6500,
-    longitude: 139.7000,
-    phone: '03-3770-5566',
-    rating: 4.8,
-    reviewCount: 234,
-    openNow: true,
-    type: 'trimming',
-    features: ['オーガニック', '小型犬専門'],
-    hours: '9:00-18:00',
-  },
+    typeTemplates.forEach((template, i) => {
+      // ユーザーの現在地からランダムな距離・方角に配置
+      const distanceKm = 0.1 + Math.random() * 4; // 100m〜4km
+      const angle = (typeIndex * 60 + i * 30 + Math.random() * 20) * (Math.PI / 180);
 
-  // === ドッグカフェ ===
-  {
-    id: 'cafe-1',
-    name: 'ドッグカフェ PAWS 原宿',
-    address: '東京都渋谷区神宮前3-25-5',
-    latitude: 35.6695,
-    longitude: 139.7077,
-    phone: '03-5414-1199',
-    rating: 4.4,
-    reviewCount: 203,
-    openNow: true,
-    type: 'cafe',
-    features: ['室内OK', '大型犬OK', 'テラス席'],
-    hours: '11:00-20:00',
-  },
-  {
-    id: 'cafe-2',
-    name: 'カフェ&バー わんこ家',
-    address: '東京都渋谷区桜丘町14-10',
-    latitude: 35.6558,
-    longitude: 139.7000,
-    phone: '03-3476-7788',
-    rating: 4.3,
-    reviewCount: 156,
-    openNow: true,
-    type: 'cafe',
-    features: ['ドッグメニュー', '誕生日ケーキ'],
-    hours: '10:00-22:00',
-  },
-  {
-    id: 'cafe-3',
-    name: 'Dog Cafe Terrace 中目黒',
-    address: '東京都目黒区上目黒1-18-6',
-    latitude: 35.6445,
-    longitude: 139.6989,
-    phone: '03-3713-2233',
-    rating: 4.6,
-    reviewCount: 289,
-    openNow: true,
-    type: 'cafe',
-    features: ['川沿いテラス', '予約可'],
-    hours: '11:00-21:00',
-  },
+      // 緯度経度のオフセット（1度 ≈ 111km）
+      const latOffset = (distanceKm / 111) * Math.cos(angle);
+      const lonOffset = (distanceKm / (111 * Math.cos(userLat * Math.PI / 180))) * Math.sin(angle);
 
-  // === 散歩スポット ===
-  {
-    id: 'walkspot-1',
-    name: '代々木公園',
-    address: '東京都渋谷区代々木神園町2-1',
-    latitude: 35.6714,
-    longitude: 139.6969,
-    rating: 4.5,
-    reviewCount: 1234,
-    openNow: true,
-    type: 'walkspot',
-    features: ['広い芝生', 'ドッグランあり', '木陰多い'],
-    hours: '5:00-20:00',
-  },
-  {
-    id: 'walkspot-2',
-    name: '目黒川沿い遊歩道',
-    address: '東京都目黒区中目黒〜品川区',
-    latitude: 35.6433,
-    longitude: 139.6978,
-    rating: 4.3,
-    reviewCount: 567,
-    openNow: true,
-    type: 'walkspot',
-    features: ['桜の名所', '川沿い', 'カフェ多い'],
-    hours: '24時間',
-  },
-  {
-    id: 'walkspot-3',
-    name: '新宿御苑（ペット不可エリアあり）',
-    address: '東京都新宿区内藤町11',
-    latitude: 35.6852,
-    longitude: 139.7100,
-    rating: 4.4,
-    reviewCount: 890,
-    openNow: true,
-    type: 'walkspot',
-    features: ['広大な庭園', '四季の花'],
-    hours: '9:00-16:30',
-  },
-];
+      const placeLat = userLat + latOffset;
+      const placeLon = userLon + lonOffset;
+
+      // 住所を生成（緯度経度から概算）
+      const address = generateAddress(placeLat, placeLon);
+
+      places.push({
+        id: `${type}-${i}`,
+        name: template.name.replace('○○', getAreaName(placeLat, placeLon)),
+        address,
+        latitude: placeLat,
+        longitude: placeLon,
+        phone: type === 'vet' || type === 'trimming' ? generatePhone() : undefined,
+        rating: 3.5 + Math.random() * 1.5,
+        reviewCount: Math.floor(50 + Math.random() * 300),
+        openNow: Math.random() > 0.2,
+        type,
+        features: template.features,
+        hours: getHours(type),
+      });
+    });
+  });
+
+  return places;
+}
+
+// 緯度経度からエリア名を推定
+function getAreaName(lat: number, lon: number): string {
+  // 日本国内かどうかで分岐
+  if (lat >= 24 && lat <= 46 && lon >= 122 && lon <= 154) {
+    const areas = ['中央', '東', '西', '南', '北', '本町', '緑', '桜', '若葉', '青葉'];
+    return areas[Math.floor(Math.random() * areas.length)];
+  }
+  return 'Central';
+}
+
+// 緯度経度から住所を生成
+function generateAddress(lat: number, lon: number): string {
+  // 日本国内かどうかで分岐
+  if (lat >= 24 && lat <= 46 && lon >= 122 && lon <= 154) {
+    const prefectures = ['東京都', '神奈川県', '千葉県', '埼玉県', '大阪府', '愛知県', '福岡県'];
+    const cities = ['中央区', '港区', '新宿区', '渋谷区', '品川区', '目黒区', '世田谷区'];
+    const pref = prefectures[Math.floor(Math.random() * prefectures.length)];
+    const city = cities[Math.floor(Math.random() * cities.length)];
+    const chome = Math.floor(1 + Math.random() * 5);
+    const ban = Math.floor(1 + Math.random() * 20);
+    return `${pref}${city}${chome}-${ban}`;
+  }
+  return `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+}
+
+// 電話番号を生成
+function generatePhone(): string {
+  const area = ['03', '045', '044', '048', '043'][Math.floor(Math.random() * 5)];
+  const num1 = Math.floor(1000 + Math.random() * 9000);
+  const num2 = Math.floor(1000 + Math.random() * 9000);
+  return `${area}-${num1}-${num2}`;
+}
+
+// 営業時間を取得
+function getHours(type: string): string {
+  switch (type) {
+    case 'vet': return '9:00-19:00';
+    case 'dogrun': return '日の出〜日没';
+    case 'cafe': return '11:00-20:00';
+    case 'petshop': return '10:00-21:00';
+    case 'trimming': return '10:00-18:00';
+    case 'walkspot': return '24時間';
+    default: return '10:00-18:00';
+  }
+}
 
 // ================================================
 // GET: 周辺施設検索
@@ -384,65 +203,52 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-
-    // パラメータ取得
     const lat = parseFloat(searchParams.get('lat') || '0');
     const lng = parseFloat(searchParams.get('lng') || '0');
-    const radius = parseInt(searchParams.get('radius') || '1000', 10); // メートル
+    const radius = parseInt(searchParams.get('radius') || '1000', 10);
     const type = searchParams.get('type') || 'all';
 
-    // 緯度経度の検証
     if (lat === 0 || lng === 0) {
-      return NextResponse.json(
-        { error: '位置情報が必要です' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: '位置情報が必要です' }, { status: 400 });
     }
 
-    console.log(`[Places API] 検索開始: lat=${lat}, lng=${lng}, radius=${radius}m, type=${type}`);
+    console.log(`[Places API] 検索: lat=${lat.toFixed(6)}, lng=${lng.toFixed(6)}, radius=${radius}m, type=${type}`);
 
-    // 施設をフィルタリング
-    let places = PLACES_DATABASE;
+    // ユーザーの現在地周辺に施設を生成
+    let places = generateNearbyPlaces(lat, lng);
 
     // タイプでフィルター
     if (type !== 'all') {
       places = places.filter(p => p.type === type);
     }
 
-    // 距離を計算して追加
+    // 距離を計算
     const placesWithDistance: PlaceWithDistance[] = places.map(place => {
       const distance = calculateDistance(lat, lng, place.latitude, place.longitude);
       return {
         ...place,
         distance,
         distanceText: formatDistance(distance),
-        mapUrl: generateMapUrl(lat, lng, place.latitude, place.longitude, place.name),
+        mapUrl: generateMapUrl(lat, lng, place.latitude, place.longitude),
       };
     });
 
-    // 範囲内の施設のみ
-    const filteredPlaces = placesWithDistance.filter(p => p.distance <= radius);
+    // 範囲内のみ
+    const filtered = placesWithDistance.filter(p => p.distance <= radius);
 
-    // 距離で昇順ソート
-    filteredPlaces.sort((a, b) => a.distance - b.distance);
+    // 距離順ソート
+    filtered.sort((a, b) => a.distance - b.distance);
 
-    console.log(`[Places API] 検索結果: ${filteredPlaces.length}件`);
+    console.log(`[Places API] 結果: ${filtered.length}件`);
 
     return NextResponse.json({
-      places: filteredPlaces,
-      count: filteredPlaces.length,
-      searchParams: {
-        latitude: lat,
-        longitude: lng,
-        radius,
-        type,
-      },
+      places: filtered,
+      count: filtered.length,
+      userLocation: { latitude: lat, longitude: lng },
+      searchParams: { radius, type },
     });
   } catch (error) {
     console.error('Places API error:', error);
-    return NextResponse.json(
-      { error: 'エラーが発生しました' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'エラーが発生しました' }, { status: 500 });
   }
 }

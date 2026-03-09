@@ -281,28 +281,36 @@ export default function PlacesPage() {
         {/* 位置情報取得成功 */}
         {location && (
           <>
-            {/* 現在地表示 */}
-            <div className="flex items-center justify-between mb-4 p-3 bg-blue-50 border border-blue-200 rounded-2xl">
-              <div className="flex items-center gap-2">
-                <span className="text-blue-500 animate-pulse">📍</span>
-                <span className="text-sm text-brown-500">
-                  現在地から検索中
-                </span>
+            {/* 現在地表示（座標も表示） */}
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-2xl">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-blue-500 animate-pulse">📍</span>
+                  <span className="text-sm font-bold text-brown-600">
+                    現在地から検索中
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowRadiusSelector(true)}
+                    className="text-xs bg-white text-brown-600 px-3 py-1.5 rounded-full border border-cream-200 shadow-sm font-medium"
+                  >
+                    {RADIUS_OPTIONS.find(r => r.value === searchRadius)?.label || '1km'}圏内
+                  </button>
+                  <button
+                    onClick={requestLocation}
+                    className="text-xs text-pink-500 font-medium hover:underline"
+                    disabled={locationLoading}
+                  >
+                    更新
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowRadiusSelector(true)}
-                  className="text-xs bg-white text-brown-600 px-3 py-1.5 rounded-full border border-cream-200 shadow-sm font-medium"
-                >
-                  {RADIUS_OPTIONS.find(r => r.value === searchRadius)?.label || '1km'}圏内
-                </button>
-                <button
-                  onClick={requestLocation}
-                  className="text-xs text-pink-500 font-medium hover:underline"
-                  disabled={locationLoading}
-                >
-                  更新
-                </button>
+              {/* 座標表示 */}
+              <div className="text-xs text-brown-400 bg-white/50 rounded-lg px-3 py-2">
+                <span className="font-mono">
+                  緯度: {location.latitude.toFixed(6)} / 経度: {location.longitude.toFixed(6)}
+                </span>
               </div>
             </div>
 
