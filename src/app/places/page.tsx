@@ -64,6 +64,7 @@ export default function PlacesPage() {
 
   // 位置情報
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
 
@@ -81,7 +82,7 @@ export default function PlacesPage() {
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
 
   // ================================================
-  // GPS位置情報を取得
+  // GPS位置情報を取得（高精度モード - 複数回試行）
   // ================================================
   const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -91,38 +92,74 @@ export default function PlacesPage() {
 
     setLocationLoading(true);
     setLocationError(null);
+    setHasSearched(false);
+    setLocationAccuracy(null);
 
-    navigator.geolocation.getCurrentPosition(
+    // watchPositionで継続的に位置情報を取得（精度が向上する）
+    let bestAccuracy = Infinity;
+    let bestLocation: { latitude: number; longitude: number } | null = null;
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    const watchId = navigator.geolocation.watchPosition(
       (position) => {
-        const { latitude, longitude } = position.coords;
-        console.log(`[GPS] 位置情報取得成功: ${latitude}, ${longitude}`);
-        setLocation({ latitude, longitude });
-        setLocationLoading(false);
+        const { latitude, longitude, accuracy } = position.coords;
+        attempts++;
+        console.log(`[GPS] 試行${attempts}: ${latitude}, ${longitude} (精度: ${accuracy}m)`);
+
+        // より精度の高い位置情報を保持
+        if (accuracy < bestAccuracy) {
+          bestAccuracy = accuracy;
+          bestLocation = { latitude, longitude };
+          setLocationAccuracy(accuracy);
+        }
+
+        // 十分な精度が得られたか、最大試行回数に達したら確定
+        if (accuracy < 100 || attempts >= maxAttempts) {
+          navigator.geolocation.clearWatch(watchId);
+          if (bestLocation) {
+            console.log(`[GPS] 確定: ${bestLocation.latitude}, ${bestLocation.longitude} (精度: ${bestAccuracy}m)`);
+            setLocation(bestLocation);
+          }
+          setLocationLoading(false);
+        }
       },
       (error) => {
-        console.error('[GPS] 位置情報取得エラー:', error);
+        console.error('[GPS] エラー:', error);
+        navigator.geolocation.clearWatch(watchId);
         let message = '位置情報を取得できませんでした';
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            message = '位置情報の使用が許可されていません。設定から許可してください。';
+            message = '位置情報の使用が許可されていません。\n\niPhone: 設定 → Safari → 位置情報 → 許可\nAndroid: 設定 → アプリ → ブラウザ → 位置情報';
             break;
           case error.POSITION_UNAVAILABLE:
-            message = '位置情報を取得できませんでした';
+            message = '位置情報を取得できませんでした。GPSをオンにしてください。';
             break;
           case error.TIMEOUT:
-            message = '位置情報の取得がタイムアウトしました';
+            message = '位置情報の取得がタイムアウトしました。再度お試しください。';
             break;
         }
         setLocationError(message);
         setLocationLoading(false);
       },
       {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000,
+        enableHighAccuracy: true,  // 高精度モード（GPSを優先）
+        timeout: 20000,            // タイムアウト20秒
+        maximumAge: 0,             // キャッシュを使用しない
       }
     );
-  }, []);
+
+    // 安全策：20秒後に強制終了
+    setTimeout(() => {
+      navigator.geolocation.clearWatch(watchId);
+      if (bestLocation) {
+        setLocation(bestLocation);
+      } else if (!location) {
+        setLocationError('位置情報の取得がタイムアウトしました。屋外で再度お試しください。');
+      }
+      setLocationLoading(false);
+    }, 20000);
+  }, [location]);
 
   // ページ読み込み時に位置情報を取得
   useEffect(() => {
@@ -281,9 +318,9 @@ export default function PlacesPage() {
         {/* 位置情報取得成功 */}
         {location && (
           <>
-            {/* 現在地表示（座標も表示） */}
-            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-2xl">
-              <div className="flex items-center justify-between mb-2">
+            {/* 現在地表示 */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-2xl">
                 <div className="flex items-center gap-2">
                   <span className="text-blue-500 animate-pulse">📍</span>
                   <span className="text-sm font-bold text-brown-600">
@@ -306,12 +343,27 @@ export default function PlacesPage() {
                   </button>
                 </div>
               </div>
-              {/* 座標表示 */}
-              <div className="text-xs text-brown-400 bg-white/50 rounded-lg px-3 py-2">
-                <span className="font-mono">
-                  緯度: {location.latitude.toFixed(6)} / 経度: {location.longitude.toFixed(6)}
-                </span>
-              </div>
+
+              {/* 精度警告（精度が500m以上の場合） */}
+              {locationAccuracy && locationAccuracy > 500 && (
+                <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-xl">
+                  <div className="flex items-start gap-2">
+                    <span className="text-lg">⚠️</span>
+                    <div>
+                      <p className="text-sm font-bold text-yellow-800">位置情報の精度が低い可能性があります</p>
+                      <p className="text-xs text-yellow-700 mt-1">
+                        精度: 約{Math.round(locationAccuracy)}m<br />
+                        より正確な結果のため、以下をお試しください：
+                      </p>
+                      <ul className="text-xs text-yellow-700 mt-1 ml-3 list-disc">
+                        <li>屋外に出て再度「更新」をタップ</li>
+                        <li>スマートフォンのGPSをオンに</li>
+                        <li>WiFiをオンにする（精度向上）</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* カテゴリフィルター */}
