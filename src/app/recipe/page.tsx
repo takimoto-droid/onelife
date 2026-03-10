@@ -58,6 +58,7 @@ interface SavedRecipe {
   ingredients: string[];
   steps: string[];
   portionSize: number;
+  caloriesPerServing?: number;
   savedAt: string;
 }
 
