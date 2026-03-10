@@ -407,15 +407,6 @@ export default function BreedMatchPage() {
     }
   };
 
-  // ローディング中
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-pink-200 border-t-pink-500 rounded-full" />
-      </div>
-    );
-  }
-
   // 分析中の表示
   if (isAnalyzing) {
     return (
