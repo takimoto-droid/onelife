@@ -24,12 +24,14 @@ export async function POST(request: NextRequest) {
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
+        const isActive = ['active', 'trialing'].includes(subscription.status);
 
         await prisma.user.updateMany({
           where: { stripeCustomerId: customerId },
           data: {
             subscriptionId: subscription.id,
             subscriptionStatus: subscription.status === 'trialing' ? 'trialing' : 'active',
+            isPremium: isActive, // プレミアムフラグも更新
           },
         });
         break;
@@ -43,6 +45,7 @@ export async function POST(request: NextRequest) {
           where: { stripeCustomerId: customerId },
           data: {
             subscriptionStatus: 'canceled',
+            isPremium: false, // プレミアム解除
           },
         });
         break;
@@ -56,6 +59,7 @@ export async function POST(request: NextRequest) {
           where: { stripeCustomerId: customerId },
           data: {
             subscriptionStatus: 'active',
+            isPremium: true, // プレミアム有効
           },
         });
         break;

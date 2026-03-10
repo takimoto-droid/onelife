@@ -2,15 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getAIResponse } from '@/lib/openai';
+import { isPremiumUser, premiumRequiredResponse } from '@/lib/subscription';
 
 // ================================================
-// AIドッグフードレシピ生成API
+// AIドッグフードレシピ生成API【プレミアム機能】
 // ================================================
 //
 // 【機能】
 // - 食材からレシピを生成
 // - アレルギー食材を自動除外
 // - 体重に合わせた食事量を計算
+//
+// 【アクセス制限】
+// - プレミアムユーザーのみ利用可能
 // ================================================
 
 // 犬の1日の必要カロリー計算（RER: 安静時エネルギー要求量）
@@ -111,6 +115,12 @@ export async function POST(request: NextRequest) {
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
+    }
+
+    // プレミアム機能チェック
+    const isPremium = await isPremiumUser(session.user.email ?? undefined);
+    if (!isPremium) {
+      return NextResponse.json(premiumRequiredResponse(), { status: 403 });
     }
 
     const { ingredients, allergies, weightKg } = await request.json();

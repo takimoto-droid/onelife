@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -13,15 +14,24 @@ model User {
   password      String
   createdAt     DateTime  @default(now())
 
-  // Stripe課金
+  // Stripe課金（Web用）
   stripeCustomerId    String?
   subscriptionId      String?
-  subscriptionStatus  String  @default("trialing") // trialing, active, canceling, canceled, past_due
+  subscriptionStatus  String  @default("free") // free, trialing, active, canceling, canceled, past_due
   trialStartDate      DateTime @default(now())
   trialEndsAt         DateTime?
   billingStartDate    DateTime?
   nextBillingDate     DateTime?
   canceledAt          DateTime?
+
+  // Apple課金（iOS用）
+  appleOriginalTransactionId  String?   // Appleの取引ID
+  appleSubscriptionStatus     String?   // active, expired, billing_retry, grace_period
+  appleExpiresAt              DateTime? // 有効期限
+  appleProductId              String?   // com.wansapo.premium.monthly
+
+  // 統合課金フラグ（Stripe/Apple どちらでもOK）
+  isPremium           Boolean @default(false)
 
   // ユーザータイプ
   userType      String?   // new_owner, reviewing
@@ -33,6 +43,7 @@ model User {
   // 関連
   dogs          Dog[]
   walkHistories WalkHistory[]
+  appleReceipts AppleReceipt[]
 }
 
 model Dog {
@@ -285,6 +296,27 @@ model PostReport {
 // ================================================
 // 機能③：犬イベント情報（情報元URL付き）
 // ================================================
+// ================================================
+// Apple In-App Purchase レシート履歴
+// ================================================
+model AppleReceipt {
+  id                    String   @id @default(cuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  originalTransactionId String   @unique
+  productId             String   // com.wansapo.premium.monthly
+  purchaseDate          DateTime
+  expiresDate           DateTime?
+  isTrialPeriod         Boolean  @default(false)
+
+  // 検証結果
+  environment           String   // sandbox, production
+
+  verifiedAt            DateTime @default(now())
+  createdAt             DateTime @default(now())
+}
+
 model DogEvent {
   id            String    @id @default(cuid())
 
