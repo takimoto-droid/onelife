@@ -71,13 +71,20 @@ export default function Home() {
     );
   }
 
-  const features = [
-    { icon: '🎤', title: '鳴き声翻訳', desc: 'AIが愛犬の気持ちを翻訳', premium: true },
-    { icon: '🏥', title: '健康管理', desc: 'ワクチン・保険をサポート', premium: false },
-    { icon: '🚶', title: '散歩ナビ', desc: '最適なルートを提案', premium: false },
-    { icon: '🍽️', title: 'ペット飲食店', desc: '同伴OKのお店を検索', premium: false },
-    { icon: '👨‍👩‍👧', title: '家族共有', desc: 'お世話情報をシェア', premium: false },
-    { icon: '📊', title: '犬種分布', desc: '全国の犬種ランキング', premium: false },
+  // 無料機能
+  const freeFeatures = [
+    { icon: '🚶', title: '散歩ナビ', desc: '最適なルートを提案' },
+    { icon: '🏥', title: '周辺施設検索', desc: '動物病院・ペットショップ' },
+    { icon: '📅', title: 'イベント情報', desc: '犬関連イベントを検索' },
+    { icon: '📸', title: 'SNS投稿', desc: '愛犬の写真を共有' },
+    { icon: '🐕', title: '犬種診断', desc: '相性の良い犬種を診断' },
+    { icon: '🍽️', title: 'ペット飲食店', desc: '同伴OKのお店を検索' },
+  ];
+
+  // プレミアム機能
+  const premiumFeatures = [
+    { icon: '🍳', title: 'AIレシピ', desc: 'AIがレシピを生成' },
+    { icon: '💊', title: '健康アドバイス', desc: 'AIが健康をサポート' },
   ];
 
   return (
@@ -107,27 +114,43 @@ export default function Home() {
         <div className="grid md:grid-cols-2 gap-8 items-start">
           {/* 特徴 */}
           <div className="space-y-4">
-            <h3 className="text-lg font-bold text-dark-100 mb-4">主な機能</h3>
-            <div className="grid grid-cols-2 gap-3">
-              {features.map((feature) => (
-                <Card key={feature.title} variant="feature" className="p-4">
-                  <div className="text-2xl mb-2">{feature.icon}</div>
-                  <div className="flex items-center gap-2 mb-1">
+            {/* 無料機能 */}
+            <div>
+              <h3 className="text-lg font-bold text-dark-100 mb-3 flex items-center gap-2">
+                <span className="text-green-400">✓</span> 無料で使える機能
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {freeFeatures.map((feature) => (
+                  <Card key={feature.title} variant="feature" className="p-3">
+                    <div className="text-xl mb-1">{feature.icon}</div>
                     <h4 className="font-bold text-dark-100 text-sm">{feature.title}</h4>
-                    {feature.premium && (
-                      <span className="premium-badge text-[10px]">Premium</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-dark-400">{feature.desc}</p>
-                </Card>
-              ))}
+                    <p className="text-xs text-dark-400">{feature.desc}</p>
+                  </Card>
+                ))}
+              </div>
             </div>
 
-            <div className="p-4 bg-accent/10 border border-accent/30 rounded-xl mt-6">
-              <p className="text-sm text-accent">
-                <span className="font-bold">初月無料</span>でお試しいただけます。
+            {/* プレミアム機能 */}
+            <div>
+              <h3 className="text-sm font-bold text-dark-300 mb-2 flex items-center gap-2">
+                <span className="premium-badge text-[10px]">Premium</span> プレミアム機能
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {premiumFeatures.map((feature) => (
+                  <Card key={feature.title} variant="feature" className="p-3 opacity-80">
+                    <div className="text-xl mb-1">{feature.icon}</div>
+                    <h4 className="font-bold text-dark-100 text-sm">{feature.title}</h4>
+                    <p className="text-xs text-dark-400">{feature.desc}</p>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-xl mt-4">
+              <p className="text-sm text-green-400">
+                <span className="font-bold">基本機能はすべて無料！</span>
                 <br />
-                月額500円（税込）ですべての機能が使い放題
+                <span className="text-dark-300">プレミアム機能のみ月額680円</span>
               </p>
             </div>
           </div>
@@ -199,7 +222,7 @@ export default function Home() {
                   </p>
                   <Link href="/register">
                     <Button variant="outline" className="w-full">
-                      新規登録（初月無料）
+                      無料で新規登録
                     </Button>
                   </Link>
                 </div>
