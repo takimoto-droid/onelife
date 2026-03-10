@@ -15,30 +15,47 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'パスワード', type: 'password' },
       },
       async authorize(credentials) {
+        console.log('=== NextAuth authorize called ===');
+
         if (!credentials?.email || !credentials?.password) {
+          console.log('Missing credentials');
           return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-        });
+        const email = credentials.email.toLowerCase().trim();
+        console.log('Looking for user:', email);
 
-        if (!user) {
+        try {
+          const user = await prisma.user.findUnique({
+            where: { email },
+          });
+
+          console.log('User found:', !!user);
+
+          if (!user) {
+            console.log('User not found in database');
+            return null;
+          }
+
+          const isValid = await compare(credentials.password, user.password);
+          console.log('Password valid:', isValid);
+
+          if (!isValid) {
+            console.log('Invalid password');
+            return null;
+          }
+
+          console.log('Authorization successful for:', email);
+          return {
+            id: user.id,
+            email: user.email,
+            onboarded: user.onboarded,
+            subscriptionStatus: user.subscriptionStatus,
+          };
+        } catch (error) {
+          console.error('Authorization error:', error);
           return null;
         }
-
-        const isValid = await compare(credentials.password, user.password);
-
-        if (!isValid) {
-          return null;
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          onboarded: user.onboarded,
-          subscriptionStatus: user.subscriptionStatus,
-        };
       },
     }),
   ],
