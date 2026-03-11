@@ -247,7 +247,7 @@ export async function getInvoices(customerId: string, limit: number = 10): Promi
       amount: invoice.amount_paid / 100, // Stripeは最小単位なので100で割る
       status: invoice.status || 'unknown',
       created: new Date(invoice.created * 1000),
-      pdfUrl: invoice.invoice_pdf,
+      pdfUrl: invoice.invoice_pdf || null,
     }));
   } catch (error) {
     console.error('Stripe invoices retrieval error:', error);
