@@ -35,17 +35,12 @@ export async function createCheckoutSession(
   }
 
   try {
-    // 決済方法に応じたpayment_method_typesを設定
-    // PayPayはStripeの日本向け決済方法として利用可能
-    const paymentMethodTypes: Stripe.Checkout.SessionCreateParams.PaymentMethodType[] =
-      paymentMethod === 'paypay'
-        ? ['paypay']  // PayPay決済
-        : ['card'];    // カード決済
-
-    const session = await stripe.checkout.sessions.create({
+    // Stripeチェックアウトセッションの設定
+    // PayPayはStripeの日本向け決済方法として利用可能（有効化が必要）
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sessionConfig: any = {
       customer: customerId || undefined,
       customer_email: !customerId ? userEmail : undefined,
-      payment_method_types: paymentMethodTypes,
       line_items: [
         {
           price: process.env.STRIPE_PRICE_ID,
@@ -66,7 +61,17 @@ export async function createCheckoutSession(
         userEmail,
         paymentMethod,
       },
-    });
+    };
+
+    // 決済方法の設定
+    // PayPayはStripeダッシュボードで有効化が必要
+    if (paymentMethod === 'card') {
+      sessionConfig.payment_method_types = ['card'];
+    }
+    // PayPayを使用する場合は、payment_method_typesを指定せず
+    // Stripeの自動決済方法選択を使用（ダッシュボードで設定）
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
 
     return { url: session.url || successUrl, sessionId: session.id };
   } catch (error) {
