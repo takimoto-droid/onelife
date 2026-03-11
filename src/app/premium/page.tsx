@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -39,7 +39,8 @@ const PREMIUM_FEATURES = [
 type PaymentMethod = 'card' | 'paypay' | null;
 type Step = 'features' | 'payment' | 'processing' | 'complete';
 
-export default function PremiumPage() {
+// SearchParamsを使用するコンポーネント
+function PremiumPageContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -557,5 +558,18 @@ export default function PremiumPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Suspense境界でラップしたエクスポート
+export default function PremiumPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-dark-900 flex items-center justify-center">
+        <div className="spinner" />
+      </div>
+    }>
+      <PremiumPageContent />
+    </Suspense>
   );
 }
