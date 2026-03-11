@@ -162,11 +162,13 @@ export async function getSubscription(subscriptionId: string): Promise<{
 
   try {
     const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sub = subscription as any;
     return {
-      status: subscription.status as SubscriptionStatus,
-      currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
+      status: sub.status as SubscriptionStatus,
+      currentPeriodEnd: sub.current_period_end ? new Date(sub.current_period_end * 1000) : null,
+      cancelAtPeriodEnd: sub.cancel_at_period_end || false,
+      trialEnd: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
     };
   } catch (error) {
     console.error('Stripe subscription retrieval error:', error);
