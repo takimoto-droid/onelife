@@ -144,7 +144,9 @@ export async function POST(request: NextRequest) {
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice;
         const customerId = invoice.customer as string;
-        const subscriptionId = invoice.subscription as string;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const inv = invoice as any;
 
         // 請求書が支払われたらアクティブに
         const updateData: Record<string, unknown> = {
@@ -153,8 +155,8 @@ export async function POST(request: NextRequest) {
         };
 
         // サブスクリプション情報がある場合は期間も更新
-        if (invoice.lines?.data?.[0]?.period) {
-          const period = invoice.lines.data[0].period;
+        if (inv.lines?.data?.[0]?.period) {
+          const period = inv.lines.data[0].period;
           if (period.start) {
             updateData.billingStartDate = new Date(period.start * 1000);
           }
@@ -168,7 +170,7 @@ export async function POST(request: NextRequest) {
           data: updateData,
         });
 
-        console.log(`Payment succeeded for customer: ${customerId}, subscription: ${subscriptionId}`);
+        console.log(`Payment succeeded for customer: ${customerId}, subscription: ${inv.subscription || 'N/A'}`);
         break;
       }
 
@@ -176,7 +178,8 @@ export async function POST(request: NextRequest) {
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;
         const customerId = invoice.customer as string;
-        const attemptCount = invoice.attempt_count || 0;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const attemptCount = (invoice as any).attempt_count || 0;
 
         // 複数回失敗した場合のみステータスを変更
         if (attemptCount >= 3) {
