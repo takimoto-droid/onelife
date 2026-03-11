@@ -19,24 +19,104 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true });
     }
 
+    console.log(`Stripe webhook received: ${event.type}`);
+
     switch (event.type) {
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated': {
+      // サブスクリプション作成
+      case 'customer.subscription.created': {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
-        const isActive = ['active', 'trialing'].includes(subscription.status);
+
+        const updateData: Record<string, unknown> = {
+          subscriptionId: subscription.id,
+          subscriptionStatus: subscription.status === 'trialing' ? 'trialing' : 'active',
+          isPremium: ['active', 'trialing'].includes(subscription.status),
+        };
+
+        // トライアル情報
+        if (subscription.trial_start) {
+          updateData.trialStartDate = new Date(subscription.trial_start * 1000);
+        }
+        if (subscription.trial_end) {
+          updateData.trialEndsAt = new Date(subscription.trial_end * 1000);
+        }
+
+        // 課金期間
+        if (subscription.current_period_start) {
+          updateData.billingStartDate = new Date(subscription.current_period_start * 1000);
+        }
+        if (subscription.current_period_end) {
+          updateData.nextBillingDate = new Date(subscription.current_period_end * 1000);
+        }
 
         await prisma.user.updateMany({
           where: { stripeCustomerId: customerId },
-          data: {
-            subscriptionId: subscription.id,
-            subscriptionStatus: subscription.status === 'trialing' ? 'trialing' : 'active',
-            isPremium: isActive, // プレミアムフラグも更新
-          },
+          data: updateData,
         });
+
+        console.log(`Subscription created for customer: ${customerId}`);
         break;
       }
 
+      // サブスクリプション更新
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const customerId = subscription.customer as string;
+
+        const status = subscription.status;
+        let subscriptionStatus = 'free';
+        let isPremium = false;
+
+        if (status === 'trialing') {
+          subscriptionStatus = 'trialing';
+          isPremium = true;
+        } else if (status === 'active') {
+          subscriptionStatus = 'active';
+          isPremium = true;
+        } else if (status === 'past_due') {
+          subscriptionStatus = 'past_due';
+          isPremium = true; // 猶予期間中はまだ利用可能
+        } else if (status === 'canceled' || status === 'unpaid') {
+          subscriptionStatus = 'canceled';
+          isPremium = false;
+        }
+
+        const updateData: Record<string, unknown> = {
+          subscriptionId: subscription.id,
+          subscriptionStatus,
+          isPremium,
+        };
+
+        // トライアル情報
+        if (subscription.trial_end) {
+          updateData.trialEndsAt = new Date(subscription.trial_end * 1000);
+        }
+
+        // 次回請求日
+        if (subscription.current_period_end) {
+          updateData.nextBillingDate = new Date(subscription.current_period_end * 1000);
+        }
+
+        // キャンセル予約
+        if (subscription.cancel_at_period_end) {
+          updateData.subscriptionStatus = 'canceling';
+        }
+
+        // キャンセル日時
+        if (subscription.canceled_at) {
+          updateData.canceledAt = new Date(subscription.canceled_at * 1000);
+        }
+
+        await prisma.user.updateMany({
+          where: { stripeCustomerId: customerId },
+          data: updateData,
+        });
+
+        console.log(`Subscription updated for customer: ${customerId}, status: ${subscriptionStatus}`);
+        break;
+      }
+
+      // サブスクリプション削除
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
@@ -45,34 +125,93 @@ export async function POST(request: NextRequest) {
           where: { stripeCustomerId: customerId },
           data: {
             subscriptionStatus: 'canceled',
-            isPremium: false, // プレミアム解除
+            isPremium: false,
+            canceledAt: new Date(),
           },
         });
+
+        console.log(`Subscription deleted for customer: ${customerId}`);
         break;
       }
 
+      // 支払い成功
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice;
         const customerId = invoice.customer as string;
+        const subscriptionId = invoice.subscription as string;
+
+        // 請求書が支払われたらアクティブに
+        const updateData: Record<string, unknown> = {
+          subscriptionStatus: 'active',
+          isPremium: true,
+        };
+
+        // サブスクリプション情報がある場合は期間も更新
+        if (invoice.lines?.data?.[0]?.period) {
+          const period = invoice.lines.data[0].period;
+          if (period.start) {
+            updateData.billingStartDate = new Date(period.start * 1000);
+          }
+          if (period.end) {
+            updateData.nextBillingDate = new Date(period.end * 1000);
+          }
+        }
 
         await prisma.user.updateMany({
           where: { stripeCustomerId: customerId },
-          data: {
-            subscriptionStatus: 'active',
-            isPremium: true, // プレミアム有効
-          },
+          data: updateData,
         });
+
+        console.log(`Payment succeeded for customer: ${customerId}, subscription: ${subscriptionId}`);
         break;
       }
 
+      // 支払い失敗
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;
         const customerId = invoice.customer as string;
+        const attemptCount = invoice.attempt_count || 0;
 
-        // 支払い失敗時の処理（必要に応じて通知など）
-        console.log(`Payment failed for customer: ${customerId}`);
+        // 複数回失敗した場合のみステータスを変更
+        if (attemptCount >= 3) {
+          await prisma.user.updateMany({
+            where: { stripeCustomerId: customerId },
+            data: {
+              subscriptionStatus: 'past_due',
+              // まだプレミアムは維持（猶予期間）
+            },
+          });
+        }
+
+        console.log(`Payment failed for customer: ${customerId}, attempt: ${attemptCount}`);
         break;
       }
+
+      // チェックアウト完了
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const customerId = session.customer as string;
+        const email = session.customer_email || session.metadata?.userEmail;
+
+        // ユーザーにStripe Customer IDを関連付け
+        if (email) {
+          await prisma.user.updateMany({
+            where: { email },
+            data: {
+              stripeCustomerId: customerId,
+              subscriptionStatus: 'trialing',
+              isPremium: true,
+              trialStartDate: new Date(),
+              trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            },
+          });
+          console.log(`Checkout completed for email: ${email}`);
+        }
+        break;
+      }
+
+      default:
+        console.log(`Unhandled event type: ${event.type}`);
     }
 
     return NextResponse.json({ received: true });

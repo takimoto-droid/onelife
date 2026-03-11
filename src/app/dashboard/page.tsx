@@ -83,7 +83,15 @@ export default function DashboardPage() {
 
   const dog = dogs[0];
   const upcomingVaccines = dog?.vaccineSchedules?.filter((v) => !v.completed) || [];
-  const isPremium = session.user.subscriptionStatus === 'active';
+  const isPremium = session.user.subscriptionStatus === 'active' || session.user.subscriptionStatus === 'trialing';
+
+  // プレミアム機能のクリックハンドラー
+  const handlePremiumFeatureClick = (e: React.MouseEvent, href: string, isPremiumFeature: boolean) => {
+    if (isPremiumFeature && !isPremium) {
+      e.preventDefault();
+      router.push('/premium');
+    }
+  };
 
   // メニューアイテム
   const menuItems = [
@@ -293,11 +301,22 @@ export default function DashboardPage() {
         {/* メインメニュー */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
           {menuItems.map((item) => (
-            <Link key={item.href} href={item.href}>
-              <div className={`${item.bgColor} rounded-3xl p-4 relative hover:-translate-y-1 transition-all duration-300 hover:shadow-card-hover border border-white/50`}>
+            <Link
+              key={item.href}
+              href={item.premium && !isPremium ? '/premium' : item.href}
+              onClick={(e) => handlePremiumFeatureClick(e, item.href, !!item.premium)}
+            >
+              <div className={`${item.bgColor} rounded-3xl p-4 relative hover:-translate-y-1 transition-all duration-300 hover:shadow-card-hover border border-white/50 ${item.premium && !isPremium ? 'opacity-90' : ''}`}>
                 {item.isNew && (
                   <span className="absolute -top-1.5 -right-1.5 bg-gradient-to-r from-accent to-peach-400 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm">
                     NEW
+                  </span>
+                )}
+                {/* プレミアムバッジ（非課金ユーザー用） */}
+                {item.premium && !isPremium && (
+                  <span className="absolute -top-1.5 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm flex items-center gap-1">
+                    <span>👑</span>
+                    <span>Premium</span>
                   </span>
                 )}
                 <div className="text-center">
@@ -308,7 +327,7 @@ export default function DashboardPage() {
                     <h3 className="font-bold text-brown-700 text-sm">
                       {item.title}
                     </h3>
-                    {item.premium && (
+                    {item.premium && isPremium && (
                       <span className="bg-gradient-premium text-brown-800 text-[8px] px-1.5 py-0.5 rounded-full font-bold">P</span>
                     )}
                   </div>
@@ -387,8 +406,17 @@ export default function DashboardPage() {
               </div>
             </div>
           </Link>
-          <Link href="/voice">
-            <div className={`bg-gradient-to-r from-lavender-100 to-lavender-50 rounded-3xl p-4 border border-lavender-200 hover:-translate-y-1 transition-all duration-300 hover:shadow-card-hover ${!isPremium && 'opacity-80'}`}>
+          <Link
+            href={isPremium ? '/voice' : '/premium'}
+            onClick={(e) => handlePremiumFeatureClick(e, '/voice', true)}
+          >
+            <div className={`bg-gradient-to-r from-lavender-100 to-lavender-50 rounded-3xl p-4 border border-lavender-200 hover:-translate-y-1 transition-all duration-300 hover:shadow-card-hover relative ${!isPremium && 'opacity-90'}`}>
+              {!isPremium && (
+                <span className="absolute -top-2 right-2 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm flex items-center gap-1">
+                  <span>👑</span>
+                  <span>Premium</span>
+                </span>
+              )}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-2xl shadow-sm">
                   🎤
@@ -396,7 +424,6 @@ export default function DashboardPage() {
                 <div>
                   <h3 className="font-bold text-brown-700 flex items-center gap-1">
                     鳴き声翻訳
-                    {!isPremium && <span className="bg-gradient-premium text-brown-800 text-[8px] px-1.5 py-0.5 rounded-full font-bold">P</span>}
                   </h3>
                   <p className="text-xs text-brown-400">AIで気持ちを翻訳</p>
                 </div>

@@ -4,21 +4,48 @@ const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY)
   : null;
 
+// 決済方法タイプ
+export type PaymentMethodType = 'card' | 'paypay';
+
+// サブスクリプションステータス
+export type SubscriptionStatus =
+  | 'free'
+  | 'trialing'
+  | 'active'
+  | 'canceling'
+  | 'canceled'
+  | 'past_due'
+  | 'unpaid';
+
+/**
+ * Stripe Checkoutセッションを作成
+ * カード決済とPayPay決済に対応
+ */
 export async function createCheckoutSession(
   customerId: string,
   userEmail: string,
   successUrl: string,
-  cancelUrl: string
-): Promise<{ url: string } | null> {
+  cancelUrl: string,
+  paymentMethod: PaymentMethodType = 'card'
+): Promise<{ url: string; sessionId?: string } | null> {
   if (!stripe || !process.env.STRIPE_PRICE_ID) {
     // モックモード: 決済をスキップしてダッシュボードへ
+    console.log('Stripe mock mode: Skipping to success URL');
     return { url: successUrl + '?mock=true' };
   }
 
   try {
+    // 決済方法に応じたpayment_method_typesを設定
+    // PayPayはStripeの日本向け決済方法として利用可能
+    const paymentMethodTypes: Stripe.Checkout.SessionCreateParams.PaymentMethodType[] =
+      paymentMethod === 'paypay'
+        ? ['paypay']  // PayPay決済
+        : ['card'];    // カード決済
+
     const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      payment_method_types: ['card'],
+      customer: customerId || undefined,
+      customer_email: !customerId ? userEmail : undefined,
+      payment_method_types: paymentMethodTypes,
       line_items: [
         {
           price: process.env.STRIPE_PRICE_ID,
@@ -30,24 +57,41 @@ export async function createCheckoutSession(
       cancel_url: cancelUrl,
       subscription_data: {
         trial_period_days: 7,
+        metadata: {
+          userEmail,
+        },
+      },
+      locale: 'ja',
+      metadata: {
+        userEmail,
+        paymentMethod,
       },
     });
 
-    return { url: session.url || successUrl };
+    return { url: session.url || successUrl, sessionId: session.id };
   } catch (error) {
     console.error('Stripe checkout error:', error);
     return null;
   }
 }
 
-export async function createCustomer(email: string): Promise<string | null> {
+/**
+ * Stripeカスタマーを作成
+ */
+export async function createCustomer(email: string, name?: string): Promise<string | null> {
   if (!stripe) {
     // モックモード: ランダムなIDを返す
     return `mock_cus_${Date.now()}`;
   }
 
   try {
-    const customer = await stripe.customers.create({ email });
+    const customer = await stripe.customers.create({
+      email,
+      name,
+      metadata: {
+        source: 'wanlife_app',
+      },
+    });
     return customer.id;
   } catch (error) {
     console.error('Stripe customer creation error:', error);
@@ -55,6 +99,9 @@ export async function createCustomer(email: string): Promise<string | null> {
   }
 }
 
+/**
+ * サブスクリプションをキャンセル
+ */
 export async function cancelSubscription(subscriptionId: string): Promise<boolean> {
   if (!stripe) {
     // モックモード: 成功を返す
@@ -62,7 +109,10 @@ export async function cancelSubscription(subscriptionId: string): Promise<boolea
   }
 
   try {
-    await stripe.subscriptions.cancel(subscriptionId);
+    // 即時キャンセルではなく、期間終了時にキャンセル
+    await stripe.subscriptions.update(subscriptionId, {
+      cancel_at_period_end: true,
+    });
     return true;
   } catch (error) {
     console.error('Stripe subscription cancellation error:', error);
@@ -70,6 +120,58 @@ export async function cancelSubscription(subscriptionId: string): Promise<boolea
   }
 }
 
+/**
+ * サブスクリプションを即時キャンセル（返金あり）
+ */
+export async function cancelSubscriptionImmediately(subscriptionId: string): Promise<boolean> {
+  if (!stripe) {
+    return true;
+  }
+
+  try {
+    await stripe.subscriptions.cancel(subscriptionId);
+    return true;
+  } catch (error) {
+    console.error('Stripe subscription immediate cancellation error:', error);
+    return false;
+  }
+}
+
+/**
+ * サブスクリプション情報を取得
+ */
+export async function getSubscription(subscriptionId: string): Promise<{
+  status: SubscriptionStatus;
+  currentPeriodEnd: Date | null;
+  cancelAtPeriodEnd: boolean;
+  trialEnd: Date | null;
+} | null> {
+  if (!stripe) {
+    return {
+      status: 'active',
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      cancelAtPeriodEnd: false,
+      trialEnd: null,
+    };
+  }
+
+  try {
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    return {
+      status: subscription.status as SubscriptionStatus,
+      currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
+    };
+  } catch (error) {
+    console.error('Stripe subscription retrieval error:', error);
+    return null;
+  }
+}
+
+/**
+ * Webhookイベントを検証・構築
+ */
 export async function constructWebhookEvent(
   payload: string | Buffer,
   signature: string
@@ -87,6 +189,62 @@ export async function constructWebhookEvent(
   } catch (error) {
     console.error('Stripe webhook error:', error);
     return null;
+  }
+}
+
+/**
+ * カスタマーポータルセッションを作成（サブスク管理用）
+ */
+export async function createCustomerPortalSession(
+  customerId: string,
+  returnUrl: string
+): Promise<string | null> {
+  if (!stripe) {
+    return returnUrl;
+  }
+
+  try {
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: returnUrl,
+    });
+    return session.url;
+  } catch (error) {
+    console.error('Stripe portal session error:', error);
+    return null;
+  }
+}
+
+/**
+ * 請求書一覧を取得
+ */
+export async function getInvoices(customerId: string, limit: number = 10): Promise<{
+  id: string;
+  amount: number;
+  status: string;
+  created: Date;
+  pdfUrl: string | null;
+}[]> {
+  if (!stripe) {
+    return [];
+  }
+
+  try {
+    const invoices = await stripe.invoices.list({
+      customer: customerId,
+      limit,
+    });
+
+    return invoices.data.map((invoice) => ({
+      id: invoice.id,
+      amount: invoice.amount_paid / 100, // Stripeは最小単位なので100で割る
+      status: invoice.status || 'unknown',
+      created: new Date(invoice.created * 1000),
+      pdfUrl: invoice.invoice_pdf,
+    }));
+  } catch (error) {
+    console.error('Stripe invoices retrieval error:', error);
+    return [];
   }
 }
 
