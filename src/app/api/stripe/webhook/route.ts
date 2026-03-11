@@ -27,6 +27,9 @@ export async function POST(request: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const sub = subscription as any;
+
         const updateData: Record<string, unknown> = {
           subscriptionId: subscription.id,
           subscriptionStatus: subscription.status === 'trialing' ? 'trialing' : 'active',
@@ -34,19 +37,19 @@ export async function POST(request: NextRequest) {
         };
 
         // トライアル情報
-        if (subscription.trial_start) {
-          updateData.trialStartDate = new Date(subscription.trial_start * 1000);
+        if (sub.trial_start) {
+          updateData.trialStartDate = new Date(sub.trial_start * 1000);
         }
-        if (subscription.trial_end) {
-          updateData.trialEndsAt = new Date(subscription.trial_end * 1000);
+        if (sub.trial_end) {
+          updateData.trialEndsAt = new Date(sub.trial_end * 1000);
         }
 
         // 課金期間
-        if (subscription.current_period_start) {
-          updateData.billingStartDate = new Date(subscription.current_period_start * 1000);
+        if (sub.current_period_start) {
+          updateData.billingStartDate = new Date(sub.current_period_start * 1000);
         }
-        if (subscription.current_period_end) {
-          updateData.nextBillingDate = new Date(subscription.current_period_end * 1000);
+        if (sub.current_period_end) {
+          updateData.nextBillingDate = new Date(sub.current_period_end * 1000);
         }
 
         await prisma.user.updateMany({
@@ -62,6 +65,9 @@ export async function POST(request: NextRequest) {
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const sub = subscription as any;
 
         const status = subscription.status;
         let subscriptionStatus = 'free';
@@ -88,23 +94,23 @@ export async function POST(request: NextRequest) {
         };
 
         // トライアル情報
-        if (subscription.trial_end) {
-          updateData.trialEndsAt = new Date(subscription.trial_end * 1000);
+        if (sub.trial_end) {
+          updateData.trialEndsAt = new Date(sub.trial_end * 1000);
         }
 
         // 次回請求日
-        if (subscription.current_period_end) {
-          updateData.nextBillingDate = new Date(subscription.current_period_end * 1000);
+        if (sub.current_period_end) {
+          updateData.nextBillingDate = new Date(sub.current_period_end * 1000);
         }
 
         // キャンセル予約
-        if (subscription.cancel_at_period_end) {
+        if (sub.cancel_at_period_end) {
           updateData.subscriptionStatus = 'canceling';
         }
 
         // キャンセル日時
-        if (subscription.canceled_at) {
-          updateData.canceledAt = new Date(subscription.canceled_at * 1000);
+        if (sub.canceled_at) {
+          updateData.canceledAt = new Date(sub.canceled_at * 1000);
         }
 
         await prisma.user.updateMany({
