@@ -30,6 +30,9 @@ export default function SnsPage() {
   const [dogBreed, setDogBreed] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
+  // プレミアム状態チェック
+  const isPremium = session?.user?.subscriptionStatus === 'active' || session?.user?.subscriptionStatus === 'trialing';
+
   // トーン選択肢（5種類）
   const toneOptions: { value: ToneType; label: string; emoji: string; description: string }[] = [
     { value: 'cute', label: 'かわいい', emoji: '🥰', description: 'キュンとする投稿' },
@@ -146,6 +149,41 @@ export default function SnsPage() {
     return null;
   }
 
+  // プレミアム機能ゲート
+  if (!isPremium) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50 pb-24">
+        <header className="bg-white/80 backdrop-blur-md border-b border-cream-200 p-4 sticky top-0 z-10">
+          <div className="max-w-2xl mx-auto flex items-center justify-between">
+            <Link href="/dashboard">
+              <h1 className="text-xl font-bold gradient-text">わんライフ</h1>
+            </Link>
+            <Link href="/dashboard" className="text-pink-500 text-sm hover:text-pink-600">
+              戻る
+            </Link>
+          </div>
+        </header>
+        <main className="max-w-2xl mx-auto p-4 py-6 flex items-center justify-center min-h-[70vh]">
+          <Card variant="warm" className="text-center max-w-md">
+            <div className="py-8">
+              <span className="text-5xl mb-6 block">👑</span>
+              <h2 className="text-xl font-bold text-brown-700 mb-4">
+                プレミアム機能です
+              </h2>
+              <p className="text-brown-500 mb-6">
+                SNS投稿サポートはプレミアム会員限定の機能です。
+                アップグレードすると、AIによる投稿文生成を利用できます。
+              </p>
+              <Button onClick={() => router.push('/premium')}>
+                プレミアムにアップグレード
+              </Button>
+            </div>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50 pb-24">
       {/* ヘッダー */}
@@ -164,8 +202,11 @@ export default function SnsPage() {
         <div className="flex items-center gap-2 mb-6">
           <span className="text-3xl">📸</span>
           <div>
-            <h2 className="text-2xl font-bold text-brown-700">
+            <h2 className="text-2xl font-bold text-brown-700 flex items-center gap-2">
               SNS投稿サポート
+              <span className="inline-flex items-center gap-1 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-xs px-2 py-1 rounded-full font-bold">
+                👑 Premium
+              </span>
             </h2>
             <p className="text-sm text-brown-400">AIがあなたの投稿文を作成</p>
           </div>

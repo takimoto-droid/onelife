@@ -15,8 +15,9 @@ import { Card } from '@/components/ui/Card';
 // 【機能】
 // 1. 犬の体重入力 → 食事量を計算
 // 2. アレルギー登録 → レシピから除外
-// 3. 食材入力 → AIがレシピ生成
-// 4. レシピ保存 → マイレシピに追加
+// 3. 食材入力 → AIが3つのレシピを生成
+// 4. レシピ詳細表示 → 手順、栄養情報、参考URL
+// 5. レシピ保存 → マイレシピに追加
 // ================================================
 
 // アレルギー食材の選択肢
@@ -38,17 +39,40 @@ const INGREDIENT_SUGGESTIONS = [
   '白米', 'じゃがいも', '豆腐', '小松菜', '大根',
 ];
 
+interface RecipeStep {
+  step: number;
+  title: string;
+  description: string;
+}
+
+interface RecipeNutrition {
+  calories: number;
+  protein: string;
+  fat: string;
+  carbs: string;
+  fiber: string;
+}
+
+interface ReferenceUrl {
+  name: string;
+  url: string;
+}
+
 interface Recipe {
+  id: string;
   name: string;
   description: string;
   ingredients: string[];
-  steps: string[];
+  steps: RecipeStep[];
+  nutrition: RecipeNutrition;
+  tips: string;
+  references: ReferenceUrl[];
   portionSize: number;
   weightKg: number;
-  caloriesPerServing: number;
   caloriesPerMeal: number;
   dailyCalories: number;
   allergiesExcluded: string[];
+  userIngredients: string[];
 }
 
 interface SavedRecipe {
@@ -56,7 +80,7 @@ interface SavedRecipe {
   name: string;
   description: string;
   ingredients: string[];
-  steps: string[];
+  steps: RecipeStep[] | string[];
   portionSize: number;
   caloriesPerServing?: number;
   savedAt: string;
@@ -79,14 +103,18 @@ export default function RecipePage() {
   const [ingredientInput, setIngredientInput] = useState('');
   const [ingredients, setIngredients] = useState<string[]>([]);
 
-  // レシピ
-  const [recipe, setRecipe] = useState<Recipe | null>(null);
+  // レシピ（3つ）
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
 
   // 状態
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // プレミアム状態チェック
+  const isPremium = session?.user?.subscriptionStatus === 'active' || session?.user?.subscriptionStatus === 'trialing';
 
   // 保存レシピを取得
   useEffect(() => {
@@ -136,15 +164,16 @@ export default function RecipePage() {
     setIngredients(prev => prev.filter(i => i !== ingredient));
   };
 
-  // レシピ生成
-  const generateRecipe = async () => {
+  // レシピ生成（3つ）
+  const generateRecipes = async () => {
     if (ingredients.length === 0) {
       showToast('error', '食材を1つ以上入力してください');
       return;
     }
 
     setLoading(true);
-    setRecipe(null);
+    setRecipes([]);
+    setSelectedRecipe(null);
 
     try {
       const res = await fetch('/api/recipe/generate', {
@@ -159,9 +188,9 @@ export default function RecipePage() {
 
       const data = await res.json();
 
-      if (data.recipe) {
-        setRecipe(data.recipe);
-        showToast('success', 'レシピを生成しました');
+      if (data.recipes && data.recipes.length > 0) {
+        setRecipes(data.recipes);
+        showToast('success', `${data.recipes.length}つのレシピを生成しました`);
       } else {
         showToast('error', data.error || 'レシピ生成に失敗しました');
       }
@@ -174,9 +203,7 @@ export default function RecipePage() {
   };
 
   // レシピ保存
-  const saveRecipe = async () => {
-    if (!recipe) return;
-
+  const saveRecipe = async (recipe: Recipe) => {
     setSaving(true);
 
     try {
@@ -235,6 +262,41 @@ export default function RecipePage() {
     return null;
   }
 
+  // プレミアム機能ゲート
+  if (!isPremium) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50 pb-24">
+        <header className="bg-white/80 backdrop-blur-md border-b border-cream-200 p-4 sticky top-0 z-10">
+          <div className="max-w-2xl mx-auto flex items-center justify-between">
+            <Link href="/dashboard">
+              <h1 className="text-xl font-bold gradient-text">わんライフ</h1>
+            </Link>
+            <Link href="/dashboard" className="text-pink-500 text-sm hover:text-pink-600">
+              戻る
+            </Link>
+          </div>
+        </header>
+        <main className="max-w-2xl mx-auto p-4 py-6 flex items-center justify-center min-h-[70vh]">
+          <Card variant="warm" className="text-center max-w-md">
+            <div className="py-8">
+              <span className="text-5xl mb-6 block">👑</span>
+              <h2 className="text-xl font-bold text-brown-700 mb-4">
+                プレミアム機能です
+              </h2>
+              <p className="text-brown-500 mb-6">
+                AIレシピはプレミアム会員限定の機能です。
+                アップグレードすると、AIによるオリジナルレシピ提案を受けられます。
+              </p>
+              <Button onClick={() => router.push('/premium')}>
+                プレミアムにアップグレード
+              </Button>
+            </div>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50 pb-24">
       {/* トースト */}
@@ -267,6 +329,9 @@ export default function RecipePage() {
           <h2 className="text-2xl font-bold text-brown-700 mb-2 flex items-center justify-center gap-2">
             <span>🍳</span>
             AIレシピ
+            <span className="inline-flex items-center gap-1 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-xs px-2 py-1 rounded-full font-bold">
+              👑 Premium
+            </span>
           </h2>
           <p className="text-brown-400">
             愛犬の手作りごはんをAIが提案
@@ -300,225 +365,375 @@ export default function RecipePage() {
         {/* レシピ作成タブ */}
         {activeTab === 'create' && (
           <div className="space-y-6">
-            {/* 犬の体重入力 */}
-            <Card variant="warm" className="p-4">
-              <h3 className="font-bold text-brown-700 mb-3 flex items-center gap-2">
-                <span>⚖️</span>
-                犬の体重
-              </h3>
-              <div className="flex items-center gap-3">
-                <Input
-                  type="number"
-                  value={dogWeight}
-                  onChange={(e) => setDogWeight(e.target.value)}
-                  placeholder="5"
-                  className="w-24 text-center text-lg"
-                  min="1"
-                  max="100"
-                />
-                <span className="text-brown-500 font-bold">kg</span>
-              </div>
-              <p className="text-xs text-brown-400 mt-2">
-                体重に合わせた食事量を計算します
-              </p>
-            </Card>
-
-            {/* アレルギー登録 */}
-            <Card variant="warm" className="p-4">
-              <h3 className="font-bold text-brown-700 mb-3 flex items-center gap-2">
-                <span>⚠️</span>
-                アレルギー食材
-              </h3>
-              <p className="text-xs text-brown-400 mb-3">
-                登録した食材はレシピから除外されます
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {ALLERGY_OPTIONS.map((allergy) => (
-                  <button
-                    key={allergy.id}
-                    onClick={() => toggleAllergy(allergy.id)}
-                    className={`px-3 py-2 rounded-full text-sm transition-all flex items-center gap-1 ${
-                      selectedAllergies.includes(allergy.id)
-                        ? 'bg-red-100 text-red-600 border-2 border-red-300 font-bold'
-                        : 'bg-white text-brown-500 border border-cream-200 hover:border-pink-200'
-                    }`}
-                  >
-                    <span>{allergy.emoji}</span>
-                    <span>{allergy.label}</span>
-                    {selectedAllergies.includes(allergy.id) && <span>✕</span>}
-                  </button>
-                ))}
-              </div>
-            </Card>
-
-            {/* 食材入力 */}
-            <Card variant="warm" className="p-4">
-              <h3 className="font-bold text-brown-700 mb-3 flex items-center gap-2">
-                <span>🥕</span>
-                手持ちの食材
-              </h3>
-
-              {/* 入力フォーム */}
-              <div className="flex gap-2 mb-3">
-                <Input
-                  value={ingredientInput}
-                  onChange={(e) => setIngredientInput(e.target.value)}
-                  placeholder="食材を入力"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      addIngredient(ingredientInput);
-                    }
-                  }}
-                  className="flex-1"
-                />
-                <Button
-                  onClick={() => addIngredient(ingredientInput)}
-                  variant="secondary"
-                  className="px-4"
+            {/* 詳細レシピ表示 */}
+            {selectedRecipe ? (
+              <div className="space-y-6">
+                {/* 戻るボタン */}
+                <button
+                  onClick={() => setSelectedRecipe(null)}
+                  className="flex items-center gap-2 text-pink-500 hover:text-pink-600 font-medium"
                 >
-                  追加
-                </Button>
-              </div>
+                  ← レシピ一覧に戻る
+                </button>
 
-              {/* 候補ボタン */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                {INGREDIENT_SUGGESTIONS.filter(s => !ingredients.includes(s)).slice(0, 8).map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    onClick={() => addIngredient(suggestion)}
-                    className="px-3 py-1 text-sm bg-cream-100 text-brown-500 rounded-full hover:bg-pink-100 transition-colors"
-                  >
-                    + {suggestion}
-                  </button>
-                ))}
-              </div>
+                <Card variant="warm" className="p-4">
+                  {/* アレルギー注意表示 */}
+                  {selectedRecipe.allergiesExcluded.length > 0 && (
+                    <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-xl">
+                      <p className="text-sm text-yellow-700">
+                        ⚠️ アレルギー登録により、以下の食材を除外しています：
+                        <span className="font-bold ml-1">
+                          {selectedRecipe.allergiesExcluded.join('、')}
+                        </span>
+                      </p>
+                    </div>
+                  )}
 
-              {/* 選択した食材 */}
-              {ingredients.length > 0 && (
-                <div className="flex flex-wrap gap-2 pt-3 border-t border-cream-200">
-                  {ingredients.map((ingredient) => (
-                    <span
-                      key={ingredient}
-                      className="px-3 py-1 bg-pink-100 text-pink-600 rounded-full text-sm flex items-center gap-1"
-                    >
-                      {ingredient}
-                      <button
-                        onClick={() => removeIngredient(ingredient)}
-                        className="hover:text-pink-800"
-                      >
-                        ✕
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            {/* 生成ボタン */}
-            <Button
-              onClick={generateRecipe}
-              loading={loading}
-              disabled={ingredients.length === 0}
-              className="w-full"
-            >
-              🍳 AIでレシピを生成
-            </Button>
-
-            {/* 生成されたレシピ */}
-            {recipe && (
-              <Card variant="warm" className="p-4">
-                {/* アレルギー注意表示 */}
-                {recipe.allergiesExcluded.length > 0 && (
-                  <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-xl">
-                    <p className="text-sm text-yellow-700">
-                      ⚠️ アレルギー登録により、以下の食材を除外しています：
+                  {/* 使用した材料（ユーザー入力）表示 */}
+                  <div className="mb-4 p-3 bg-pink-50 border border-pink-200 rounded-xl">
+                    <p className="text-sm text-pink-700">
+                      🥕 入力した食材：
                       <span className="font-bold ml-1">
-                        {recipe.allergiesExcluded.join('、')}
+                        {selectedRecipe.userIngredients?.join('、') || ingredients.join('、')}
                       </span>
                     </p>
                   </div>
-                )}
 
-                {/* レシピヘッダー */}
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-brown-700">{recipe.name}</h3>
-                    <p className="text-sm text-brown-400 mt-1">{recipe.description}</p>
+                  {/* レシピヘッダー */}
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-xl font-bold text-brown-700">{selectedRecipe.name}</h3>
+                      <p className="text-sm text-brown-400 mt-1">{selectedRecipe.description}</p>
+                    </div>
+                    <button
+                      onClick={() => saveRecipe(selectedRecipe)}
+                      disabled={saving}
+                      className="flex items-center gap-1 px-4 py-2 bg-pink-100 text-pink-600 rounded-full hover:bg-pink-200 transition-colors font-bold text-sm"
+                    >
+                      {saving ? '保存中...' : '❤️ 保存'}
+                    </button>
                   </div>
+
+                  {/* 食事量の目安 */}
+                  <div className="mb-4 p-4 bg-mint-50 border border-mint-200 rounded-xl">
+                    <h4 className="font-bold text-brown-700 mb-2 flex items-center gap-2">
+                      <span>📊</span>
+                      このレシピの目安量
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-brown-400">体重</p>
+                        <p className="font-bold text-brown-700 text-lg">{selectedRecipe.weightKg}kg</p>
+                      </div>
+                      <div>
+                        <p className="text-brown-400">1食の目安量</p>
+                        <p className="font-bold text-pink-600 text-lg">約{selectedRecipe.portionSize}g</p>
+                      </div>
+                      <div>
+                        <p className="text-brown-400">1食のカロリー</p>
+                        <p className="font-bold text-brown-700">{selectedRecipe.caloriesPerMeal}kcal</p>
+                      </div>
+                      <div>
+                        <p className="text-brown-400">1日の必要量</p>
+                        <p className="font-bold text-brown-700">{selectedRecipe.dailyCalories}kcal</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 材料 */}
+                  <div className="mb-4">
+                    <h4 className="font-bold text-brown-700 mb-2">📝 材料（{selectedRecipe.weightKg}kgの犬の場合）</h4>
+                    <ul className="space-y-1">
+                      {selectedRecipe.ingredients.map((ingredient, idx) => (
+                        <li key={idx} className="text-brown-600 flex items-center gap-2">
+                          <span className="w-2 h-2 bg-pink-300 rounded-full"></span>
+                          {ingredient}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* 作り方（ステップ形式） */}
+                  <div className="mb-4">
+                    <h4 className="font-bold text-brown-700 mb-3">👩‍🍳 作り方</h4>
+                    <div className="space-y-4">
+                      {selectedRecipe.steps.map((stepItem) => (
+                        <div key={stepItem.step} className="bg-cream-50 rounded-xl p-4">
+                          <div className="flex items-start gap-3">
+                            <span className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-pink-400 to-peach-400 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                              {stepItem.step}
+                            </span>
+                            <div className="flex-1">
+                              <h5 className="font-bold text-brown-700 mb-1">{stepItem.title}</h5>
+                              <p className="text-brown-600 text-sm">{stepItem.description}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 栄養情報 */}
+                  {selectedRecipe.nutrition && (
+                    <div className="mb-4 p-4 bg-lavender-50 border border-lavender-200 rounded-xl">
+                      <h4 className="font-bold text-brown-700 mb-2 flex items-center gap-2">
+                        <span>🥗</span>
+                        栄養情報（1食あたり目安）
+                      </h4>
+                      <div className="grid grid-cols-3 gap-3 text-center text-sm">
+                        <div className="bg-white rounded-lg p-2">
+                          <p className="text-brown-400 text-xs">カロリー</p>
+                          <p className="font-bold text-brown-700">{selectedRecipe.nutrition.calories}kcal</p>
+                        </div>
+                        <div className="bg-white rounded-lg p-2">
+                          <p className="text-brown-400 text-xs">タンパク質</p>
+                          <p className="font-bold text-brown-700">{selectedRecipe.nutrition.protein}</p>
+                        </div>
+                        <div className="bg-white rounded-lg p-2">
+                          <p className="text-brown-400 text-xs">脂質</p>
+                          <p className="font-bold text-brown-700">{selectedRecipe.nutrition.fat}</p>
+                        </div>
+                        <div className="bg-white rounded-lg p-2">
+                          <p className="text-brown-400 text-xs">炭水化物</p>
+                          <p className="font-bold text-brown-700">{selectedRecipe.nutrition.carbs}</p>
+                        </div>
+                        <div className="bg-white rounded-lg p-2">
+                          <p className="text-brown-400 text-xs">食物繊維</p>
+                          <p className="font-bold text-brown-700">{selectedRecipe.nutrition.fiber}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 調理のコツ */}
+                  {selectedRecipe.tips && (
+                    <div className="mb-4 p-4 bg-peach-50 border border-peach-200 rounded-xl">
+                      <h4 className="font-bold text-brown-700 mb-2 flex items-center gap-2">
+                        <span>💡</span>
+                        調理のコツ
+                      </h4>
+                      <p className="text-brown-600 text-sm">{selectedRecipe.tips}</p>
+                    </div>
+                  )}
+
+                  {/* 参考情報 */}
+                  {selectedRecipe.references && selectedRecipe.references.length > 0 && (
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                      <h4 className="font-bold text-brown-700 mb-2 flex items-center gap-2">
+                        <span>📚</span>
+                        参考情報
+                      </h4>
+                      <ul className="space-y-2">
+                        {selectedRecipe.references.map((ref, idx) => (
+                          <li key={idx}>
+                            <a
+                              href={ref.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 text-sm underline"
+                            >
+                              {ref.name} →
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </Card>
+              </div>
+            ) : recipes.length > 0 ? (
+              /* レシピ一覧（3つ） */
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-brown-700 text-lg">
+                    🍳 {recipes.length}つのレシピ案
+                  </h3>
                   <button
-                    onClick={saveRecipe}
-                    disabled={saving}
-                    className="flex items-center gap-1 px-4 py-2 bg-pink-100 text-pink-600 rounded-full hover:bg-pink-200 transition-colors font-bold text-sm"
+                    onClick={() => setRecipes([])}
+                    className="text-pink-500 hover:text-pink-600 text-sm font-medium"
                   >
-                    {saving ? '保存中...' : '❤️ 保存'}
+                    やり直す
                   </button>
                 </div>
 
-                {/* 食事量の目安 */}
-                <div className="mb-4 p-4 bg-mint-50 border border-mint-200 rounded-xl">
-                  <h4 className="font-bold text-brown-700 mb-2 flex items-center gap-2">
-                    <span>📊</span>
-                    このレシピの目安量
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-brown-400">体重</p>
-                      <p className="font-bold text-brown-700 text-lg">{recipe.weightKg}kg</p>
+                <p className="text-brown-500 text-sm">
+                  タップしてレシピの詳細を確認できます
+                </p>
+
+                {recipes.map((recipe, index) => (
+                  <Card
+                    key={recipe.id}
+                    variant="warm"
+                    className="p-4 cursor-pointer hover:shadow-lg transition-shadow"
+                    onClick={() => setSelectedRecipe(recipe)}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-r from-pink-400 to-peach-400 text-white rounded-full flex items-center justify-center text-xl font-bold">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-bold text-brown-700 mb-1">{recipe.name}</h4>
+                        <p className="text-brown-500 text-sm mb-2">{recipe.description}</p>
+                        <div className="flex items-center gap-3 text-xs text-brown-400">
+                          <span>🔥 {recipe.nutrition?.calories || recipe.caloriesPerMeal}kcal</span>
+                          <span>📏 約{recipe.portionSize}g/食</span>
+                        </div>
+                      </div>
+                      <div className="text-pink-400 text-2xl">→</div>
                     </div>
-                    <div>
-                      <p className="text-brown-400">1食の目安量</p>
-                      <p className="font-bold text-pink-600 text-lg">約{recipe.portionSize}g</p>
-                    </div>
-                    <div>
-                      <p className="text-brown-400">1食のカロリー</p>
-                      <p className="font-bold text-brown-700">{recipe.caloriesPerMeal}kcal</p>
-                    </div>
-                    <div>
-                      <p className="text-brown-400">1日の必要量</p>
-                      <p className="font-bold text-brown-700">{recipe.dailyCalories}kcal</p>
-                    </div>
+                  </Card>
+                ))}
+
+                {/* 安全注意表示 */}
+                <div className="p-4 bg-cream-50 rounded-2xl border border-cream-200">
+                  <p className="text-xs text-brown-400 text-center leading-relaxed">
+                    ⚠️ このレシピは一般的な情報です。<br />
+                    犬の健康状態やアレルギーについては獣医師にご相談ください。<br />
+                    初めての食材は少量から試してください。
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* 入力フォーム */
+              <div className="space-y-6">
+                {/* 犬の体重入力 */}
+                <Card variant="warm" className="p-4">
+                  <h3 className="font-bold text-brown-700 mb-3 flex items-center gap-2">
+                    <span>⚖️</span>
+                    犬の体重
+                  </h3>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      type="number"
+                      value={dogWeight}
+                      onChange={(e) => setDogWeight(e.target.value)}
+                      placeholder="5"
+                      className="w-24 text-center text-lg"
+                      min="1"
+                      max="100"
+                    />
+                    <span className="text-brown-500 font-bold">kg</span>
                   </div>
-                </div>
+                  <p className="text-xs text-brown-400 mt-2">
+                    体重に合わせた食事量を計算します
+                  </p>
+                </Card>
 
-                {/* 材料 */}
-                <div className="mb-4">
-                  <h4 className="font-bold text-brown-700 mb-2">📝 材料</h4>
-                  <ul className="space-y-1">
-                    {recipe.ingredients.map((ingredient, idx) => (
-                      <li key={idx} className="text-brown-600 flex items-center gap-2">
-                        <span className="w-2 h-2 bg-pink-300 rounded-full"></span>
-                        {ingredient}
-                      </li>
+                {/* アレルギー登録 */}
+                <Card variant="warm" className="p-4">
+                  <h3 className="font-bold text-brown-700 mb-3 flex items-center gap-2">
+                    <span>⚠️</span>
+                    アレルギー食材
+                  </h3>
+                  <p className="text-xs text-brown-400 mb-3">
+                    登録した食材はレシピから除外されます
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {ALLERGY_OPTIONS.map((allergy) => (
+                      <button
+                        key={allergy.id}
+                        onClick={() => toggleAllergy(allergy.id)}
+                        className={`px-3 py-2 rounded-full text-sm transition-all flex items-center gap-1 ${
+                          selectedAllergies.includes(allergy.id)
+                            ? 'bg-red-100 text-red-600 border-2 border-red-300 font-bold'
+                            : 'bg-white text-brown-500 border border-cream-200 hover:border-pink-200'
+                        }`}
+                      >
+                        <span>{allergy.emoji}</span>
+                        <span>{allergy.label}</span>
+                        {selectedAllergies.includes(allergy.id) && <span>✕</span>}
+                      </button>
                     ))}
-                  </ul>
-                </div>
+                  </div>
+                </Card>
 
-                {/* 作り方 */}
-                <div className="mb-4">
-                  <h4 className="font-bold text-brown-700 mb-2">👩‍🍳 作り方</h4>
-                  <ol className="space-y-2">
-                    {recipe.steps.map((step, idx) => (
-                      <li key={idx} className="text-brown-600 flex gap-3">
-                        <span className="flex-shrink-0 w-6 h-6 bg-pink-100 text-pink-600 rounded-full flex items-center justify-center text-sm font-bold">
-                          {idx + 1}
+                {/* 食材入力 */}
+                <Card variant="warm" className="p-4">
+                  <h3 className="font-bold text-brown-700 mb-3 flex items-center gap-2">
+                    <span>🥕</span>
+                    手持ちの食材
+                  </h3>
+                  <p className="text-xs text-brown-400 mb-3">
+                    入力した食材は必ずレシピに含まれます
+                  </p>
+
+                  {/* 入力フォーム */}
+                  <div className="flex gap-2 mb-3">
+                    <Input
+                      value={ingredientInput}
+                      onChange={(e) => setIngredientInput(e.target.value)}
+                      placeholder="食材を入力"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addIngredient(ingredientInput);
+                        }
+                      }}
+                      className="flex-1"
+                    />
+                    <Button
+                      onClick={() => addIngredient(ingredientInput)}
+                      variant="secondary"
+                      className="px-4"
+                    >
+                      追加
+                    </Button>
+                  </div>
+
+                  {/* 候補ボタン */}
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {INGREDIENT_SUGGESTIONS.filter(s => !ingredients.includes(s)).slice(0, 8).map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        onClick={() => addIngredient(suggestion)}
+                        className="px-3 py-1 text-sm bg-cream-100 text-brown-500 rounded-full hover:bg-pink-100 transition-colors"
+                      >
+                        + {suggestion}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* 選択した食材 */}
+                  {ingredients.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-3 border-t border-cream-200">
+                      {ingredients.map((ingredient) => (
+                        <span
+                          key={ingredient}
+                          className="px-3 py-1 bg-pink-100 text-pink-600 rounded-full text-sm flex items-center gap-1"
+                        >
+                          {ingredient}
+                          <button
+                            onClick={() => removeIngredient(ingredient)}
+                            className="hover:text-pink-800"
+                          >
+                            ✕
+                          </button>
                         </span>
-                        <span>{step}</span>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              </Card>
-            )}
+                      ))}
+                    </div>
+                  )}
+                </Card>
 
-            {/* 安全注意表示 */}
-            <div className="p-4 bg-cream-50 rounded-2xl border border-cream-200">
-              <p className="text-xs text-brown-400 text-center leading-relaxed">
-                ⚠️ このレシピは一般的な情報です。<br />
-                犬の健康状態やアレルギーについては獣医師にご相談ください。<br />
-                初めての食材は少量から試してください。
-              </p>
-            </div>
+                {/* 生成ボタン */}
+                <Button
+                  onClick={generateRecipes}
+                  loading={loading}
+                  disabled={ingredients.length === 0}
+                  className="w-full"
+                >
+                  🍳 AIで3つのレシピを生成
+                </Button>
+
+                {/* 安全注意表示 */}
+                <div className="p-4 bg-cream-50 rounded-2xl border border-cream-200">
+                  <p className="text-xs text-brown-400 text-center leading-relaxed">
+                    ⚠️ このレシピは一般的な情報です。<br />
+                    犬の健康状態やアレルギーについては獣医師にご相談ください。<br />
+                    初めての食材は少量から試してください。
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -545,9 +760,11 @@ export default function RecipePage() {
                     <span className="inline-block bg-mint-100 text-mint-600 px-2 py-1 rounded-full text-xs mr-2">
                       1食: 約{savedRecipe.portionSize}g
                     </span>
-                    <span className="inline-block bg-pink-100 text-pink-600 px-2 py-1 rounded-full text-xs">
-                      {savedRecipe.caloriesPerServing}kcal
-                    </span>
+                    {savedRecipe.caloriesPerServing && (
+                      <span className="inline-block bg-pink-100 text-pink-600 px-2 py-1 rounded-full text-xs">
+                        {savedRecipe.caloriesPerServing}kcal
+                      </span>
+                    )}
                   </div>
 
                   {/* 材料プレビュー */}

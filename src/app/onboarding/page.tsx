@@ -212,6 +212,27 @@ export default function OnboardingPage() {
                 </button>
               </div>
 
+              {/* 区切り線 */}
+              <div className="flex items-center gap-4 my-6">
+                <div className="flex-1 border-t border-cream-200"></div>
+                <span className="text-brown-300 text-xs">または</span>
+                <div className="flex-1 border-t border-cream-200"></div>
+              </div>
+
+              {/* スキップボタン */}
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="w-full py-4 text-center text-brown-500 hover:text-pink-500 transition-colors rounded-2xl border-2 border-dashed border-cream-200 hover:border-pink-200 hover:bg-pink-50"
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <span>⏭️</span>
+                  <span className="font-medium">保険の見直しをスキップする</span>
+                </span>
+                <span className="block text-xs text-brown-400 mt-1">
+                  すぐにダッシュボードへ移動します
+                </span>
+              </button>
+
               <button
                 onClick={() => setStep(1)}
                 className="w-full mt-6 text-sm text-brown-400 hover:text-pink-500 transition-colors"

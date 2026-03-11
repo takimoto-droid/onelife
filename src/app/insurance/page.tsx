@@ -5,6 +5,8 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { AFFILIATE_DISPLAY } from '@/lib/affiliate';
 
 interface InsuranceRecommendation {
   id: string;
@@ -136,6 +138,32 @@ export default function InsurancePage() {
             </div>
           </Card>
         )}
+
+        {/* 保険比較CTAカード */}
+        <Card className="mb-6 bg-gradient-to-br from-blue-50 to-primary-50 border-2 border-blue-200">
+          <div className="text-center py-2">
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-white rounded-full shadow-sm mb-3">
+              <span className="text-2xl">🔍</span>
+            </div>
+            <h3 className="font-bold text-primary-900 mb-2">
+              保険を比較してみませんか？
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {AFFILIATE_DISPLAY.insurance.description}
+            </p>
+            <Link href="/insurance-compare">
+              <Button className="w-full bg-gradient-to-r from-blue-500 to-blue-600">
+                <span className="flex items-center justify-center gap-2">
+                  <span>🛡️</span>
+                  保険見直し診断を受ける
+                </span>
+              </Button>
+            </Link>
+            <p className="text-xs text-gray-400 mt-2">
+              簡単な質問に答えるだけで最適な保険がわかります
+            </p>
+          </div>
+        </Card>
 
         {/* 重要な注意 */}
         <Card variant="warm" className="mb-6">

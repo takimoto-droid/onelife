@@ -9,9 +9,11 @@ import { isPremiumUser, premiumRequiredResponse } from '@/lib/subscription';
 // ================================================
 //
 // 【機能】
-// - 食材からレシピを生成
+// - 食材からレシピを3つ生成
+// - ユーザーが選択/入力した材料を必ず含む
 // - アレルギー食材を自動除外
 // - 体重に合わせた食事量を計算
+// - 詳細な手順と栄養情報を提供
 //
 // 【アクセス制限】
 // - プレミアムユーザーのみ利用可能
@@ -45,69 +47,174 @@ const ALLERGY_LABELS: Record<string, string> = {
   corn: 'とうもろこし',
 };
 
-// モックレシピデータ
-const MOCK_RECIPES = [
-  {
-    name: '鶏むね肉と野菜の栄養ごはん',
-    description: '高タンパク低脂肪の鶏むね肉をメインに、野菜たっぷりの健康レシピです。',
-    ingredients: ['鶏むね肉 100g', 'にんじん 30g', 'ブロッコリー 30g', '白米 50g', 'オリーブオイル 小さじ1'],
-    steps: [
-      '鶏むね肉を一口大に切り、茹でる',
-      'にんじんとブロッコリーを細かく刻み、柔らかくなるまで茹でる',
-      '白米を炊く',
-      'すべての材料を混ぜ合わせ、オリーブオイルを加える',
-      '人肌程度に冷ましてから与える',
-    ],
-    caloriesPerServing: 180,
-    excludedAllergens: [],
-    mainProtein: 'chicken',
-  },
-  {
-    name: '牛肉とかぼちゃのスタミナごはん',
-    description: '牛肉の旨味とかぼちゃの甘みが絶妙な、栄養バランスの良いレシピです。',
-    ingredients: ['牛赤身肉 80g', 'かぼちゃ 50g', 'キャベツ 30g', 'ごはん 40g', 'すりごま 少々'],
-    steps: [
-      '牛肉を細かく切り、フライパンで炒める',
-      'かぼちゃを一口大に切り、柔らかくなるまで茹でてつぶす',
-      'キャベツを細かく刻み、さっと茹でる',
-      'すべての材料とごはんを混ぜ合わせる',
-      'すりごまをトッピングして完成',
-    ],
-    caloriesPerServing: 200,
-    excludedAllergens: [],
-    mainProtein: 'beef',
-  },
-  {
-    name: '白身魚と豆腐のヘルシーごはん',
-    description: '消化に優しい白身魚と豆腐を使った、シニア犬にもおすすめのレシピです。',
-    ingredients: ['タラ（白身魚）80g', '豆腐 50g', '小松菜 30g', 'さつまいも 40g', '亜麻仁油 小さじ1/2'],
-    steps: [
-      'タラを茹でて、骨を取り除きながらほぐす',
-      '豆腐を水切りしてつぶす',
-      '小松菜を細かく刻み、茹でる',
-      'さつまいもを茹でてつぶす',
-      'すべてを混ぜ合わせ、亜麻仁油を加える',
-    ],
-    caloriesPerServing: 160,
-    excludedAllergens: ['chicken', 'beef'],
-    mainProtein: 'fish',
-  },
-  {
-    name: '豚肉と大根のさっぱりごはん',
-    description: '豚肉のビタミンB1と大根の消化酵素で、お腹に優しいレシピです。',
-    ingredients: ['豚もも肉 80g', '大根 50g', 'にんじん 30g', '白米 50g', 'パセリ 少々'],
-    steps: [
-      '豚肉を茹でて細かく切る',
-      '大根とにんじんをすりおろす',
-      '白米を炊く',
-      'すべての材料を混ぜ合わせる',
-      'パセリを細かく刻んでトッピング',
-    ],
-    caloriesPerServing: 190,
-    excludedAllergens: ['chicken', 'beef'],
-    mainProtein: 'pork',
-  },
+// 参考情報URL
+const REFERENCE_URLS = [
+  { name: 'ペトコト（手作りドッグフード）', url: 'https://petokoto.com/foods' },
+  { name: 'わんちゃんホンポ', url: 'https://wanchan.jp/' },
+  { name: 'いぬのきもち', url: 'https://dog.benesse.ne.jp/' },
 ];
+
+// モックレシピデータ（3パターン用意）
+const generateMockRecipes = (ingredients: string[], weightKg: number, allergyList: string[]) => {
+  const portionSize = calculatePortionSize(weightKg);
+  const dailyCalories = calculateDailyCalories(weightKg);
+  const caloriesPerMeal = Math.round(dailyCalories / 2);
+
+  // ユーザーの入力材料を含めた分量付き材料リスト
+  const userIngredientsList = ingredients.map(ing => {
+    // 肉類は80-100g、野菜は30-50g、炭水化物は40-60gを目安
+    if (ing.includes('肉') || ing.includes('ささみ') || ing.includes('魚')) {
+      return `${ing} ${Math.round(portionSize * 0.4)}g`;
+    } else if (ing.includes('米') || ing.includes('ごはん') || ing.includes('いも')) {
+      return `${ing} ${Math.round(portionSize * 0.25)}g`;
+    } else {
+      return `${ing} ${Math.round(portionSize * 0.15)}g`;
+    }
+  });
+
+  const recipes = [
+    {
+      id: 'recipe-1',
+      name: `${ingredients[0] || '野菜'}たっぷり栄養ごはん`,
+      description: `${ingredients.slice(0, 2).join('と')}を使った、消化に優しい栄養バランスレシピです。`,
+      ingredients: [
+        ...userIngredientsList,
+        'オリーブオイル 小さじ1/2',
+        '水 適量',
+      ],
+      steps: [
+        {
+          step: 1,
+          title: '材料の下準備',
+          description: `${ingredients.slice(0, 2).join('、')}を細かく刻みます。犬が食べやすいサイズ（5mm〜1cm角）にカットしてください。`,
+        },
+        {
+          step: 2,
+          title: '加熱調理',
+          description: '鍋に水を入れ、肉類から先に入れて中火で5分ほど煮ます。アクが出たら取り除きます。',
+        },
+        {
+          step: 3,
+          title: '野菜を追加',
+          description: '野菜類を加え、柔らかくなるまで10分ほど煮込みます。',
+        },
+        {
+          step: 4,
+          title: '仕上げ',
+          description: '火を止め、人肌程度に冷ましてからオリーブオイルを加えて混ぜます。',
+        },
+        {
+          step: 5,
+          title: '盛り付け',
+          description: `${portionSize}g程度を目安にお皿に盛り付けて完成です。`,
+        },
+      ],
+      nutrition: {
+        calories: caloriesPerMeal,
+        protein: '約18g',
+        fat: '約8g',
+        carbs: '約15g',
+        fiber: '約3g',
+      },
+      tips: '初めて与える場合は少量から始めてください。残りは冷蔵庫で2日、冷凍で2週間保存可能です。',
+      references: REFERENCE_URLS,
+    },
+    {
+      id: 'recipe-2',
+      name: `${ingredients[0] || '食材'}のやさしいスープごはん`,
+      description: `${ingredients.slice(0, 2).join('と')}をスープ仕立てにした、水分補給もできるレシピです。`,
+      ingredients: [
+        ...userIngredientsList,
+        'かつおだし（無塩）100ml',
+        '亜麻仁油 小さじ1/2',
+      ],
+      steps: [
+        {
+          step: 1,
+          title: '材料の下準備',
+          description: `${ingredients.slice(0, 2).join('、')}を一口大に切ります。野菜は薄くスライスすると火が通りやすくなります。`,
+        },
+        {
+          step: 2,
+          title: 'だしで煮る',
+          description: 'かつおだしを鍋に入れ、肉類を加えて中火で煮込みます。',
+        },
+        {
+          step: 3,
+          title: '野菜を追加',
+          description: '野菜を加えて弱火で15分ほど煮込みます。具材が柔らかくなればOKです。',
+        },
+        {
+          step: 4,
+          title: '冷ます',
+          description: '火を止めて人肌に冷まし、亜麻仁油を加えます。',
+        },
+        {
+          step: 5,
+          title: '盛り付け',
+          description: 'スープごと器に盛り付けて完成。水分補給にもなります。',
+        },
+      ],
+      nutrition: {
+        calories: Math.round(caloriesPerMeal * 0.9),
+        protein: '約16g',
+        fat: '約7g',
+        carbs: '約12g',
+        fiber: '約2g',
+      },
+      tips: 'スープ仕立てなので、夏場や水分をあまり取らない子におすすめです。',
+      references: REFERENCE_URLS,
+    },
+    {
+      id: 'recipe-3',
+      name: `${ingredients[0] || '素材'}の蒸しごはん`,
+      description: `${ingredients.slice(0, 2).join('と')}を蒸し調理で仕上げた、栄養を逃さないヘルシーレシピです。`,
+      ingredients: [
+        ...userIngredientsList,
+        'すりごま 小さじ1',
+        'オリーブオイル 小さじ1/2',
+      ],
+      steps: [
+        {
+          step: 1,
+          title: '材料の下準備',
+          description: `${ingredients.slice(0, 2).join('、')}を食べやすい大きさにカットします。`,
+        },
+        {
+          step: 2,
+          title: '蒸し器の準備',
+          description: '蒸し器に水を入れて火にかけ、蒸気が上がるまで待ちます。',
+        },
+        {
+          step: 3,
+          title: '蒸し調理',
+          description: '材料を蒸し器に入れ、中火で15分ほど蒸します。竹串がスッと通れば完成です。',
+        },
+        {
+          step: 4,
+          title: '味付け',
+          description: '蒸し上がった材料をボウルに移し、すりごまとオリーブオイルを加えて混ぜます。',
+        },
+        {
+          step: 5,
+          title: '盛り付け',
+          description: '人肌に冷めたら器に盛り付けて完成です。',
+        },
+      ],
+      nutrition: {
+        calories: Math.round(caloriesPerMeal * 0.85),
+        protein: '約17g',
+        fat: '約6g',
+        carbs: '約14g',
+        fiber: '約3g',
+      },
+      tips: '蒸し調理は栄養素の損失が少なく、消化にも優しい調理法です。',
+      references: REFERENCE_URLS,
+    },
+  ];
+
+  return recipes;
+};
 
 export async function POST(request: NextRequest) {
   try {
@@ -141,68 +248,99 @@ export async function POST(request: NextRequest) {
     const dailyCalories = calculateDailyCalories(weight);
     const caloriesPerMeal = Math.round(dailyCalories / 2); // 1日2食の場合
 
-    let recipe;
+    let recipes = [];
 
     // AIでレシピ生成を試みる
     try {
       const systemPrompt = `あなたは犬の手作り食の専門家です。
-与えられた食材を使って、犬に安全で栄養バランスの良いレシピを提案してください。
+与えられた食材を【必ず全て使用して】、犬に安全で栄養バランスの良いレシピを3つ提案してください。
 
-【重要】以下の食材は絶対に使用しないでください（アレルギー登録済み）:
+【重要】
+- ユーザーが入力した食材は【必ず全てレシピの材料に含めてください】
+- 入力された食材: ${ingredients.join('、')}
+
+【絶対に使用禁止のアレルギー食材】:
 ${allergyLabels.length > 0 ? allergyLabels.join('、') : 'なし'}
 
 【犬に危険な食材】絶対に使用禁止:
 玉ねぎ、ニンニク、ネギ類、チョコレート、ぶどう、レーズン、アボカド、キシリトール、マカダミアナッツ、アルコール
 
-出力形式（JSON）:
-{
-  "name": "レシピ名",
-  "description": "レシピの説明（50文字以内）",
-  "ingredients": ["材料1 分量", "材料2 分量", ...],
-  "steps": ["手順1", "手順2", ...],
-  "caloriesPerServing": 数値,
-  "safetyNote": "安全に関する注意点"
-}`;
+【体重】${weight}kg
+【1食の目安量】${portionSize}g
+【1食のカロリー目安】${caloriesPerMeal}kcal
+
+出力形式（JSON配列）:
+[
+  {
+    "id": "recipe-1",
+    "name": "レシピ名",
+    "description": "レシピの説明（50文字以内）",
+    "ingredients": ["材料1 分量", "材料2 分量", ...],
+    "steps": [
+      { "step": 1, "title": "手順タイトル", "description": "詳しい手順説明" },
+      { "step": 2, "title": "手順タイトル", "description": "詳しい手順説明" }
+    ],
+    "nutrition": {
+      "calories": 数値,
+      "protein": "約Xg",
+      "fat": "約Xg",
+      "carbs": "約Xg",
+      "fiber": "約Xg"
+    },
+    "tips": "調理のコツや保存方法",
+    "references": [
+      { "name": "参考サイト名", "url": "URL" }
+    ]
+  }
+]
+
+3つのレシピを提案してください。各レシピは調理法を変えてください（煮る、蒸す、炒めるなど）。`;
 
       const userPrompt = `食材: ${ingredients.join('、')}
 体重: ${weight}kg
 アレルギー: ${allergyLabels.length > 0 ? allergyLabels.join('、') : 'なし'}
 
-この食材を使って、犬用の手作りごはんレシピを1つ提案してください。`;
+上記の食材を【全て使用して】、犬用の手作りごはんレシピを3つ提案してください。
+各レシピには必ず入力された食材を含めてください。`;
 
       const response = await getAIResponse(systemPrompt, userPrompt);
 
       // JSONをパース
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      const jsonMatch = response.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        recipe = JSON.parse(jsonMatch[0]);
+        recipes = JSON.parse(jsonMatch[0]);
       }
-    } catch {
+    } catch (error) {
+      console.error('AI recipe generation failed:', error);
       // AIが使えない場合はモックを使用
     }
 
     // モックフォールバック
-    if (!recipe) {
-      // アレルギーに対応したレシピを選択
-      const availableRecipes = MOCK_RECIPES.filter(r => {
-        // アレルギー食材を含むレシピを除外
-        if (allergyList.includes(r.mainProtein)) return false;
-        return true;
-      });
-
-      recipe = availableRecipes.length > 0
-        ? availableRecipes[Math.floor(Math.random() * availableRecipes.length)]
-        : MOCK_RECIPES[2]; // 白身魚レシピをデフォルト
+    if (!recipes || recipes.length === 0) {
+      recipes = generateMockRecipes(ingredients, weight, allergyList);
     }
 
+    // 各レシピに共通情報を追加
+    const enrichedRecipes = recipes.map((recipe: Record<string, unknown>) => ({
+      ...recipe,
+      portionSize,
+      weightKg: weight,
+      dailyCalories,
+      caloriesPerMeal,
+      allergiesExcluded: allergyLabels,
+      userIngredients: ingredients, // ユーザーが入力した食材を明示
+    }));
+
     return NextResponse.json({
-      recipe: {
-        ...recipe,
+      recipes: enrichedRecipes,
+      meta: {
+        totalRecipes: enrichedRecipes.length,
         portionSize,
         weightKg: weight,
         dailyCalories,
         caloriesPerMeal,
         allergiesExcluded: allergyLabels,
+        userIngredients: ingredients,
       },
     });
   } catch (error) {

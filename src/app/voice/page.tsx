@@ -1,20 +1,40 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 
+interface EmotionScore {
+  emotion: string;
+  emoji: string;
+  percentage: number;
+}
+
+interface AudioFeatures {
+  pitch: string;
+  volume: string;
+  duration: string;
+  continuity: string;
+}
+
 interface TranslationResult {
   emotion: string;
+  emoji: string;
   meaning: string;
+  alternativeTranslations: string[];
   confidence: number;
   advice: string;
   barkType: string;
+  emotionScores: EmotionScore[];
+  audioFeatures: AudioFeatures;
   timestamp: string;
 }
+
+const HISTORY_STORAGE_KEY = 'wanlife_voice_history';
+const MAX_RECORDING_TIME = 10000; // 10秒
 
 export default function VoicePage() {
   const { data: session, status } = useSession();
@@ -25,12 +45,41 @@ export default function VoicePage() {
   const [error, setError] = useState('');
   const [history, setHistory] = useState<TranslationResult[]>([]);
   const [audioLevel, setAudioLevel] = useState(0);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [showHistory, setShowHistory] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationRef = useRef<number | null>(null);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoStopTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
   const isPremium = session?.user?.subscriptionStatus === 'active' || session?.user?.subscriptionStatus === 'trialing';
+
+  // 履歴をローカルストレージから読み込み
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(HISTORY_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setHistory(parsed.slice(0, 20)); // 最大20件
+      }
+    } catch (e) {
+      console.error('Failed to load history:', e);
+    }
+  }, []);
+
+  // 履歴をローカルストレージに保存
+  useEffect(() => {
+    if (history.length > 0) {
+      try {
+        localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history.slice(0, 20)));
+      } catch (e) {
+        console.error('Failed to save history:', e);
+      }
+    }
+  }, [history]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -46,12 +95,35 @@ export default function VoicePage() {
       if (audioContextRef.current) {
         audioContextRef.current.close();
       }
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+      if (autoStopTimerRef.current) {
+        clearTimeout(autoStopTimerRef.current);
+      }
     };
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      setRecordingTime(0);
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+      if (autoStopTimerRef.current) {
+        clearTimeout(autoStopTimerRef.current);
+      }
+    }
   }, []);
 
   const startRecording = async () => {
     try {
       setError('');
+      setResult(null);
+      chunksRef.current = [];
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
       // オーディオレベル監視のセットアップ
@@ -74,10 +146,9 @@ export default function VoicePage() {
       updateLevel();
 
       mediaRecorderRef.current = new MediaRecorder(stream);
-      const chunks: Blob[] = [];
 
       mediaRecorderRef.current.ondataavailable = (e) => {
-        chunks.push(e.data);
+        chunksRef.current.push(e.data);
       };
 
       mediaRecorderRef.current.onstop = async () => {
@@ -89,30 +160,44 @@ export default function VoicePage() {
         setAudioLevel(0);
 
         // 音声分析を実行
-        await analyzeAudio(chunks);
+        if (chunksRef.current.length > 0) {
+          await analyzeAudio(chunksRef.current);
+        }
       };
 
       mediaRecorderRef.current.start();
       setIsRecording(true);
+      setRecordingTime(0);
+
+      // 録音時間カウンター
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 100);
+      }, 100);
+
+      // 10秒で自動停止
+      autoStopTimerRef.current = setTimeout(() => {
+        stopRecording();
+      }, MAX_RECORDING_TIME);
+
     } catch (err) {
       console.error('Recording error:', err);
-      setError('マイクへのアクセスが許可されていません');
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
+      setError('マイクへのアクセスが許可されていません。ブラウザの設定を確認してください。');
     }
   };
 
   const analyzeAudio = async (chunks: Blob[]) => {
     setIsAnalyzing(true);
-    setResult(null);
 
     try {
       const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+
+      // 最小サイズチェック（録音が短すぎる場合）
+      if (audioBlob.size < 1000) {
+        setError('録音が短すぎます。もう少し長く録音してください。');
+        setIsAnalyzing(false);
+        return;
+      }
+
       const formData = new FormData();
       formData.append('audio', audioBlob);
 
@@ -127,19 +212,24 @@ export default function VoicePage() {
         if (data.requiresPremium) {
           setError('この機能はPremiumメンバー限定です');
         } else {
-          setError(data.error || '分析に失敗しました');
+          setError(data.error || '分析に失敗しました。もう一度お試しください。');
         }
         return;
       }
 
       setResult(data.result);
-      setHistory(prev => [data.result, ...prev.slice(0, 4)]);
+      setHistory(prev => [data.result, ...prev.slice(0, 19)]);
     } catch (err) {
       console.error('Analysis error:', err);
-      setError('分析中にエラーが発生しました');
+      setError('通信エラーが発生しました。ネットワーク接続を確認してください。');
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const clearHistory = () => {
+    setHistory([]);
+    localStorage.removeItem(HISTORY_STORAGE_KEY);
   };
 
   if (status === 'loading') {
@@ -150,18 +240,21 @@ export default function VoicePage() {
     );
   }
 
-  const getEmotionEmoji = (emotion: string) => {
-    const emojiMap: Record<string, string> = {
-      '興奮・喜び': '😊',
-      '注意喚起': '👀',
-      '寂しさ・甘え': '🥺',
-      '警戒・不安': '😨',
-      '痛み・恐怖': '😢',
-      '暑さ・疲労': '😮‍💨',
-      '孤独・呼びかけ': '🐕',
-      '満足・リラックス': '😌',
-    };
-    return emojiMap[emotion] || '🐕';
+  const formatTime = (ms: number) => {
+    const seconds = Math.floor(ms / 1000);
+    const tenths = Math.floor((ms % 1000) / 100);
+    return `${seconds}.${tenths}`;
+  };
+
+  const formatDate = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+
+    if (isToday) {
+      return date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+    }
+    return date.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
   return (
@@ -180,7 +273,12 @@ export default function VoicePage() {
 
       <main className="max-w-2xl mx-auto p-4 py-6">
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-dark-50 mb-2">鳴き声翻訳</h2>
+          <h2 className="text-2xl font-bold text-dark-50 mb-2 flex items-center justify-center gap-2">
+            鳴き声翻訳
+            <span className="inline-flex items-center gap-1 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-xs px-2 py-1 rounded-full font-bold">
+              👑 Premium
+            </span>
+          </h2>
           <p className="text-dark-400">
             ワンちゃんの鳴き声をAIが翻訳します
           </p>
@@ -206,7 +304,8 @@ export default function VoicePage() {
         {/* 録音UI */}
         {isPremium && (
           <>
-            <Card className="mb-8">
+            {/* 録音セクション */}
+            <Card className="mb-6">
               <div className="text-center py-8">
                 {/* 録音ボタン */}
                 <div className="relative inline-block mb-6">
@@ -215,7 +314,7 @@ export default function VoicePage() {
                     disabled={isAnalyzing}
                     className={`w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300 ${
                       isRecording
-                        ? 'bg-red-500 animate-pulse'
+                        ? 'bg-red-500'
                         : 'bg-gradient-to-br from-feature-voice to-feature-voice/70'
                     } ${isAnalyzing ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
                     style={{
@@ -225,7 +324,15 @@ export default function VoicePage() {
                     }}
                   >
                     {isAnalyzing ? (
-                      <div className="spinner" />
+                      <div className="flex flex-col items-center">
+                        <div className="spinner mb-1" />
+                        <span className="text-xs text-white">分析中</span>
+                      </div>
+                    ) : isRecording ? (
+                      <div className="flex flex-col items-center">
+                        <div className="w-8 h-8 bg-white rounded-sm mb-1" />
+                        <span className="text-xs text-white">停止</span>
+                      </div>
                     ) : (
                       <svg
                         className="w-12 h-12 text-white"
@@ -240,115 +347,262 @@ export default function VoicePage() {
 
                   {/* オーディオレベルインジケーター */}
                   {isRecording && (
-                    <div className="absolute -inset-4 rounded-full border-4 border-red-400 opacity-50 animate-ping" />
+                    <>
+                      <div
+                        className="absolute -inset-4 rounded-full border-4 border-red-400 pointer-events-none"
+                        style={{
+                          transform: `scale(${1 + audioLevel * 0.3})`,
+                          opacity: 0.3 + audioLevel * 0.4,
+                        }}
+                      />
+                      <div className="absolute -inset-8 rounded-full border-2 border-red-400/30 animate-ping pointer-events-none" />
+                    </>
                   )}
                 </div>
 
-                <p className={`font-medium ${isRecording ? 'text-red-400' : 'text-dark-300'}`}>
-                  {isAnalyzing
-                    ? '🔍 AIが分析中...'
-                    : isRecording
-                    ? '🔴 録音中... もう1回タップで停止'
-                    : '🎤 タップして録音開始'}
-                </p>
+                {/* 録音タイマー */}
                 {isRecording && (
-                  <p className="text-xs text-dark-500 mt-1">
-                    鳴き声が聞こえる間、録音を続けてください
-                  </p>
+                  <div className="mb-4">
+                    <div className="text-3xl font-mono text-red-400 mb-2">
+                      {formatTime(recordingTime)}s
+                    </div>
+                    <div className="w-48 mx-auto h-2 bg-dark-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-red-500 to-red-400 transition-all duration-100"
+                        style={{ width: `${(recordingTime / MAX_RECORDING_TIME) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-dark-500 mt-1">
+                      {formatTime(MAX_RECORDING_TIME - recordingTime)}秒で自動停止
+                    </p>
+                  </div>
                 )}
 
+                <p className={`font-medium ${isRecording ? 'text-red-400' : isAnalyzing ? 'text-accent' : 'text-dark-300'}`}>
+                  {isAnalyzing
+                    ? '🔍 AIが鳴き声を分析しています...'
+                    : isRecording
+                    ? '🔴 録音中... タップで停止'
+                    : '🎤 タップして録音開始'}
+                </p>
+
                 {error && (
-                  <p className="mt-4 text-red-400 text-sm">{error}</p>
+                  <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                    <p className="text-red-400 text-sm">{error}</p>
+                  </div>
                 )}
               </div>
             </Card>
 
             {/* 分析結果 */}
             {result && (
-              <Card className="mb-8 slide-up">
-                <div className="text-center mb-6">
-                  <div className="text-6xl mb-4">{getEmotionEmoji(result.emotion)}</div>
-                  <h3 className="text-xl font-bold text-dark-100 mb-1">
-                    {result.emotion}
-                  </h3>
-                  <p className="text-dark-400 text-sm">
-                    信頼度: {result.confidence}%
-                  </p>
-                </div>
+              <div className="space-y-4 mb-8 slide-up">
+                {/* メイン結果カード */}
+                <Card>
+                  <div className="text-center mb-6">
+                    <div className="text-6xl mb-4">{result.emoji}</div>
+                    <h3 className="text-xl font-bold text-dark-100 mb-1">
+                      {result.emotion}
+                    </h3>
+                    <div className="flex items-center justify-center gap-2 text-dark-400 text-sm">
+                      <span>信頼度: {result.confidence}%</span>
+                      <span className="text-dark-600">|</span>
+                      <span>パターン: {result.barkType}</span>
+                    </div>
+                  </div>
 
-                <div className="bg-dark-700/50 rounded-xl p-4 mb-4">
-                  <p className="text-sm text-dark-400 mb-1">鳴き声パターン</p>
-                  <p className="text-lg font-bold text-accent">{result.barkType}</p>
-                </div>
+                  {/* メイン翻訳 */}
+                  <div className="bg-feature-voice/10 border border-feature-voice/30 rounded-xl p-4 mb-4">
+                    <p className="text-sm text-feature-voice mb-1">翻訳結果</p>
+                    <p className="text-xl font-bold text-dark-100">
+                      「{result.meaning}」
+                    </p>
+                  </div>
 
-                <div className="bg-feature-voice/10 border border-feature-voice/30 rounded-xl p-4 mb-4">
-                  <p className="text-sm text-feature-voice mb-1">翻訳結果</p>
-                  <p className="text-xl font-bold text-dark-100">
-                    「{result.meaning}」
-                  </p>
-                </div>
+                  {/* 別の翻訳パターン */}
+                  {result.alternativeTranslations && result.alternativeTranslations.length > 0 && (
+                    <div className="bg-dark-700/50 rounded-xl p-4 mb-4">
+                      <p className="text-sm text-dark-400 mb-2">他の可能性</p>
+                      <div className="space-y-2">
+                        {result.alternativeTranslations.map((alt, i) => (
+                          <p key={i} className="text-dark-300 text-sm">
+                            「{alt}」
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </Card>
 
-                <div className="bg-dark-700/50 rounded-xl p-4">
-                  <p className="text-sm text-dark-400 mb-1">アドバイス</p>
-                  <p className="text-dark-200">{result.advice}</p>
-                </div>
-              </Card>
-            )}
-
-            {/* 履歴 */}
-            {history.length > 0 && (
-              <div className="mb-8">
-                <h3 className="text-lg font-bold text-dark-100 mb-4">最近の翻訳</h3>
-                <div className="space-y-3">
-                  {history.map((item, index) => (
-                    <Card key={index} variant="feature" className="p-4">
-                      <div className="flex items-center gap-4">
-                        <div className="text-3xl">{getEmotionEmoji(item.emotion)}</div>
-                        <div className="flex-1">
-                          <p className="font-bold text-dark-100">{item.emotion}</p>
-                          <p className="text-sm text-dark-400">「{item.meaning}」</p>
+                {/* 感情メーター */}
+                <Card>
+                  <h4 className="font-bold text-dark-100 mb-4 flex items-center gap-2">
+                    <span>📊</span>
+                    感情メーター
+                  </h4>
+                  <div className="space-y-3">
+                    {result.emotionScores.map((score, index) => (
+                      <div key={index}>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{score.emoji}</span>
+                            <span className="text-dark-200 text-sm">{score.emotion}</span>
+                          </div>
+                          <span className="text-dark-400 text-sm font-mono">{score.percentage}%</span>
                         </div>
-                        <div className="text-xs text-dark-500">
-                          {new Date(item.timestamp).toLocaleTimeString('ja-JP', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                        <div className="h-3 bg-dark-700 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              index === 0
+                                ? 'bg-gradient-to-r from-feature-voice to-accent'
+                                : index === 1
+                                ? 'bg-gradient-to-r from-blue-500 to-blue-400'
+                                : 'bg-gradient-to-r from-gray-500 to-gray-400'
+                            }`}
+                            style={{ width: `${score.percentage}%` }}
+                          />
                         </div>
                       </div>
-                    </Card>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                </Card>
+
+                {/* 音声特徴 */}
+                <Card>
+                  <h4 className="font-bold text-dark-100 mb-4 flex items-center gap-2">
+                    <span>🎵</span>
+                    音声特徴
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-dark-700/50 rounded-lg p-3">
+                      <p className="text-xs text-dark-500 mb-1">音の高さ</p>
+                      <p className="text-dark-200 font-medium">{result.audioFeatures.pitch}</p>
+                    </div>
+                    <div className="bg-dark-700/50 rounded-lg p-3">
+                      <p className="text-xs text-dark-500 mb-1">音量</p>
+                      <p className="text-dark-200 font-medium">{result.audioFeatures.volume}</p>
+                    </div>
+                    <div className="bg-dark-700/50 rounded-lg p-3">
+                      <p className="text-xs text-dark-500 mb-1">長さ</p>
+                      <p className="text-dark-200 font-medium">{result.audioFeatures.duration}</p>
+                    </div>
+                    <div className="bg-dark-700/50 rounded-lg p-3">
+                      <p className="text-xs text-dark-500 mb-1">連続性</p>
+                      <p className="text-dark-200 font-medium">{result.audioFeatures.continuity}</p>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* アドバイス */}
+                <Card variant="feature">
+                  <h4 className="font-bold text-dark-100 mb-2 flex items-center gap-2">
+                    <span>💡</span>
+                    アドバイス
+                  </h4>
+                  <p className="text-dark-300">{result.advice}</p>
+                </Card>
               </div>
             )}
+
+            {/* 履歴セクション */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <button
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="flex items-center gap-2 text-lg font-bold text-dark-100"
+                >
+                  <span>📋</span>
+                  翻訳履歴
+                  <span className="text-sm text-dark-500">({history.length}件)</span>
+                  <svg
+                    className={`w-4 h-4 text-dark-400 transition-transform ${showHistory ? 'rotate-180' : ''}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {history.length > 0 && showHistory && (
+                  <button
+                    onClick={clearHistory}
+                    className="text-sm text-dark-500 hover:text-red-400 transition-colors"
+                  >
+                    履歴を削除
+                  </button>
+                )}
+              </div>
+
+              {showHistory && (
+                <div className="space-y-3">
+                  {history.length === 0 ? (
+                    <Card variant="feature" className="text-center py-8">
+                      <p className="text-dark-500">まだ履歴がありません</p>
+                      <p className="text-dark-600 text-sm mt-1">鳴き声を録音すると履歴が保存されます</p>
+                    </Card>
+                  ) : (
+                    history.map((item, index) => (
+                      <Card key={index} variant="feature" className="p-4">
+                        <div className="flex items-start gap-4">
+                          <div className="text-3xl">{item.emoji}</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="font-bold text-dark-100">{item.emotion}</p>
+                              <span className="text-xs text-dark-500 bg-dark-700 px-2 py-0.5 rounded">
+                                {item.confidence}%
+                              </span>
+                            </div>
+                            <p className="text-sm text-dark-300 mb-2">「{item.meaning}」</p>
+                            {item.emotionScores && (
+                              <div className="flex flex-wrap gap-2">
+                                {item.emotionScores.slice(0, 3).map((score, i) => (
+                                  <span key={i} className="text-xs text-dark-500">
+                                    {score.emoji} {score.percentage}%
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-xs text-dark-600 whitespace-nowrap">
+                            {formatDate(item.timestamp)}
+                          </div>
+                        </div>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           </>
         )}
 
-        {/* 説明 */}
+        {/* 使い方説明 */}
         <Card variant="feature" className="mb-8">
-          <h3 className="font-bold text-dark-100 mb-3">使い方（タップ操作）</h3>
+          <h3 className="font-bold text-dark-100 mb-3">使い方</h3>
           <ol className="space-y-3 text-sm text-dark-300">
             <li className="flex gap-3">
               <span className="flex-shrink-0 w-6 h-6 rounded-full bg-feature-voice/20 text-feature-voice flex items-center justify-center text-xs font-bold">1</span>
-              <div>
-                <span className="font-medium text-dark-100">1回タップ</span>
-                <span className="text-dark-400"> → 録音開始（ボタンが赤く点滅）</span>
-              </div>
+              <span>マイクボタンをタップして録音開始</span>
             </li>
             <li className="flex gap-3">
               <span className="flex-shrink-0 w-6 h-6 rounded-full bg-feature-voice/20 text-feature-voice flex items-center justify-center text-xs font-bold">2</span>
-              <div>
-                <span className="font-medium text-dark-100">もう1回タップ</span>
-                <span className="text-dark-400"> → 録音停止 & 即座に翻訳開始</span>
-              </div>
+              <span>ワンちゃんの鳴き声を録音（最大10秒）</span>
             </li>
             <li className="flex gap-3">
               <span className="flex-shrink-0 w-6 h-6 rounded-full bg-feature-voice/20 text-feature-voice flex items-center justify-center text-xs font-bold">3</span>
-              <span>AIが分析完了 → 翻訳結果が下に表示されます</span>
+              <span>もう一度タップで停止、または10秒で自動停止</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-feature-voice/20 text-feature-voice flex items-center justify-center text-xs font-bold">4</span>
+              <span>AIが分析して翻訳結果を表示</span>
             </li>
           </ol>
-          <p className="text-xs text-dark-500 mt-3 bg-dark-700/50 rounded-lg p-2">
-            <span className="text-feature-voice">💡</span> 3〜10秒程度の録音がベストです
-          </p>
+          <div className="mt-4 p-3 bg-dark-700/50 rounded-lg">
+            <p className="text-xs text-dark-400">
+              <span className="text-feature-voice">💡 ヒント：</span>
+              3〜10秒程度の録音がベストです。静かな環境で録音するとより正確な結果が得られます。
+            </p>
+          </div>
         </Card>
 
         {/* 注意書き */}

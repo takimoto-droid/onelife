@@ -87,6 +87,9 @@ export default function CommunityPage() {
   const [reportDetail, setReportDetail] = useState('');
   const [reporting, setReporting] = useState(false);
 
+  // プレミアム状態チェック
+  const isPremium = session?.user?.subscriptionStatus === 'active' || session?.user?.subscriptionStatus === 'trialing';
+
   useEffect(() => {
     if (geoLocation) {
       const info = getCityFromCoords(geoLocation.latitude, geoLocation.longitude);
@@ -244,6 +247,44 @@ export default function CommunityPage() {
     );
   }
 
+  // プレミアム機能ゲート
+  if (!isPremium) {
+    return (
+      <div className="min-h-screen pb-24">
+        <header className="header p-4 sticky top-0 z-40">
+          <div className="max-w-2xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🐾</span>
+              <Link href="/dashboard">
+                <h1 className="text-xl font-bold gradient-text">わんライフ</h1>
+              </Link>
+            </div>
+            <Link href="/dashboard" className="text-accent font-medium text-sm">
+              戻る
+            </Link>
+          </div>
+        </header>
+        <main className="max-w-2xl mx-auto p-4 py-6 flex items-center justify-center min-h-[70vh]">
+          <Card className="text-center max-w-md">
+            <div className="py-8">
+              <span className="text-5xl mb-6 block">👑</span>
+              <h2 className="text-xl font-bold text-brown-700 mb-4">
+                プレミアム機能です
+              </h2>
+              <p className="text-brown-500 mb-6">
+                ご近所コミュニティはプレミアム会員限定の機能です。
+                アップグレードすると、周辺の飼い主さんと交流できます。
+              </p>
+              <Button onClick={() => router.push('/premium')}>
+                プレミアムにアップグレード
+              </Button>
+            </div>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen pb-24">
       {/* ヘッダー */}
@@ -273,7 +314,12 @@ export default function CommunityPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-pink-100 rounded-full mb-3">
             <span className="text-3xl">🐕</span>
           </div>
-          <h2 className="text-2xl font-bold text-brown-700 mb-2">ご近所コミュニティ</h2>
+          <h2 className="text-2xl font-bold text-brown-700 mb-2 flex items-center justify-center gap-2">
+            ご近所コミュニティ
+            <span className="inline-flex items-center gap-1 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-xs px-2 py-1 rounded-full font-bold">
+              👑 Premium
+            </span>
+          </h2>
           <p className="text-brown-400">
             {cityInfo?.city ? `${cityInfo.city}周辺の飼い主さんとつながろう` : '近所の飼い主さんとつながろう'}
           </p>

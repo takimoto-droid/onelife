@@ -247,14 +247,19 @@ export default function FoodPage() {
             <button onClick={() => router.back()} className="text-dark-400 hover:text-dark-200">
               &lt; 戻る
             </button>
-            <h1 className="text-lg font-bold text-dark-100">ドッグフード見直しAI</h1>
+            <h1 className="text-lg font-bold text-dark-100 flex items-center gap-2">
+              ドッグフード見直しAI
+              <span className="inline-flex items-center gap-1 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                👑 Premium
+              </span>
+            </h1>
             <div className="w-12" />
           </div>
         </header>
         <main className="p-4 flex items-center justify-center min-h-[80vh]">
           <Card className="max-w-md text-center">
             <div className="py-8">
-              <span className="text-5xl mb-6 block">premium</span>
+              <span className="text-5xl mb-6 block">👑</span>
               <h2 className="text-xl font-bold text-dark-100 mb-4">
                 プレミアム機能です
               </h2>
@@ -262,8 +267,8 @@ export default function FoodPage() {
                 ドッグフード見直しAIは有料会員限定の機能です。
                 アップグレードすると、AIによるフード提案を受けられます。
               </p>
-              <Button onClick={() => router.push('/settings')}>
-                プランを確認する
+              <Button onClick={() => router.push('/premium')}>
+                プレミアムにアップグレード
               </Button>
             </div>
           </Card>
@@ -283,7 +288,12 @@ export default function FoodPage() {
           >
             {result ? 'やり直す' : '< 戻る'}
           </button>
-          <h1 className="text-lg font-bold text-dark-100">ドッグフード見直しAI</h1>
+          <h1 className="text-lg font-bold text-dark-100 flex items-center gap-2">
+            ドッグフード見直しAI
+            <span className="inline-flex items-center gap-1 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+              👑 Premium
+            </span>
+          </h1>
           <div className="w-12" />
         </div>
       </header>
