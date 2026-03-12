@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
-import { cancelSubscription, getSubscription } from '@/lib/stripe';
+import { cancelSubscriptionImmediately } from '@/lib/stripe';
 
 export async function POST() {
   try {
@@ -34,50 +34,39 @@ export async function POST() {
       );
     }
 
-    if (!user.subscriptionId) {
+    // 既に解約済みの場合
+    if (user.subscriptionStatus === 'canceled' || !user.isPremium) {
       return NextResponse.json(
-        { error: 'サブスクリプションが見つかりません' },
-        { status: 404 }
-      );
-    }
-
-    // 既に解約予約中の場合
-    if (user.subscriptionStatus === 'canceling') {
-      return NextResponse.json(
-        { error: '既に解約予約されています' },
+        { error: '既に解約済みです' },
         { status: 400 }
       );
     }
 
-    // Stripeで解約予約（期間終了時にキャンセル）
-    const success = await cancelSubscription(user.subscriptionId);
+    // Stripeで即時解約（サブスクリプションIDがある場合）
+    if (user.subscriptionId) {
+      const success = await cancelSubscriptionImmediately(user.subscriptionId);
 
-    if (!success) {
-      return NextResponse.json(
-        { error: '解約処理に失敗しました' },
-        { status: 500 }
-      );
+      if (!success) {
+        return NextResponse.json(
+          { error: '解約処理に失敗しました' },
+          { status: 500 }
+        );
+      }
     }
 
-    // サブスクリプション情報を取得して終了日を確認
-    const subscriptionInfo = await getSubscription(user.subscriptionId);
-    const endDate = subscriptionInfo?.currentPeriodEnd || null;
-
-    // ステータスを「解約予約中」に更新
-    // （実際の解約はWebhookで処理される）
+    // 即座にプレミアムステータスを無効化
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        subscriptionStatus: 'canceling',
+        subscriptionStatus: 'canceled',
+        isPremium: false,
         canceledAt: new Date(),
-        // プレミアムは期間終了まで維持
-        // isPremium: true のまま
       },
     });
 
     return NextResponse.json({
-      message: '解約予約が完了しました',
-      endDate: endDate?.toISOString(),
+      message: '解約が完了しました。プレミアム機能はご利用いただけなくなりました。',
+      success: true,
     });
   } catch (error) {
     console.error('Cancel subscription error:', error);

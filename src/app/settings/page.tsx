@@ -62,8 +62,8 @@ export default function SettingsPage() {
 
       const data = await res.json();
 
-      if (res.ok) {
-        setMessage('解約予約が完了しました。現在の課金期間終了まではご利用いただけます。');
+      if (res.ok && data.success) {
+        setMessage('解約が完了しました。プレミアム機能はご利用いただけなくなりました。');
         setShowCancelConfirm(false);
         // ステータスを再取得
         await fetchSubscriptionStatus();
@@ -297,14 +297,14 @@ export default function SettingsPage() {
         </Card>
 
         {/* 解約セクション */}
-        {isPremium && !isCanceling && subscriptionInfo?.subscriptionStatus !== 'canceled' && (
+        {isPremium && subscriptionInfo?.subscriptionStatus !== 'canceled' && (
           <Card className="mb-6 border-dark-600">
-            <h3 className="font-bold text-dark-100 mb-4">サブスクリプションの解約</h3>
+            <h3 className="font-bold text-dark-100 mb-4">プレミアムプランを解約する</h3>
 
             {!showCancelConfirm ? (
               <>
                 <p className="text-sm text-dark-400 mb-4">
-                  解約しても、現在の課金期間終了まではプレミアム機能をご利用いただけます。
+                  解約すると、すぐにプレミアム機能が利用できなくなります。
                 </p>
                 <Button
                   variant="ghost"
@@ -318,11 +318,17 @@ export default function SettingsPage() {
               <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
                 <p className="text-sm text-red-400 mb-4">
                   本当に解約しますか？
-                  <br />
-                  <span className="text-dark-400">
-                    現在の課金期間終了まではご利用いただけます。
-                  </span>
                 </p>
+                <p className="text-sm text-dark-400 mb-4">
+                  解約すると以下の機能が利用できなくなります：
+                </p>
+                <ul className="text-xs text-dark-500 mb-4 space-y-1">
+                  <li>・フード見直し</li>
+                  <li>・AIレシピ</li>
+                  <li>・SNS投稿文作成</li>
+                  <li>・鳴き声翻訳</li>
+                  <li>・ご近所コミュニティ</li>
+                </ul>
                 <div className="flex gap-3">
                   <Button
                     variant="secondary"
@@ -340,24 +346,6 @@ export default function SettingsPage() {
                 </div>
               </div>
             )}
-          </Card>
-        )}
-
-        {/* 解約予約中の表示 */}
-        {isCanceling && (
-          <Card className="mb-6 border-yellow-500/30">
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-xl">⚠️</span>
-              <h3 className="font-bold text-yellow-400">解約予約中</h3>
-            </div>
-            <p className="text-sm text-dark-400">
-              {subscriptionInfo?.nextBillingDate && (
-                <>
-                  {formatDate(subscriptionInfo.nextBillingDate)}までプレミアム機能をご利用いただけます。
-                  それ以降は無料プランに移行します。
-                </>
-              )}
-            </p>
           </Card>
         )}
 
