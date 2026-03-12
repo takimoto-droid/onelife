@@ -3,9 +3,20 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// OpenAIクライアントを遅延初期化
+let openai: OpenAI | null = null;
+
+function getOpenAIClient(): OpenAI | null {
+  if (!process.env.OPENAI_API_KEY) {
+    return null;
+  }
+  if (!openai) {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
+  return openai;
+}
 
 // 犬種マスターデータ（AIの選択肢として使用）
 const BREED_MASTER = {
@@ -99,7 +110,8 @@ export async function POST(request: NextRequest) {
     const conditionText = buildConditionText(input);
     const candidateBreeds = getCandidateBreeds(input);
 
-    if (!process.env.OPENAI_API_KEY) {
+    const client = getOpenAIClient();
+    if (!client) {
       // モックモード：フォールバック
       return NextResponse.json({
         recommendations: getMockRecommendations(input),
@@ -145,7 +157,7 @@ ${candidateBreeds.map(b => b.name).join('、')}
 - reasonForYouはユーザーの具体的な条件（住環境、散歩時間など）に触れて書いてください
 `;
 
-    const response = await openai.chat.completions.create({
+    const response = await client.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
