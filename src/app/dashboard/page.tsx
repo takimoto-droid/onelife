@@ -28,10 +28,24 @@ interface VaccineScheduleData {
   completed: boolean;
 }
 
+// 選択中の犬IDをlocalStorageから取得
+const getSelectedDogId = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('selectedDogId');
+};
+
+// 選択中の犬IDをlocalStorageに保存
+const setSelectedDogId = (id: string): void => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('selectedDogId', id);
+};
+
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [dogs, setDogs] = useState<Dog[]>([]);
+  const [selectedDogIndex, setSelectedDogIndex] = useState(0);
+  const [showDogSelector, setShowDogSelector] = useState(false);
   const [loading, setLoading] = useState(true);
   const hasFetched = useRef(false);
 
@@ -54,6 +68,14 @@ export default function DashboardPage() {
               router.push('/onboarding');
               return;
             }
+            // localStorageから選択中の犬を復元
+            const savedDogId = getSelectedDogId();
+            if (savedDogId) {
+              const index = data.dogs.findIndex((d: Dog) => d.id === savedDogId);
+              if (index >= 0) {
+                setSelectedDogIndex(index);
+              }
+            }
           }
         } catch (error) {
           console.error('Failed to fetch dogs:', error);
@@ -64,6 +86,13 @@ export default function DashboardPage() {
       fetchData();
     }
   }, [status, router]);
+
+  // 犬を切り替え
+  const handleSelectDog = (index: number) => {
+    setSelectedDogIndex(index);
+    setSelectedDogId(dogs[index].id);
+    setShowDogSelector(false);
+  };
 
   if (status === 'loading' || loading) {
     return (
@@ -81,9 +110,10 @@ export default function DashboardPage() {
     return null;
   }
 
-  const dog = dogs[0];
+  const dog = dogs[selectedDogIndex];
   const upcomingVaccines = dog?.vaccineSchedules?.filter((v) => !v.completed) || [];
   const isPremium = session.user.subscriptionStatus === 'active' || session.user.subscriptionStatus === 'trialing';
+  const hasMultipleDogs = dogs.length > 1;
 
   // プレミアム機能のクリックハンドラー
   const handlePremiumFeatureClick = (e: React.MouseEvent, href: string, isPremiumFeature: boolean) => {
@@ -262,27 +292,77 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-4xl mx-auto p-4 py-6">
-        {/* ウェルカムメッセージ */}
+        {/* ウェルカムメッセージ - 犬カード */}
         {dog && (
-          <div className="mb-6 bg-gradient-to-r from-pink-100 via-cream-100 to-peach-100 rounded-3xl p-5 shadow-card border border-cream-200">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-4xl shadow-sm border-2 border-cream-200">
-                🐕
+          <div className="mb-6 relative">
+            <button
+              onClick={() => setShowDogSelector(!showDogSelector)}
+              className="w-full bg-gradient-to-r from-pink-100 via-cream-100 to-peach-100 rounded-3xl p-5 shadow-card border border-cream-200 text-left hover:shadow-card-hover transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-4xl shadow-sm border-2 border-cream-200">
+                  🐕
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-brown-800">
+                      {dog.name}ちゃん
+                    </h2>
+                    {hasMultipleDogs && (
+                      <span className="text-brown-400 text-sm">
+                        ▼ 切り替え
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-brown-500">
+                    {dog.breed || '犬種未設定'}
+                    {dog.dogSize && ` ・ ${getSizeLabel(dog.dogSize)}`}
+                    {dog.birthDate && ` ・ ${calculateAge(new Date(dog.birthDate))}`}
+                  </p>
+                </div>
+                {isPremium && (
+                  <span className="premium-badge">Premium</span>
+                )}
               </div>
-              <div className="flex-1">
-                <h2 className="text-xl font-bold text-brown-800">
-                  {dog.name}ちゃん
-                </h2>
-                <p className="text-sm text-brown-500">
-                  {dog.breed || '犬種未設定'}
-                  {dog.dogSize && ` ・ ${getSizeLabel(dog.dogSize)}`}
-                  {dog.birthDate && ` ・ ${calculateAge(new Date(dog.birthDate))}`}
-                </p>
+            </button>
+
+            {/* 犬セレクター（ドロップダウン） */}
+            {showDogSelector && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-lg border border-cream-200 z-50 overflow-hidden">
+                {dogs.map((d, index) => (
+                  <button
+                    key={d.id}
+                    onClick={() => handleSelectDog(index)}
+                    className={`w-full p-4 flex items-center gap-3 hover:bg-cream-50 transition-colors text-left ${
+                      index === selectedDogIndex ? 'bg-accent/10' : ''
+                    }`}
+                  >
+                    <div className="w-10 h-10 bg-cream-100 rounded-full flex items-center justify-center text-xl">
+                      🐕
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-bold text-brown-700">{d.name}ちゃん</p>
+                      <p className="text-xs text-brown-400">
+                        {d.breed || '犬種未設定'}
+                      </p>
+                    </div>
+                    {index === selectedDogIndex && (
+                      <span className="text-accent">✓</span>
+                    )}
+                  </button>
+                ))}
+                {/* 犬を追加ボタン */}
+                <Link
+                  href="/dogs/add"
+                  className="w-full p-4 flex items-center gap-3 hover:bg-mint-50 transition-colors border-t border-cream-200"
+                >
+                  <div className="w-10 h-10 bg-mint-100 rounded-full flex items-center justify-center text-xl">
+                    ➕
+                  </div>
+                  <p className="font-bold text-mint-600">新しい犬を追加</p>
+                </Link>
               </div>
-              {isPremium && (
-                <span className="premium-badge">Premium</span>
-              )}
-            </div>
+            )}
           </div>
         )}
 

@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
-    const { name, breed, birthDate, adoptedAt } = await request.json();
+    const { name, breed, birthDate, adoptedAt, dogSize } = await request.json();
 
     if (!name) {
       return NextResponse.json(
@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
         breed: breed || null,
         birthDate: birthDate ? new Date(birthDate) : null,
         adoptedAt: adoptedAt ? new Date(adoptedAt) : null,
+        dogSize: dogSize || null,
       },
     });
 
@@ -52,6 +53,9 @@ export async function GET() {
       where: { userId: session.user.id },
       include: {
         vaccineSchedules: true,
+      },
+      orderBy: {
+        createdAt: 'asc',
       },
     });
 
