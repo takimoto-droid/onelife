@@ -225,7 +225,7 @@ export async function POST(request: NextRequest) {
     }
 
     // プレミアム機能チェック
-    const isPremium = await isPremiumUser("demo@wanlife.app" ?? undefined);
+    const isPremium = await isPremiumUser("demo@wanlife.app");
     if (!isPremium) {
       return NextResponse.json(premiumRequiredResponse(), { status: 403 });
     }

@@ -31,8 +31,8 @@ export async function GET() {
     const members = MOCK_FAMILY_MEMBERS["demo-user"] || [
       {
         id: "demo-user",
-        name: "demo@wanlife.app"?.split('@')[0] || 'あなた',
-        email: "demo@wanlife.app" || '',
+        name: 'あなた',
+        email: "demo@wanlife.app",
         role: 'owner' as const,
         joinedAt: new Date().toISOString(),
       },
