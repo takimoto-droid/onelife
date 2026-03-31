@@ -256,7 +256,6 @@ a {
   @apply w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-sm;
 }
 
-.feature-icon-voice { @apply bg-lavender-100 text-lavender-500; }
 .feature-icon-health { @apply bg-mint-100 text-mint-600; }
 .feature-icon-walk { @apply bg-blue-100 text-blue-400; }
 .feature-icon-food { @apply bg-peach-100 text-peach-500; }

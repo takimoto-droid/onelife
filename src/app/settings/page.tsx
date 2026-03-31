@@ -264,10 +264,6 @@ export default function SettingsPage() {
               </li>
               <li className="flex items-center gap-2">
                 <span className="text-accent">✓</span>
-                鳴き声翻訳
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-accent">✓</span>
                 ご近所コミュニティ
               </li>
             </ul>
@@ -326,7 +322,6 @@ export default function SettingsPage() {
                   <li>・フード見直し</li>
                   <li>・AIレシピ</li>
                   <li>・SNS投稿文作成</li>
-                  <li>・鳴き声翻訳</li>
                   <li>・ご近所コミュニティ</li>
                 </ul>
                 <div className="flex gap-3">
@@ -374,10 +369,6 @@ export default function SettingsPage() {
           <Link href="/walk" className="bottom-nav-item">
             <span className="text-xl">🚶</span>
             <span>散歩</span>
-          </Link>
-          <Link href="/voice" className="bottom-nav-item">
-            <span className="text-xl">🎤</span>
-            <span>翻訳</span>
           </Link>
           <Link href="/family" className="bottom-nav-item">
             <span className="text-xl">👨‍👩‍👧</span>

@@ -136,7 +136,7 @@ const MOCK_EVENTS: DogEvent[] = [
 // カテゴリーラベル
 const CATEGORY_LABELS: Record<EventCategory, { label: string; emoji: string; color: string }> = {
   puppy_party: { label: 'パピーパーティ', emoji: '🐶', color: 'accent' },
-  training: { label: 'しつけ教室', emoji: '📚', color: 'feature-voice' },
+  training: { label: 'しつけ教室', emoji: '📚', color: 'feature-family' },
   meetup: { label: '交流会', emoji: '🤝', color: 'feature-walk' },
   health: { label: '健康・相談', emoji: '🏥', color: 'feature-health' },
   competition: { label: 'スポーツ・競技', emoji: '🏆', color: 'feature-food' },

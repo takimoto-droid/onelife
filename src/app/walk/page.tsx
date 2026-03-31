@@ -750,10 +750,6 @@ export default function WalkPage() {
             <span className="text-xl">🚶</span>
             <span className="text-xs mt-1 font-bold">散歩</span>
           </Link>
-          <Link href="/voice" className="flex flex-col items-center py-2 px-4 text-brown-400">
-            <span className="text-xl">🎤</span>
-            <span className="text-xs mt-1">翻訳</span>
-          </Link>
           <Link href="/family" className="flex flex-col items-center py-2 px-4 text-brown-400">
             <span className="text-xl">👨‍👩‍👧</span>
             <span className="text-xs mt-1">家族</span>

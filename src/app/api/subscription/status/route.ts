@@ -8,7 +8,6 @@ const PREMIUM_FEATURES = {
   food: true,          // フード見直し
   aiRecipe: true,      // AIレシピ
   snsPost: true,       // SNS投稿文作成
-  voiceTranslation: true, // 鳴き声翻訳
   community: true,     // ご近所コミュニティ
   // 以下は追加機能
   weightCalculator: true,
@@ -22,7 +21,6 @@ const FREE_FEATURES = {
   food: false,
   aiRecipe: false,
   snsPost: false,
-  voiceTranslation: false,
   community: false,
   weightCalculator: false,
   allergyManagement: false,
@@ -115,7 +113,6 @@ export async function GET() {
         { id: 'food', name: 'フード見直し', icon: '🍽️' },
         { id: 'aiRecipe', name: 'AIレシピ', icon: '🍳' },
         { id: 'snsPost', name: 'SNS投稿文作成', icon: '📱' },
-        { id: 'voiceTranslation', name: '鳴き声翻訳', icon: '🎤' },
         { id: 'community', name: 'ご近所コミュニティ', icon: '🐕' },
       ],
     });

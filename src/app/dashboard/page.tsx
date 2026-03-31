@@ -145,15 +145,6 @@ export default function DashboardPage() {
       isNew: true,
     },
     {
-      href: '/voice',
-      icon: '🎤',
-      title: '鳴き声翻訳',
-      description: 'AIで気持ちを翻訳',
-      premium: true,
-      bgColor: 'bg-lavender-50',
-      iconBg: 'bg-lavender-100',
-    },
-    {
       href: '/vaccine',
       icon: '💉',
       title: 'ワクチン',
@@ -486,30 +477,6 @@ export default function DashboardPage() {
               </div>
             </div>
           </Link>
-          <Link
-            href={isPremium ? '/voice' : '/premium'}
-            onClick={(e) => handlePremiumFeatureClick(e, '/voice', true)}
-          >
-            <div className={`bg-gradient-to-r from-lavender-100 to-lavender-50 rounded-3xl p-4 border border-lavender-200 hover:-translate-y-1 transition-all duration-300 hover:shadow-card-hover relative ${!isPremium && 'opacity-90'}`}>
-              {!isPremium && (
-                <span className="absolute -top-2 right-2 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm flex items-center gap-1">
-                  <span>👑</span>
-                  <span>Premium</span>
-                </span>
-              )}
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-2xl shadow-sm">
-                  🎤
-                </div>
-                <div>
-                  <h3 className="font-bold text-brown-700 flex items-center gap-1">
-                    鳴き声翻訳
-                  </h3>
-                  <p className="text-xs text-brown-400">AIで気持ちを翻訳</p>
-                </div>
-              </div>
-            </div>
-          </Link>
         </div>
 
         {/* 不安なこと */}
@@ -549,10 +516,6 @@ export default function DashboardPage() {
           <Link href="/walk" className="bottom-nav-item">
             <span className="text-xl">🚶</span>
             <span>散歩</span>
-          </Link>
-          <Link href="/voice" className="bottom-nav-item">
-            <span className="text-xl">🎤</span>
-            <span>翻訳</span>
           </Link>
           <Link href="/family" className="bottom-nav-item">
             <span className="text-xl">👨‍👩‍👧</span>

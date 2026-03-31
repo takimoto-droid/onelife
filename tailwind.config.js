@@ -95,7 +95,6 @@ module.exports = {
         },
         // 機能別カラー（パステル版）
         feature: {
-          voice: '#C084FC',    // 鳴き声翻訳：ラベンダー
           health: '#5DD9B0',   // 健康管理：ミント
           walk: '#7DD3FC',     // 散歩：スカイブルー
           food: '#FFA584',     // 飲食店：ピーチ

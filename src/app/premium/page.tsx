@@ -25,11 +25,6 @@ const PREMIUM_FEATURES = [
     description: '愛犬の写真にぴったりの投稿文をAIが生成',
   },
   {
-    icon: '🎤',
-    title: '鳴き声翻訳',
-    description: 'ワンちゃんの鳴き声をAIが翻訳',
-  },
-  {
     icon: '🐕',
     title: 'ご近所コミュニティ',
     description: '近所のワンちゃん仲間と匿名で交流',

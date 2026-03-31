@@ -30,7 +30,7 @@ const CATEGORY_INFO: Record<EventCategory, { label: string; emoji: string; color
   exhibition: { label: '展示会', emoji: '🏆', color: 'feature-food' },
   party: { label: 'パピーパーティ', emoji: '🐶', color: 'accent' },
   meetup: { label: '交流会', emoji: '🤝', color: 'feature-walk' },
-  competition: { label: '競技会', emoji: '🥇', color: 'feature-voice' },
+  competition: { label: '競技会', emoji: '🥇', color: 'feature-family' },
   seminar: { label: 'セミナー', emoji: '📚', color: 'feature-health' },
   other: { label: 'その他', emoji: '🎉', color: 'dark-400' },
 };

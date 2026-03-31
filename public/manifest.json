@@ -89,13 +89,6 @@
       "description": "散歩ルートを提案",
       "url": "/walk",
       "icons": [{ "src": "/icons/shortcut-walk.png", "sizes": "96x96" }]
-    },
-    {
-      "name": "鳴き声翻訳",
-      "short_name": "翻訳",
-      "description": "AIで鳴き声を翻訳",
-      "url": "/voice",
-      "icons": [{ "src": "/icons/shortcut-voice.png", "sizes": "96x96" }]
     }
   ],
   "related_applications": [],

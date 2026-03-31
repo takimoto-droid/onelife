@@ -550,10 +550,6 @@ export default function RestaurantsPage() {
             <span className="text-xl">🚶</span>
             <span>散歩</span>
           </Link>
-          <Link href="/voice" className="bottom-nav-item">
-            <span className="text-xl">🎤</span>
-            <span>翻訳</span>
-          </Link>
           <Link href="/family" className="bottom-nav-item">
             <span className="text-xl">👨‍👩‍👧</span>
             <span>家族</span>

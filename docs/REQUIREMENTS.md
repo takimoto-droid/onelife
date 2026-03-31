@@ -18,7 +18,6 @@
 ### 1.4 ビジネスモデル
 - **無料プラン**: 基本機能（ワクチン管理、散歩、コミュニティ等）
 - **プレミアム**: 月額500円（7日間無料トライアル）
-  - AI鳴き声翻訳
   - AIフード見直し
   - AIレシピ生成
 
@@ -99,7 +98,6 @@ POST /api/community/report    - 通報
 
 ### 3.7 AI機能API
 ```
-POST /api/voice/translate   - 鳴き声翻訳（Premium）
 POST /api/recipe/generate   - レシピ生成
 GET/POST /api/recipe/saved  - 保存レシピ管理
 POST /api/sns/generate      - SNS投稿文生成
@@ -241,9 +239,8 @@ const dogs = await prisma.dog.findMany({
 
 | # | 機能名 | 説明 | ページ |
 |---|--------|------|--------|
-| 1 | AI鳴き声翻訳 | 感情分析・翻訳 | /voice |
-| 2 | AIフード見直し | パーソナライズ提案 | /food |
-| 3 | 高度な保険分析 | 詳細比較・スコア | /insurance |
+| 1 | AIフード見直し | パーソナライズ提案 | /food |
+| 2 | 高度な保険分析 | 詳細比較・スコア | /insurance |
 
 ---
 
@@ -306,7 +303,6 @@ CommunityPost
 --brown-700: #5D4E37;     /* テキスト */
 
 /* 機能別カラー */
---voice: #C084FC;         /* 鳴き声翻訳 */
 --health: #5DD9B0;        /* 健康管理 */
 --walk: #7DD3FC;          /* 散歩 */
 --food: #FFA584;          /* フード */
@@ -350,7 +346,6 @@ CommunityPost
 - [x] 散歩トラッキング
 
 ### Phase 5: AI機能（6-7日目）
-- [x] 鳴き声翻訳（Premium）
 - [x] SNS投稿生成
 - [x] AIレシピ生成
 - [x] フード見直し（Premium）

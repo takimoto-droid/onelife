@@ -111,12 +111,6 @@ export default function OnboardingPage() {
               </p>
 
               <div className="space-y-3 text-left mb-8">
-                <div className="flex items-center gap-3 p-3 bg-pink-50 rounded-2xl border border-pink-100">
-                  <span className="text-2xl">🎤</span>
-                  <p className="text-sm text-brown-600">
-                    鳴き声をAIが翻訳
-                  </p>
-                </div>
                 <div className="flex items-center gap-3 p-3 bg-mint-50 rounded-2xl border border-mint-100">
                   <span className="text-2xl">🏥</span>
                   <p className="text-sm text-brown-600">
