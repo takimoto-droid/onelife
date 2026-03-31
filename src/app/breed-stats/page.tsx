@@ -63,15 +63,15 @@ export default function BreedStatsPage() {
       setLoading(false);
     };
 
-    if (status === 'authenticated') {
+    if (true) { // Auth removed
       fetchStats();
       // 30秒ごとに更新
       const interval = setInterval(fetchStats, 30000);
       return () => clearInterval(interval);
     }
-  }, [status, router]);
+  }, [router]);
 
-  if (status === 'loading' || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-dark-900 flex items-center justify-center">
         <div className="spinner" />

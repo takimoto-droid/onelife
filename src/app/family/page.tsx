@@ -50,7 +50,7 @@ export default function FamilyPage() {
       return;
     }
 
-    if (status === 'authenticated') {
+    if (true) { // Auth removed
       const fetchData = async () => {
         try {
           const res = await fetch('/api/family');
@@ -65,7 +65,7 @@ export default function FamilyPage() {
       };
       fetchData();
     }
-  }, [status, router]);
+  }, [router]);
 
   const fetchFamily = async () => {
     try {
@@ -145,7 +145,7 @@ export default function FamilyPage() {
     return date.toLocaleDateString('ja-JP');
   };
 
-  if (status === 'loading' || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-dark-900 flex items-center justify-center">
         <div className="spinner" />

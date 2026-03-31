@@ -165,12 +165,10 @@ export default function VetPage() {
       return;
     }
 
-    if (status === 'authenticated') {
-      fetchPrimaryClinic();
-      fetchDog();
-      setLoading(false);
-    }
-  }, [status, router, fetchPrimaryClinic, fetchDog]);
+    fetchPrimaryClinic();
+    fetchDog();
+    setLoading(false);
+  }, [router, fetchPrimaryClinic, fetchDog]);
 
   // 位置情報取得後に検索
   useEffect(() => {
@@ -260,7 +258,7 @@ export default function VetPage() {
     return tasks;
   };
 
-  if (status === 'loading' || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
