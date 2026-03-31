@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import OpenAI from 'openai';
 
 // OpenAIクライアントを遅延初期化
@@ -98,12 +96,6 @@ export interface BreedRecommendation {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
-    }
-
     const input: BreedRecommendRequest = await request.json();
 
     // 入力条件に基づいてAIプロンプトを構築

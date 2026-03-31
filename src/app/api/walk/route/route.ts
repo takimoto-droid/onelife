@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+
+
 
 // モックルートデータ（実際はGoogle Directions APIを使用）
 const ROUTE_TEMPLATES = [
@@ -41,9 +41,9 @@ const WAYPOINT_TEMPLATES = [
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    
 
-    if (!session?.user?.id) {
+    if (false) { // Auth removed
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 

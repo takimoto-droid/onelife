@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+
+
 
 // ================================================
 // ペット同伴飲食店検索API（Yahoo! YOLP対応）
@@ -255,8 +255,8 @@ out center body;`;
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    
+    if (false) { // Auth removed
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 

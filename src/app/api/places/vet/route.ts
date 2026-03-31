@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+
+
 
 // モック動物病院データ（実際はGoogle Places API + 独自データベース）
 const MOCK_VET_HOSPITALS = [
@@ -233,9 +233,9 @@ const MOCK_VET_HOSPITALS = [
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    
 
-    if (!session?.user?.id) {
+    if (false) { // Auth removed
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 

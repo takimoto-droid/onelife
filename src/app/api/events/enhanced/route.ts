@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+
+
 
 // イベントカテゴリー
 type EventCategory = 'exhibition' | 'party' | 'meetup' | 'competition' | 'seminar' | 'other';
@@ -197,9 +197,9 @@ function calculateDaysUntil(startDate: string): number {
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    
 
-    if (!session?.user?.id) {
+    if (false) { // Auth removed
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+
+
 import { getAIResponse } from '@/lib/openai';
 import { isPremiumUser, premiumRequiredResponse } from '@/lib/subscription';
 
@@ -218,14 +218,14 @@ const generateMockRecipes = (ingredients: string[], weightKg: number, allergyLis
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    
 
-    if (!session?.user?.id) {
+    if (false) { // Auth removed
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
     // プレミアム機能チェック
-    const isPremium = await isPremiumUser(session.user.email ?? undefined);
+    const isPremium = await isPremiumUser("demo@wanlife.app" ?? undefined);
     if (!isPremium) {
       return NextResponse.json(premiumRequiredResponse(), { status: 403 });
     }

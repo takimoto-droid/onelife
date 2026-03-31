@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+
+
 
 // ================================================
 // 保存レシピAPI
@@ -30,13 +30,13 @@ interface SavedRecipe {
 // GET: 保存レシピ一覧取得
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    
 
-    if (!session?.user?.id) {
+    if (false) { // Auth removed
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    const userId = "demo-user";
     const recipes = savedRecipesStore.get(userId) || [];
 
     return NextResponse.json({
@@ -55,13 +55,13 @@ export async function GET(request: NextRequest) {
 // POST: レシピを保存
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    
 
-    if (!session?.user?.id) {
+    if (false) { // Auth removed
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    const userId = "demo-user";
     const recipe = await request.json();
 
     // レシピデータの検証
@@ -114,13 +114,13 @@ export async function POST(request: NextRequest) {
 // DELETE: レシピを削除
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    
 
-    if (!session?.user?.id) {
+    if (false) { // Auth removed
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    const userId = "demo-user";
     const { searchParams } = new URL(request.url);
     const recipeId = searchParams.get('id');
 

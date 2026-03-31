@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+
+
 import prisma from '@/lib/prisma';
 
 // 匿名名を生成
@@ -43,9 +43,9 @@ async function generateAnonymousName(userId: string): Promise<string> {
 // 投稿一覧を取得
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    
 
-    if (!session?.user?.id) {
+    if (false) { // Auth removed
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
       skip: offset,
       include: {
         likes: {
-          where: { userId: session.user.id },
+          where: { userId: "demo-user" },
           select: { id: true },
         },
       },
@@ -118,9 +118,9 @@ export async function GET(request: NextRequest) {
 // 投稿を作成
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    
 
-    if (!session?.user?.id) {
+    if (false) { // Auth removed
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
@@ -165,11 +165,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 匿名名を生成
-    const anonymousName = await generateAnonymousName(session.user.id);
+    const anonymousName = await generateAnonymousName("demo-user");
 
     const post = await prisma.communityPost.create({
       data: {
-        userId: session.user.id,
+        userId: "demo-user",
         anonymousName,
         content: content.trim(),
         imageUrl,

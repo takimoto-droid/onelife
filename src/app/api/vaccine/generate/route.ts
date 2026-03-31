@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+
+
 import prisma from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    
 
-    if (!session?.user?.id) {
+    if (false) { // Auth removed
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     const dog = await prisma.dog.findFirst({
       where: {
         id: dogId,
-        userId: session.user.id,
+        userId: "demo-user",
       },
     });
 

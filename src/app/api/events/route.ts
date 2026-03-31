@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+
+
 
 // イベントカテゴリー
 type EventCategory = 'puppy_party' | 'training' | 'meetup' | 'health' | 'competition' | 'other';
@@ -145,9 +145,9 @@ const CATEGORY_LABELS: Record<EventCategory, { label: string; emoji: string; col
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    
 
-    if (!session?.user?.id) {
+    if (false) { // Auth removed
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 

@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+
+
 import prisma from '@/lib/prisma';
 
 // かかりつけ病院を取得
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
+    
 
-    if (!session?.user?.id) {
+    if (false) { // Auth removed
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
     const primaryClinic = await prisma.primaryVetClinic.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: "demo-user" },
       include: { clinic: true },
     });
 
@@ -51,9 +51,9 @@ export async function GET() {
 // かかりつけ病院を登録
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    
 
-    if (!session?.user?.id) {
+    if (false) { // Auth removed
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
@@ -101,12 +101,12 @@ export async function POST(request: NextRequest) {
 
     // 既存のかかりつけを削除して新規登録
     await prisma.primaryVetClinic.deleteMany({
-      where: { userId: session.user.id },
+      where: { userId: "demo-user" },
     });
 
     const primaryClinic = await prisma.primaryVetClinic.create({
       data: {
-        userId: session.user.id,
+        userId: "demo-user",
         clinicId: clinic.id,
         memo,
       },
@@ -134,14 +134,14 @@ export async function POST(request: NextRequest) {
 // かかりつけ病院を解除
 export async function DELETE() {
   try {
-    const session = await getServerSession(authOptions);
+    
 
-    if (!session?.user?.id) {
+    if (false) { // Auth removed
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
     await prisma.primaryVetClinic.deleteMany({
-      where: { userId: session.user.id },
+      where: { userId: "demo-user" },
     });
 
     return NextResponse.json({ success: true });

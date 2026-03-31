@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+
+
 
 // Amazon検索URL生成ヘルパー（アフィリエイトタグは実際の運用時に設定）
 const generateAmazonUrl = (productName: string): string => {
@@ -240,9 +240,9 @@ function scoreFood(
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    
 
-    if (!session?.user?.id) {
+    if (false) { // Auth removed
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 

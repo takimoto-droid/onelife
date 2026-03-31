@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+
+
 
 // モックデータ: 家族メンバー
 const MOCK_FAMILY_MEMBERS: Record<string, FamilyMember[]> = {};
@@ -21,18 +21,18 @@ function generateInviteCode(): string {
 // 家族情報の取得
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
+    
 
-    if (!session?.user?.id) {
+    if (false) { // Auth removed
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
     // モック: 家族メンバー一覧
-    const members = MOCK_FAMILY_MEMBERS[session.user.id] || [
+    const members = MOCK_FAMILY_MEMBERS["demo-user"] || [
       {
-        id: session.user.id,
-        name: session.user.email?.split('@')[0] || 'あなた',
-        email: session.user.email || '',
+        id: "demo-user",
+        name: "demo@wanlife.app"?.split('@')[0] || 'あなた',
+        email: "demo@wanlife.app" || '',
         role: 'owner' as const,
         joinedAt: new Date().toISOString(),
       },
@@ -42,21 +42,21 @@ export async function GET() {
     const inviteCode = generateInviteCode();
 
     return NextResponse.json({
-      familyId: `family-${session.user.id}`,
+      familyId: `family-${"demo-user"}`,
       members,
       inviteCode,
       maxMembers: 5,
       recentActivities: [
         {
           id: '1',
-          userId: session.user.id,
+          userId: "demo-user",
           action: '散歩を記録',
           timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
           details: '30分の散歩を完了',
         },
         {
           id: '2',
-          userId: session.user.id,
+          userId: "demo-user",
           action: 'ワクチン予定を追加',
           timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
           details: '混合ワクチン',
@@ -75,9 +75,9 @@ export async function GET() {
 // 家族への招待
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    
 
-    if (!session?.user?.id) {
+    if (false) { // Auth removed
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
@@ -118,9 +118,9 @@ export async function POST(request: NextRequest) {
 // 家族からの削除
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    
 
-    if (!session?.user?.id) {
+    if (false) { // Auth removed
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
