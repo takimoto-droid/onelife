@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+// Auth removed - using localStorage
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
@@ -33,7 +33,7 @@ interface FamilyData {
 }
 
 export default function FamilyPage() {
-  const { status } = useSession();
+  // Auth removed
   const router = useRouter();
   const [family, setFamily] = useState<FamilyData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,7 +45,7 @@ export default function FamilyPage() {
   const [codeCopied, setCodeCopied] = useState(false);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (false) { // Auth check removed
       router.push('/');
       return;
     }

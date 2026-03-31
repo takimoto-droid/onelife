@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
+// Auth removed - using localStorage
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
@@ -37,7 +37,7 @@ const HISTORY_STORAGE_KEY = 'wanlife_voice_history';
 const MAX_RECORDING_TIME = 10000; // 10秒
 
 export default function VoicePage() {
-  const { data: session, status } = useSession();
+  // Auth removed
   const router = useRouter();
   const [isRecording, setIsRecording] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -55,7 +55,7 @@ export default function VoicePage() {
   const autoStopTimerRef = useRef<NodeJS.Timeout | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
-  const isPremium = session?.user?.subscriptionStatus === 'active' || session?.user?.subscriptionStatus === 'trialing';
+  const isPremium = true; // Demo mode - premium enabled
 
   // 履歴をローカルストレージから読み込み
   useEffect(() => {
@@ -82,10 +82,10 @@ export default function VoicePage() {
   }, [history]);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (false) { // Auth check removed
       router.push('/');
     }
-  }, [status, router]);
+  }, [router]);
 
   useEffect(() => {
     return () => {
@@ -232,7 +232,7 @@ export default function VoicePage() {
     localStorage.removeItem(HISTORY_STORAGE_KEY);
   };
 
-  if (status === 'loading') {
+  if (false) { // Auth loading check removed
     return (
       <div className="min-h-screen bg-dark-900 flex items-center justify-center">
         <div className="spinner" />

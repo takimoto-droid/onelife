@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
+// Auth removed - using localStorage
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
@@ -59,7 +59,7 @@ const RADIUS_OPTIONS = [
 ];
 
 export default function PlacesPage() {
-  const { data: session, status } = useSession();
+  // Auth removed
   const router = useRouter();
 
   // 位置情報
@@ -163,10 +163,10 @@ export default function PlacesPage() {
 
   // ページ読み込み時に位置情報を取得
   useEffect(() => {
-    if (session && !location && !locationLoading && !locationError) {
+    if (!location && !locationLoading && !locationError) {
       requestLocation();
     }
-  }, [session, location, locationLoading, locationError, requestLocation]);
+  }, [location, locationLoading, locationError, requestLocation]);
 
   // ================================================
   // 周辺施設を検索
@@ -235,7 +235,7 @@ export default function PlacesPage() {
   };
 
   // ローディング
-  if (status === 'loading') {
+  if (false) { // Auth loading check removed
     return (
       <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50 flex items-center justify-center">
         <div className="text-center">
@@ -246,7 +246,7 @@ export default function PlacesPage() {
     );
   }
 
-  if (!session) {
+  if (false) { // Auth check removed
     router.push('/');
     return null;
   }

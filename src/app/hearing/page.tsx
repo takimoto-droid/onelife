@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { BreedAutocomplete } from '@/components/BreedAutocomplete';
+import { getDogs, updateDog, getUser } from '@/lib/store';
 
 type StepType =
   | 'breed'
@@ -171,50 +171,35 @@ const STEPS: StepConfig[] = [
 ];
 
 export default function HearingPage() {
-  const { data: session, status } = useSession();
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [inputValue, setInputValue] = useState('');
   const [dogId, setDogId] = useState<string | null>(null);
-  const [userType, setUserType] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [filteredSteps, setFilteredSteps] = useState<StepConfig[]>([]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // 犬の情報を取得
-        const dogsRes = await fetch('/api/dogs');
-        const dogsData = await dogsRes.json();
-        if (dogsData.dogs && dogsData.dogs.length > 0) {
-          setDogId(dogsData.dogs[dogsData.dogs.length - 1].id);
-        }
+    // localStorageからデータを取得
+    const dogs = getDogs();
+    const user = getUser();
 
-        // ユーザータイプを取得
-        const userTypeRes = await fetch('/api/user/type');
-        const userTypeData = await userTypeRes.json();
-        setUserType(userTypeData.userType);
-
-        // ユーザータイプに応じてステップをフィルター
-        const steps = STEPS.filter(
-          (step) => !step.forReviewingOnly || userTypeData.userType === 'reviewing'
-        );
-        setFilteredSteps(steps);
-      } catch (error) {
-        console.error('Failed to fetch data:', error);
-        // デフォルトは全ユーザー向けの質問のみ
-        setFilteredSteps(STEPS.filter((step) => !step.forReviewingOnly));
-      }
-    };
-
-    if (session) {
-      fetchData();
+    if (dogs.length > 0) {
+      setDogId(dogs[dogs.length - 1].id);
+    } else {
+      router.push('/onboarding');
+      return;
     }
-  }, [session]);
 
-  if (status === 'loading' || filteredSteps.length === 0) {
+    // ユーザータイプに応じてステップをフィルター
+    const steps = STEPS.filter(
+      (step) => !step.forReviewingOnly || user.userType === 'reviewing'
+    );
+    setFilteredSteps(steps);
+  }, [router]);
+
+  if (filteredSteps.length === 0) {
     return (
       <div className="min-h-screen bg-warm-50 flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-primary-200 border-t-primary-500 rounded-full" />
@@ -222,27 +207,18 @@ export default function HearingPage() {
     );
   }
 
-  if (!session) {
-    router.push('/');
-    return null;
-  }
-
   const currentStepConfig = filteredSteps[currentStep];
   const progress = ((currentStep + 1) / filteredSteps.length) * 100;
 
-  const handleNext = async (value: string) => {
+  const handleNext = (value: string) => {
     const newAnswers = { ...answers, [currentStepConfig.field]: value };
     setAnswers(newAnswers);
     setInputValue('');
 
     if (currentStep === filteredSteps.length - 1) {
       setLoading(true);
-      try {
-        await saveAnswers(newAnswers);
-        setIsComplete(true);
-      } catch (error) {
-        console.error('Failed to save answers:', error);
-      }
+      saveAnswers(newAnswers);
+      setIsComplete(true);
       setLoading(false);
     } else {
       setCurrentStep(currentStep + 1);
@@ -263,29 +239,24 @@ export default function HearingPage() {
     handleNext(value.toString());
   };
 
-  const saveAnswers = async (finalAnswers: Record<string, string>) => {
+  const saveAnswers = (finalAnswers: Record<string, string>) => {
     if (!dogId) return;
 
-    await fetch('/api/hearing/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        dogId,
-        breed: finalAnswers.breed || null,
-        birthDate: finalAnswers.birthDate || null,
-        dogSize: finalAnswers.dogSize || null,
-        hasDisease: finalAnswers.hasDisease === 'yes' ? true : finalAnswers.hasDisease === 'no' ? false : null,
-        visitFrequency: finalAnswers.visitFrequency || null,
-        livingEnv: finalAnswers.livingEnv || null,
-        walkFrequency: finalAnswers.walkFrequency || null,
-        isMultiDog: finalAnswers.multiDogCount !== '1',
-        multiDogCount: parseInt(finalAnswers.multiDogCount) || 1,
-        anxietyLevel: parseInt(finalAnswers.anxietyLevel) || null,
-        // 見直しユーザー向け
-        hasCurrentInsurance: finalAnswers.hasCurrentInsurance === 'yes' ? true : finalAnswers.hasCurrentInsurance === 'no' ? false : null,
-        currentInsuranceCost: finalAnswers.currentInsuranceCost || null,
-        insuranceConcern: finalAnswers.insuranceConcern || null,
-      }),
+    // localStorageに保存
+    updateDog(dogId, {
+      breed: finalAnswers.breed || undefined,
+      birthDate: finalAnswers.birthDate || undefined,
+      dogSize: finalAnswers.dogSize || undefined,
+      hasDisease: finalAnswers.hasDisease === 'yes' ? true : finalAnswers.hasDisease === 'no' ? false : undefined,
+      visitFrequency: finalAnswers.visitFrequency || undefined,
+      livingEnv: finalAnswers.livingEnv || undefined,
+      walkFrequency: finalAnswers.walkFrequency || undefined,
+      isMultiDog: finalAnswers.multiDogCount !== '1',
+      multiDogCount: parseInt(finalAnswers.multiDogCount) || 1,
+      anxietyLevel: parseInt(finalAnswers.anxietyLevel) || undefined,
+      hasCurrentInsurance: finalAnswers.hasCurrentInsurance === 'yes' ? true : finalAnswers.hasCurrentInsurance === 'no' ? false : undefined,
+      currentInsuranceCost: finalAnswers.currentInsuranceCost || undefined,
+      insuranceConcern: finalAnswers.insuranceConcern || undefined,
     });
   };
 
@@ -305,7 +276,7 @@ export default function HearingPage() {
       {/* ヘッダー */}
       <header className="bg-white border-b border-warm-200 p-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-bold text-primary-600">わんサポ</h1>
+          <h1 className="text-xl font-bold text-primary-600">わんライフ</h1>
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-500">
               {currentStep + 1} / {filteredSteps.length}

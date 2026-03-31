@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+// Auth removed - using localStorage
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
@@ -89,7 +89,7 @@ interface SavedRecipe {
 type TabType = 'create' | 'saved';
 
 export default function RecipePage() {
-  const { data: session, status } = useSession();
+  // Auth removed
   const router = useRouter();
 
   // タブ管理
@@ -114,14 +114,12 @@ export default function RecipePage() {
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // プレミアム状態チェック
-  const isPremium = session?.user?.subscriptionStatus === 'active' || session?.user?.subscriptionStatus === 'trialing';
+  const isPremium = true; // Demo mode - premium enabled
 
   // 保存レシピを取得
   useEffect(() => {
-    if (session) {
-      fetchSavedRecipes();
-    }
-  }, [session]);
+    fetchSavedRecipes();
+  }, []);
 
   const fetchSavedRecipes = async () => {
     try {
@@ -248,7 +246,7 @@ export default function RecipePage() {
   };
 
   // ローディング
-  if (status === 'loading') {
+  if (false) { // Auth loading check removed
     return (
       <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50 flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-pink-200 border-t-pink-500 rounded-full" />
@@ -257,7 +255,7 @@ export default function RecipePage() {
   }
 
   // 未ログイン
-  if (!session) {
+  if (false) { // Auth check removed
     router.push('/');
     return null;
   }

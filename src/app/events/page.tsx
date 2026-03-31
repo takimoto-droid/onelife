@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+// Auth removed - using localStorage
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
@@ -36,7 +36,7 @@ interface CategoryInfo {
 }
 
 export default function EventsPage() {
-  const { data: session, status } = useSession();
+  // Auth removed
   const router = useRouter();
   const [events, setEvents] = useState<DogEvent[]>([]);
   const [categories, setCategories] = useState<Record<EventCategory, CategoryInfo>>({} as Record<EventCategory, CategoryInfo>);
@@ -46,7 +46,7 @@ export default function EventsPage() {
   const [disclaimer, setDisclaimer] = useState('');
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (false) { // Auth check removed
       router.push('/');
       return;
     }
@@ -67,10 +67,8 @@ export default function EventsPage() {
       setLoading(false);
     };
 
-    if (session) {
-      fetchEvents();
-    }
-  }, [session, status, router, selectedCategory]);
+    fetchEvents();
+  }, [router, selectedCategory]);
 
   const formatDate = (startDate: string, endDate?: string) => {
     const start = new Date(startDate);
@@ -108,7 +106,7 @@ export default function EventsPage() {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  if (status === 'loading' || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-dark-900 flex items-center justify-center">
         <div className="spinner" />

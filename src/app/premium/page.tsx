@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSession } from 'next-auth/react';
+// Auth removed - using localStorage
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
@@ -41,7 +41,7 @@ type Step = 'features' | 'payment' | 'processing' | 'complete';
 
 // SearchParamsを使用するコンポーネント
 function PremiumPageContent() {
-  const { data: session, status } = useSession();
+  // Auth removed
   const router = useRouter();
   const searchParams = useSearchParams();
   const [step, setStep] = useState<Step>('features');
@@ -74,15 +74,13 @@ function PremiumPageContent() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (false) { // Auth check removed
       router.push('/');
       return;
     }
 
-    if (session) {
-      fetchSubscriptionStatus();
-    }
-  }, [session, status, router]);
+    fetchSubscriptionStatus();
+  }, [router]);
 
   const fetchSubscriptionStatus = async () => {
     try {

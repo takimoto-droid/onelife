@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
+// Auth removed - using localStorage
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
@@ -41,7 +41,7 @@ const SEARCH_RADIUS_OPTIONS = [
 ];
 
 export default function VetPage() {
-  const { data: session, status } = useSession();
+  // Auth removed
   const router = useRouter();
 
   // 位置情報（コンテキストから取得）
@@ -160,7 +160,7 @@ export default function VetPage() {
   };
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (false) { // Auth check removed
       router.push('/');
       return;
     }

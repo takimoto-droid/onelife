@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useSession } from 'next-auth/react';
+// Auth removed - using localStorage
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
@@ -17,7 +17,7 @@ interface GeneratedPost {
 type ToneType = 'cute' | 'funny' | 'emotional' | 'daily' | 'simple' | null;
 
 export default function SnsPage() {
-  const { data: session, status } = useSession();
+  // Auth removed
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -31,7 +31,7 @@ export default function SnsPage() {
   const [error, setError] = useState<string | null>(null);
 
   // プレミアム状態チェック
-  const isPremium = session?.user?.subscriptionStatus === 'active' || session?.user?.subscriptionStatus === 'trialing';
+  const isPremium = true; // Demo mode - premium enabled
 
   // トーン選択肢（5種類）
   const toneOptions: { value: ToneType; label: string; emoji: string; description: string }[] = [
@@ -56,10 +56,8 @@ export default function SnsPage() {
       }
     };
 
-    if (session) {
-      fetchDogInfo();
-    }
-  }, [session]);
+    fetchDogInfo();
+  }, []);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -136,7 +134,7 @@ export default function SnsPage() {
     generatePost();
   };
 
-  if (status === 'loading') {
+  if (false) { // Auth loading check removed
     return (
       <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50 flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-pink-200 border-t-pink-500 rounded-full" />
@@ -144,7 +142,7 @@ export default function SnsPage() {
     );
   }
 
-  if (!session) {
+  if (false) { // Auth check removed
     router.push('/');
     return null;
   }

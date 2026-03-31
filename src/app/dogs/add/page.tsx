@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { saveDog, setSelectedDogId } from '@/lib/store';
 
 // 人気の犬種リスト
 const POPULAR_BREEDS = [
@@ -41,7 +41,6 @@ const DOG_SIZES = [
 type Step = 'name' | 'breed' | 'details' | 'complete';
 
 export default function AddDogPage() {
-  const { data: session, status } = useSession();
   const router = useRouter();
   const [step, setStep] = useState<Step>('name');
   const [loading, setLoading] = useState(false);
@@ -54,21 +53,7 @@ export default function AddDogPage() {
   const [dogSize, setDogSize] = useState('');
   const [birthDate, setBirthDate] = useState('');
 
-  // 認証チェック
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="spinner" />
-      </div>
-    );
-  }
-
-  if (status === 'unauthenticated') {
-    router.push('/');
-    return null;
-  }
-
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!name.trim()) {
       setError('名前を入力してください');
       return;
@@ -78,26 +63,17 @@ export default function AddDogPage() {
     setError('');
 
     try {
-      const res = await fetch('/api/dogs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          breed: breed === 'その他' ? customBreed : breed,
-          birthDate: birthDate || null,
-          dogSize: dogSize || null,
-        }),
+      // localStorageに保存
+      const newDog = saveDog({
+        name: name.trim(),
+        breed: breed === 'その他' ? customBreed : breed,
+        birthDate: birthDate || undefined,
+        dogSize: dogSize || undefined,
       });
 
-      const data = await res.json();
-
-      if (res.ok && data.dog) {
-        // 新しく追加した犬を選択状態にする
-        localStorage.setItem('selectedDogId', data.dog.id);
-        setStep('complete');
-      } else {
-        setError(data.error || '登録に失敗しました');
-      }
+      // 新しく追加した犬を選択状態にする
+      setSelectedDogId(newDog.id);
+      setStep('complete');
     } catch (err) {
       console.error('Failed to add dog:', err);
       setError('エラーが発生しました');

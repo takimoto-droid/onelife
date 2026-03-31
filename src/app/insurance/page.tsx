@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+// Auth removed - using localStorage
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
@@ -32,7 +32,7 @@ interface DogInfo {
 }
 
 export default function InsurancePage() {
-  const { data: session, status } = useSession();
+  // Auth removed
   const router = useRouter();
   const [recommendations, setRecommendations] = useState<InsuranceRecommendation[]>([]);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
@@ -59,12 +59,10 @@ export default function InsurancePage() {
       setLoading(false);
     };
 
-    if (session) {
-      fetchData();
-    }
-  }, [session]);
+    fetchData();
+  }, []);
 
-  if (status === 'loading' || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-warm-50 flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-primary-200 border-t-primary-500 rounded-full" />
@@ -72,7 +70,7 @@ export default function InsurancePage() {
     );
   }
 
-  if (!session) {
+  if (false) { // Auth check removed
     router.push('/');
     return null;
   }

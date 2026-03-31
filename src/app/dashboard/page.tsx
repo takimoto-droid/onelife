@@ -1,91 +1,46 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useSession } from 'next-auth/react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { VaccineCard } from '@/components/VaccineCard';
 import { NotificationSetup } from '@/components/NotificationSetup';
-
-interface Dog {
-  id: string;
-  name: string;
-  breed?: string;
-  birthDate?: string;
-  adoptedAt?: string;
-  dogSize?: string;
-  hasVisitedVet?: boolean;
-  mainConcern?: string;
-  vaccineSchedules: VaccineScheduleData[];
-}
-
-interface VaccineScheduleData {
-  id: string;
-  type: string;
-  scheduledDate: string;
-  completed: boolean;
-}
-
-// 選択中の犬IDをlocalStorageから取得
-const getSelectedDogId = (): string | null => {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('selectedDogId');
-};
-
-// 選択中の犬IDをlocalStorageに保存
-const setSelectedDogId = (id: string): void => {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('selectedDogId', id);
-};
+import { getDogs, getSelectedDogId, setSelectedDogId, getUser, Dog } from '@/lib/store';
 
 export default function DashboardPage() {
-  const { data: session, status } = useSession();
   const router = useRouter();
-  const [dogs, setDogs] = useState<Dog[]>([]);
+  const [dogs, setDogsState] = useState<Dog[]>([]);
   const [selectedDogIndex, setSelectedDogIndex] = useState(0);
   const [showDogSelector, setShowDogSelector] = useState(false);
   const [loading, setLoading] = useState(true);
-  const hasFetched = useRef(false);
+  const [isPremium, setIsPremium] = useState(true);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/');
+    // localStorageからデータを読み込み
+    const loadedDogs = getDogs();
+    const user = getUser();
+
+    if (loadedDogs.length === 0) {
+      router.push('/onboarding');
       return;
     }
 
-    if (status === 'authenticated' && !hasFetched.current) {
-      hasFetched.current = true;
+    setDogsState(loadedDogs);
+    setIsPremium(user.isPremium);
 
-      const fetchData = async () => {
-        try {
-          const res = await fetch('/api/dogs');
-          const data = await res.json();
-          if (data.dogs) {
-            setDogs(data.dogs);
-            if (data.dogs.length === 0) {
-              router.push('/onboarding');
-              return;
-            }
-            // localStorageから選択中の犬を復元
-            const savedDogId = getSelectedDogId();
-            if (savedDogId) {
-              const index = data.dogs.findIndex((d: Dog) => d.id === savedDogId);
-              if (index >= 0) {
-                setSelectedDogIndex(index);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Failed to fetch dogs:', error);
-        }
-        setLoading(false);
-      };
-
-      fetchData();
+    // 選択中の犬を復元
+    const savedDogId = getSelectedDogId();
+    if (savedDogId) {
+      const index = loadedDogs.findIndex((d) => d.id === savedDogId);
+      if (index >= 0) {
+        setSelectedDogIndex(index);
+      }
     }
-  }, [status, router]);
+
+    setLoading(false);
+  }, [router]);
 
   // 犬を切り替え
   const handleSelectDog = (index: number) => {
@@ -94,7 +49,7 @@ export default function DashboardPage() {
     setShowDogSelector(false);
   };
 
-  if (status === 'loading' || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -106,13 +61,8 @@ export default function DashboardPage() {
     );
   }
 
-  if (!session) {
-    return null;
-  }
-
   const dog = dogs[selectedDogIndex];
   const upcomingVaccines = dog?.vaccineSchedules?.filter((v) => !v.completed) || [];
-  const isPremium = session.user.subscriptionStatus === 'active' || session.user.subscriptionStatus === 'trialing';
   const hasMultipleDogs = dogs.length > 1;
 
   // プレミアム機能のクリックハンドラー
@@ -366,17 +316,15 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* トライアル/プレミアム表示 */}
-        {session.user.subscriptionStatus === 'trialing' && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-lavender-50 to-pink-50 border-2 border-lavender-200 rounded-2xl">
-            <p className="text-sm text-lavender-700">
-              <span className="font-bold">無料トライアル中</span>
-              <span className="ml-2 text-lavender-500">
-                すべての機能をお試しいただけます
-              </span>
-            </p>
-          </div>
-        )}
+        {/* デモ表示 */}
+        <div className="mb-6 p-4 bg-gradient-to-r from-lavender-50 to-pink-50 border-2 border-lavender-200 rounded-2xl">
+          <p className="text-sm text-lavender-700">
+            <span className="font-bold">デモモード</span>
+            <span className="ml-2 text-lavender-500">
+              すべての機能をお試しいただけます
+            </span>
+          </p>
+        </div>
 
         {/* メインメニュー */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">

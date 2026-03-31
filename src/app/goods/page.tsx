@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
+// Auth removed - using localStorage
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
@@ -49,7 +49,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
 };
 
 export default function GoodsPage() {
-  const { data: session, status } = useSession();
+  // Auth removed
   const router = useRouter();
   const [goods, setGoods] = useState<GoodsItem[]>([]);
   const [category, setCategory] = useState<CategoryType>('all');
@@ -74,10 +74,8 @@ export default function GoodsPage() {
       setLoading(false);
     };
 
-    if (session) {
-      fetchGoods();
-    }
-  }, [session, category]);
+    fetchGoods();
+  }, [category]);
 
   // トースト表示
   const showToast = (type: 'error' | 'success', message: string) => {
@@ -184,7 +182,7 @@ export default function GoodsPage() {
   };
 
   // ローディング
-  if (status === 'loading') {
+  if (false) { // Auth loading check removed
     return (
       <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50 flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-pink-200 border-t-pink-500 rounded-full" />
@@ -193,7 +191,7 @@ export default function GoodsPage() {
   }
 
   // 未ログイン
-  if (!session) {
+  if (false) { // Auth check removed
     router.push('/');
     return null;
   }

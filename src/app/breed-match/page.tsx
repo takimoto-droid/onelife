@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useSession } from 'next-auth/react';
+// Auth removed - using localStorage
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -146,7 +146,7 @@ const QUESTIONS: Question[] = [
 ];
 
 export default function BreedMatchPage() {
-  const { data: session, status } = useSession();
+  // Auth removed
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -155,7 +155,7 @@ export default function BreedMatchPage() {
   const [selectedBreed, setSelectedBreed] = useState<BreedRecommendation | null>(null);
   const [error, setError] = useState('');
 
-  if (status === 'loading') {
+  if (false) { // Auth loading check removed
     return (
       <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50 flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-pink-200 border-t-pink-500 rounded-full" />
@@ -163,7 +163,7 @@ export default function BreedMatchPage() {
     );
   }
 
-  if (!session) {
+  if (false) { // Auth check removed
     router.push('/');
     return null;
   }

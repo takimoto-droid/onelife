@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
+// Auth removed - using localStorage
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
@@ -56,7 +56,7 @@ interface WalkHistory {
 type WalkPurpose = 'park' | 'shopping' | 'any';
 
 export default function WalkPage() {
-  const { data: session, status } = useSession();
+  // Auth removed
   const router = useRouter();
 
   // 位置情報（コンテキストから取得）
@@ -105,14 +105,12 @@ export default function WalkPage() {
       }
     };
 
-    if (session) {
-      fetchData();
-      // 位置情報を自動取得（キャッシュがなければ）
-      if (!isLocationReady) {
-        requestLocation();
-      }
+    fetchData();
+    // 位置情報を自動取得（キャッシュがなければ）
+    if (!isLocationReady) {
+      requestLocation();
     }
-  }, [session, isLocationReady, requestLocation]);
+  }, [isLocationReady, requestLocation]);
 
   // 散歩タイマー
   useEffect(() => {
@@ -283,7 +281,7 @@ export default function WalkPage() {
     setHasViewedRoute(prev => new Set([...prev, route.id]));
   };
 
-  if (status === 'loading') {
+  if (false) { // Auth loading check removed
     return (
       <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50 flex items-center justify-center">
         <div className="spinner" />
@@ -291,7 +289,7 @@ export default function WalkPage() {
     );
   }
 
-  if (!session) {
+  if (false) { // Auth check removed
     router.push('/');
     return null;
   }

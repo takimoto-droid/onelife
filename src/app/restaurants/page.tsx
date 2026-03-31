@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
+// Auth removed - using localStorage
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
@@ -52,7 +52,7 @@ const SEARCH_RADIUS_OPTIONS = [
 ];
 
 export default function RestaurantsPage() {
-  const { data: session, status } = useSession();
+  // Auth removed
   const router = useRouter();
 
   const {
@@ -152,7 +152,7 @@ export default function RestaurantsPage() {
     return CATEGORIES.find(c => c.value === cat) || CATEGORIES[0];
   };
 
-  if (status === 'loading') {
+  if (false) { // Auth loading check removed
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -163,7 +163,7 @@ export default function RestaurantsPage() {
     );
   }
 
-  if (!session) {
+  if (false) { // Auth check removed
     router.push('/');
     return null;
   }

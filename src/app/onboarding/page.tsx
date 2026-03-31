@@ -1,76 +1,49 @@
 'use client';
 
 import { useState } from 'react';
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
+import { saveDog, saveUser } from '@/lib/store';
 
-type UserType = 'new_owner' | 'reviewing' | 'want_dog' | null;
+type UserType = 'new_owner' | 'reviewing' | 'want_dog' | undefined;
 
 export default function OnboardingPage() {
-  const { data: session, status } = useSession();
   const router = useRouter();
   const [step, setStep] = useState(1);
-  const [userType, setUserType] = useState<UserType>(null);
+  const [userType, setUserType] = useState<UserType>(undefined);
   const [dogName, setDogName] = useState('');
   const [loading, setLoading] = useState(false);
 
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-pink-200 border-t-pink-500 rounded-full" />
-      </div>
-    );
-  }
-
-  if (!session) {
-    router.push('/');
-    return null;
-  }
-
-  const handleSelectUserType = async (type: UserType) => {
+  const handleSelectUserType = (type: UserType) => {
     setUserType(type);
 
     // 「これから犬を飼いたい」の場合は犬種診断へ
     if (type === 'want_dog') {
+      saveUser({ userType: type, onboarded: true });
       router.push('/breed-match');
       return;
     }
 
     // ユーザータイプを保存
-    try {
-      await fetch('/api/user/type', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userType: type }),
-      });
-    } catch (error) {
-      console.error('Failed to save user type:', error);
-    }
+    saveUser({ userType: type });
     setStep(3);
   };
 
-  const handleContinue = async () => {
+  const handleContinue = () => {
     if (step === 1) {
       setStep(2);
     } else if (step === 3) {
       if (!dogName.trim()) return;
 
       setLoading(true);
-      try {
-        // 犬の情報を保存
-        await fetch('/api/dogs', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: dogName }),
-        });
 
-        router.push('/hearing');
-      } catch {
-        setLoading(false);
-      }
+      // 犬の情報をlocalStorageに保存
+      saveDog({ name: dogName });
+      saveUser({ onboarded: true });
+
+      router.push('/hearing');
     }
   };
 
@@ -205,7 +178,7 @@ export default function OnboardingPage() {
                         AIがあなたにぴったりの犬種を診断！
                       </p>
                       <span className="inline-block mt-2 text-xs bg-pink-100 text-pink-600 px-2 py-1 rounded-full">
-                        🆕 犬種診断
+                        犬種診断
                       </span>
                     </div>
                   </div>
@@ -221,15 +194,18 @@ export default function OnboardingPage() {
 
               {/* スキップボタン */}
               <button
-                onClick={() => router.push('/dashboard')}
+                onClick={() => {
+                  saveUser({ onboarded: true });
+                  setStep(3);
+                }}
                 className="w-full py-4 text-center text-brown-500 hover:text-pink-500 transition-colors rounded-2xl border-2 border-dashed border-cream-200 hover:border-pink-200 hover:bg-pink-50"
               >
                 <span className="flex items-center justify-center gap-2">
                   <span>⏭️</span>
-                  <span className="font-medium">保険の見直しをスキップする</span>
+                  <span className="font-medium">スキップして犬を登録</span>
                 </span>
                 <span className="block text-xs text-brown-400 mt-1">
-                  すぐにダッシュボードへ移動します
+                  すぐに愛犬の情報を登録します
                 </span>
               </button>
 

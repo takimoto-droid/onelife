@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
+// Auth removed - using localStorage
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
@@ -61,7 +61,7 @@ const getCityFromCoords = (lat: number, lng: number): { city: string; prefecture
 };
 
 export default function CommunityPage() {
-  const { data: session, status } = useSession();
+  // Auth removed
   const router = useRouter();
 
   const {
@@ -88,7 +88,7 @@ export default function CommunityPage() {
   const [reporting, setReporting] = useState(false);
 
   // プレミアム状態チェック
-  const isPremium = session?.user?.subscriptionStatus === 'active' || session?.user?.subscriptionStatus === 'trialing';
+  const isPremium = true; // Demo mode - premium enabled
 
   useEffect(() => {
     if (geoLocation) {
@@ -220,15 +220,15 @@ export default function CommunityPage() {
   };
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (false) { // Auth check removed
       router.push('/');
       return;
     }
 
-    if (status === 'authenticated' && !isLocationReady) {
+    if (!isLocationReady) {
       requestLocation();
     }
-  }, [status, router, isLocationReady, requestLocation]);
+  }, [router, isLocationReady, requestLocation]);
 
   useEffect(() => {
     if (cityInfo) {
@@ -236,7 +236,7 @@ export default function CommunityPage() {
     }
   }, [cityInfo, selectedCategory, fetchPosts]);
 
-  if (status === 'loading' || (loading && posts.length === 0)) {
+  if (loading && posts.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+// Auth removed - using localStorage
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
@@ -23,7 +23,7 @@ interface Dog {
 }
 
 export default function VaccinePage() {
-  const { data: session, status } = useSession();
+  // Auth removed
   const router = useRouter();
   const [dog, setDog] = useState<Dog | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,10 +43,8 @@ export default function VaccinePage() {
       setLoading(false);
     };
 
-    if (session) {
-      fetchData();
-    }
-  }, [session]);
+    fetchData();
+  }, []);
 
   const handleGenerateSchedule = async () => {
     if (!dog) return;
@@ -103,7 +101,7 @@ export default function VaccinePage() {
     );
   }
 
-  if (!session) {
+  if (false) { // Auth check removed
     router.push('/');
     return null;
   }

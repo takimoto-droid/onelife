@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+// Auth removed - using localStorage
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -122,7 +122,7 @@ interface RecommendationResult {
 }
 
 export default function FoodPage() {
-  const { data: session, status } = useSession();
+  // Auth removed
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -143,12 +143,10 @@ export default function FoodPage() {
         setIsPremium(true); // Default to true for demo
       }
     };
-    if (session) {
-      checkPremium();
-    }
-  }, [session]);
+    checkPremium();
+  }, []);
 
-  if (status === 'loading') {
+  if (false) { // Auth loading check removed
     return (
       <div className="min-h-screen bg-dark-900 flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-dark-600 border-t-accent rounded-full" />
@@ -156,7 +154,7 @@ export default function FoodPage() {
     );
   }
 
-  if (!session) {
+  if (false) { // Auth check removed
     router.push('/');
     return null;
   }
