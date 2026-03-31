@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-// Auth removed - using localStorage
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { AFFILIATE_DISPLAY } from '@/lib/affiliate';
+import { getDogs, getSelectedDogId } from '@/lib/store';
 
 interface InsuranceRecommendation {
   id: string;
@@ -32,26 +32,55 @@ interface DogInfo {
 }
 
 export default function InsurancePage() {
-  // Auth removed
   const router = useRouter();
   const [recommendations, setRecommendations] = useState<InsuranceRecommendation[]>([]);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [dogInfo, setDogInfo] = useState<DogInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasHearingData, setHasHearingData] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch('/api/ai/insurance');
-        const data = await res.json();
-        if (data.recommendations) {
-          setRecommendations(data.recommendations);
-        }
-        if (data.aiAnalysis) {
-          setAiAnalysis(data.aiAnalysis);
-        }
-        if (data.dogInfo) {
-          setDogInfo(data.dogInfo);
+        // localStorageから犬の情報を取得
+        const dogs = getDogs();
+        const selectedId = getSelectedDogId();
+        const dog = selectedId
+          ? dogs.find(d => d.id === selectedId) || dogs[0]
+          : dogs[0];
+
+        if (dog) {
+          // ヒアリングデータがあるかチェック
+          const hasData = !!(dog.dogSize || dog.hasDisease !== undefined || dog.visitFrequency || dog.anxietyLevel);
+          setHasHearingData(hasData);
+
+          // POSTでヒアリングデータを送信して、AIおすすめ保険を取得
+          const res = await fetch('/api/ai/insurance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dog }),
+          });
+          const data = await res.json();
+
+          if (data.recommendations) {
+            setRecommendations(data.recommendations);
+          }
+          if (data.aiAnalysis) {
+            setAiAnalysis(data.aiAnalysis);
+          }
+          if (data.dogInfo) {
+            setDogInfo(data.dogInfo);
+          }
+        } else {
+          // 犬がいない場合はデフォルトを取得
+          const res = await fetch('/api/ai/insurance');
+          const data = await res.json();
+          if (data.recommendations) {
+            setRecommendations(data.recommendations);
+          }
+          if (data.aiAnalysis) {
+            setAiAnalysis(data.aiAnalysis);
+          }
         }
       } catch (error) {
         console.error('Failed to fetch insurance:', error);
@@ -65,14 +94,13 @@ export default function InsurancePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-warm-50 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary-200 border-t-primary-500 rounded-full" />
+        <div className="text-center">
+          <div className="text-5xl mb-4 animate-bounce">🛡️</div>
+          <div className="animate-spin w-8 h-8 border-4 border-primary-200 border-t-primary-500 rounded-full mx-auto" />
+          <p className="mt-4 text-brown-500">AIがおすすめ保険を分析中...</p>
+        </div>
       </div>
     );
-  }
-
-  if (false) { // Auth check removed
-    router.push('/');
-    return null;
   }
 
   const getSizeLabel = (size: string | null) => {
@@ -94,7 +122,7 @@ export default function InsurancePage() {
       <header className="bg-white border-b border-warm-200 p-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <Link href="/dashboard">
-            <h1 className="text-xl font-bold text-primary-600">わんサポ</h1>
+            <h1 className="text-xl font-bold text-primary-600">わんライフ</h1>
           </Link>
           <Link href="/dashboard" className="text-primary-600 text-sm">
             戻る
@@ -104,9 +132,9 @@ export default function InsurancePage() {
 
       <main className="max-w-2xl mx-auto p-4 py-6">
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-2xl">🏆</span>
+          <span className="text-2xl">🤖</span>
           <h2 className="text-2xl font-bold text-primary-900">
-            おすすめ保険
+            AIおすすめ保険
           </h2>
         </div>
         {dogInfo && (
@@ -116,8 +144,28 @@ export default function InsurancePage() {
             {dogInfo.size && `・${getSizeLabel(dogInfo.size)}`}
             {dogInfo.age && `・${dogInfo.age}`}
             {(dogInfo.breed || dogInfo.size || dogInfo.age) && '）'}
-            に合った保険をご提案
+            のヒアリング結果から、AIが厳選した3つの保険をご提案します
           </p>
+        )}
+
+        {/* ヒアリング未完了の場合 */}
+        {!hasHearingData && (
+          <Card className="mb-6 bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-200">
+            <div className="text-center py-2">
+              <div className="text-4xl mb-3">📝</div>
+              <h3 className="font-bold text-primary-900 mb-2">
+                より正確なおすすめを受けるには
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                ヒアリングに回答すると、あなたのワンちゃんに最適な保険を提案できます
+              </p>
+              <Link href="/hearing">
+                <Button className="w-full">
+                  ヒアリングに回答する
+                </Button>
+              </Link>
+            </div>
+          </Card>
         )}
 
         {/* AIからのアドバイス */}
@@ -137,49 +185,14 @@ export default function InsurancePage() {
           </Card>
         )}
 
-        {/* 保険比較CTAカード */}
-        <Card className="mb-6 bg-gradient-to-br from-blue-50 to-primary-50 border-2 border-blue-200">
-          <div className="text-center py-2">
-            <div className="inline-flex items-center justify-center w-14 h-14 bg-white rounded-full shadow-sm mb-3">
-              <span className="text-2xl">🔍</span>
-            </div>
-            <h3 className="font-bold text-primary-900 mb-2">
-              保険を比較してみませんか？
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              {AFFILIATE_DISPLAY.insurance.description}
-            </p>
-            <Link href="/insurance-compare">
-              <Button className="w-full bg-gradient-to-r from-blue-500 to-blue-600">
-                <span className="flex items-center justify-center gap-2">
-                  <span>🛡️</span>
-                  保険見直し診断を受ける
-                </span>
-              </Button>
-            </Link>
-            <p className="text-xs text-gray-400 mt-2">
-              簡単な質問に答えるだけで最適な保険がわかります
-            </p>
-          </div>
-        </Card>
+        {/* 保険リスト（3つ） */}
+        <div className="mb-6">
+          <h3 className="text-lg font-bold text-primary-900 mb-4 flex items-center gap-2">
+            <span>🏆</span>
+            おすすめ保険 TOP3
+          </h3>
+        </div>
 
-        {/* 重要な注意 */}
-        <Card variant="warm" className="mb-6">
-          <div className="flex items-start gap-3">
-            <span className="text-2xl">💡</span>
-            <div>
-              <h3 className="font-bold text-primary-900 mb-1">
-                ご検討の参考に
-              </h3>
-              <p className="text-sm text-gray-700">
-                ペット保険は任意です。ここでは参考情報としてご案内しています。
-                加入を強制するものではありませんので、ご自身のペースでご検討ください。
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        {/* 保険リスト */}
         <div className="space-y-6 mb-8">
           {recommendations.map((insurance) => (
             <Card
@@ -207,7 +220,7 @@ export default function InsurancePage() {
                 )}
                 {insurance.recommended && (
                   <div className="inline-block bg-primary-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-                    おすすめ
+                    AIおすすめ
                   </div>
                 )}
               </div>
@@ -297,6 +310,48 @@ export default function InsurancePage() {
           ))}
         </div>
 
+        {/* 保険比較CTAカード */}
+        <Card className="mb-6 bg-gradient-to-br from-blue-50 to-primary-50 border-2 border-blue-200">
+          <div className="text-center py-2">
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-white rounded-full shadow-sm mb-3">
+              <span className="text-2xl">🔍</span>
+            </div>
+            <h3 className="font-bold text-primary-900 mb-2">
+              もっと詳しく比較したい方へ
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {AFFILIATE_DISPLAY.insurance.description}
+            </p>
+            <Link href="/insurance-compare">
+              <Button className="w-full bg-gradient-to-r from-blue-500 to-blue-600">
+                <span className="flex items-center justify-center gap-2">
+                  <span>🛡️</span>
+                  保険見直し診断を受ける
+                </span>
+              </Button>
+            </Link>
+            <p className="text-xs text-gray-400 mt-2">
+              簡単な質問に答えるだけで最適な保険がわかります
+            </p>
+          </div>
+        </Card>
+
+        {/* 重要な注意 */}
+        <Card variant="warm" className="mb-6">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">💡</span>
+            <div>
+              <h3 className="font-bold text-primary-900 mb-1">
+                ご検討の参考に
+              </h3>
+              <p className="text-sm text-gray-700">
+                ペット保険は任意です。ここでは参考情報としてご案内しています。
+                加入を強制するものではありませんので、ご自身のペースでご検討ください。
+              </p>
+            </div>
+          </div>
+        </Card>
+
         {/* ペット保険について */}
         <Card className="mb-6">
           <h3 className="font-bold text-primary-900 mb-4">
@@ -339,7 +394,7 @@ export default function InsurancePage() {
           <p>
             ※ 表示されている保険料は目安であり、犬種・年齢・プランによって異なります。
             正確な保険料は各保険会社の公式サイトでご確認ください。
-            わんサポは保険の販売・仲介を行っておらず、特定の保険を推奨するものではありません。
+            わんライフは保険の販売・仲介を行っておらず、特定の保険を推奨するものではありません。
             保険への加入は、ご自身の判断と責任のもとで行ってください。
           </p>
         </div>

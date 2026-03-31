@@ -1,7 +1,4 @@
-import { NextResponse } from 'next/server';
-
-
-import prisma from '@/lib/prisma';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAIResponse } from '@/lib/openai';
 
 // 実際の日本のペット保険サービス
@@ -224,6 +221,7 @@ const BREED_RISKS: Record<string, { risk: string; diseases: string[] }> = {
 };
 
 interface DogProfile {
+  name: string;
   dogSize: string | null;
   ageInMonths: number;
   hasDisease: boolean | null;
@@ -385,37 +383,14 @@ function generateReasonText(
   return `${intro}${mainReasons}のでおすすめです。`;
 }
 
-export async function GET() {
+// ヒアリングデータを受け取って保険を推薦
+export async function POST(request: NextRequest) {
   try {
-    
-
-    if (false) { // Auth removed
-      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
-    }
-
-    // 犬の情報を取得
-    const dogs = await prisma.dog.findMany({
-      where: { userId: "demo-user" },
-    });
-
-    const dog = dogs[0];
+    const body = await request.json();
+    const { dog } = body;
 
     if (!dog) {
-      // 犬の情報がない場合はデフォルトの推薦
-      const defaultRecs = INSURANCES.slice(0, 3).map((ins, index) => ({
-        ...ins,
-        monthlyPrice: ins.monthlyPrice.small,
-        rank: index + 1,
-        matchScore: 50,
-        reason: '一般的におすすめのプランです。',
-        recommended: index === 0,
-      }));
-
-      return NextResponse.json({
-        recommendations: defaultRecs,
-        aiAnalysis: null,
-        dogInfo: null,
-      });
+      return NextResponse.json({ error: '犬の情報が必要です' }, { status: 400 });
     }
 
     // 年齢を計算
@@ -437,17 +412,18 @@ export async function GET() {
 
     // 犬のプロファイルを作成
     const profile: DogProfile = {
-      dogSize: dog.dogSize,
+      name: dog.name || 'ワンちゃん',
+      dogSize: dog.dogSize || null,
       ageInMonths,
-      hasDisease: dog.hasDisease,
-      visitFrequency: dog.visitFrequency,
-      livingEnv: dog.livingEnv,
-      walkFrequency: dog.walkFrequency,
+      hasDisease: dog.hasDisease ?? null,
+      visitFrequency: dog.visitFrequency || null,
+      livingEnv: dog.livingEnv || null,
+      walkFrequency: dog.walkFrequency || null,
       isMultiDog: dog.isMultiDog || false,
-      anxietyLevel: dog.anxietyLevel,
-      breed: dog.breed,
-      hasCurrentInsurance: dog.hasCurrentInsurance,
-      insuranceConcern: dog.insuranceConcern,
+      anxietyLevel: dog.anxietyLevel || null,
+      breed: dog.breed || null,
+      hasCurrentInsurance: dog.hasCurrentInsurance ?? null,
+      insuranceConcern: dog.insuranceConcern || null,
     };
 
     // 各保険のスコアを計算
@@ -459,27 +435,27 @@ export async function GET() {
       };
     });
 
-    // 加入可能な保険をスコア順にソート
+    // 加入可能な保険をスコア順にソート（3つに限定）
     const validInsurances = scoredInsurances
       .filter((item) => !item.disqualified)
       .sort((a, b) => b.score - a.score)
       .slice(0, 3);
 
     // 犬種のリスク情報を取得
-    const breedRisk = dog.breed ? BREED_RISKS[dog.breed] || null : null;
+    const breedRisk = profile.breed ? BREED_RISKS[profile.breed] || null : null;
 
     // AIによる分析
     let aiAnalysis = null;
     const systemPrompt = `あなたはペット保険の専門家です。以下の犬の情報を分析して、保険選びのアドバイスを2-3文で簡潔に提供してください。押し売りは絶対にしないでください。
 
 犬の情報:
-- 名前: ${dog.name}
-- 犬種: ${dog.breed || '不明'}
+- 名前: ${profile.name}
+- 犬種: ${profile.breed || '不明'}
 - 年齢: ${ageText}
-- サイズ: ${dog.dogSize === 'small' ? '小型犬' : dog.dogSize === 'medium' ? '中型犬' : dog.dogSize === 'large' ? '大型犬' : '不明'}
-- 持病: ${dog.hasDisease === true ? 'あり' : dog.hasDisease === false ? 'なし' : '不明'}
-- 通院頻度: ${dog.visitFrequency || '不明'}
-- 医療費の不安度: ${dog.anxietyLevel || '不明'}/5
+- サイズ: ${profile.dogSize === 'small' ? '小型犬' : profile.dogSize === 'medium' ? '中型犬' : profile.dogSize === 'large' ? '大型犬' : '不明'}
+- 持病: ${profile.hasDisease === true ? 'あり' : profile.hasDisease === false ? 'なし' : '不明'}
+- 通院頻度: ${profile.visitFrequency || '不明'}
+- 医療費の不安度: ${profile.anxietyLevel || '不明'}/5
 ${breedRisk ? `- この犬種の注意すべき疾患: ${breedRisk.diseases.join(', ')}` : ''}
 
 アドバイスは具体的で、この犬に特化した内容にしてください。`;
@@ -492,18 +468,18 @@ ${breedRisk ? `- この犬種の注意すべき疾患: ${breedRisk.diseases.join
     } catch {
       // AIが使えない場合はモック
       if (breedRisk && breedRisk.diseases.length > 0) {
-        aiAnalysis = `${dog.name}ちゃん（${dog.breed}）は、${breedRisk.risk}などに注意が必要な犬種です。通院補償が充実したプランを検討されることをおすすめします。`;
+        aiAnalysis = `${profile.name}ちゃん（${profile.breed}）は、${breedRisk.risk}などに注意が必要な犬種です。通院補償が充実したプランを検討されることをおすすめします。`;
       } else if (ageInMonths < 12) {
-        aiAnalysis = `${dog.name}ちゃんはまだ子犬なので、今のうちに保険に加入しておくと保険料を抑えられます。成長とともに病気のリスクも変わってくるので、通院・手術両方カバーできるプランがおすすめです。`;
+        aiAnalysis = `${profile.name}ちゃんはまだ子犬なので、今のうちに保険に加入しておくと保険料を抑えられます。成長とともに病気のリスクも変わってくるので、通院・手術両方カバーできるプランがおすすめです。`;
       } else if (ageInMonths >= 84) {
-        aiAnalysis = `${dog.name}ちゃんはシニア期に入っているので、保険料が上がりにくいプランがおすすめです。高齢になると医療費も増える傾向があるので、今のうちに備えておくと安心です。`;
+        aiAnalysis = `${profile.name}ちゃんはシニア期に入っているので、保険料が上がりにくいプランがおすすめです。高齢になると医療費も増える傾向があるので、今のうちに備えておくと安心です。`;
       } else {
-        aiAnalysis = `${dog.name}ちゃんの生活スタイルに合った保険を選ぶことが大切です。保険料と補償内容のバランスを見て、無理のない範囲で検討してみてください。`;
+        aiAnalysis = `${profile.name}ちゃんの生活スタイルに合った保険を選ぶことが大切です。保険料と補償内容のバランスを見て、無理のない範囲で検討してみてください。`;
       }
     }
 
-    // レコメンデーションを生成
-    const size = (dog.dogSize || 'small') as 'small' | 'medium' | 'large';
+    // レコメンデーションを生成（3つ）
+    const size = (profile.dogSize || 'small') as 'small' | 'medium' | 'large';
     const recommendations = validInsurances.map((item, index) => ({
       id: item.insurance.id,
       name: item.insurance.name,
@@ -524,11 +500,45 @@ ${breedRisk ? `- この犬種の注意すべき疾患: ${breedRisk.diseases.join
       recommendations,
       aiAnalysis,
       dogInfo: {
-        name: dog.name,
-        breed: dog.breed,
+        name: profile.name,
+        breed: profile.breed,
         age: ageText,
-        size: dog.dogSize,
+        size: profile.dogSize,
       },
+    });
+  } catch (error) {
+    console.error('Insurance API error:', error);
+    return NextResponse.json(
+      { error: 'エラーが発生しました' },
+      { status: 500 }
+    );
+  }
+}
+
+// GETリクエスト用（デフォルトの保険3つを返す）
+export async function GET() {
+  try {
+    // デフォルトの推薦（上位3つ）
+    const defaultRecs = INSURANCES.slice(0, 3).map((ins, index) => ({
+      id: ins.id,
+      name: ins.name,
+      company: ins.company,
+      monthlyPrice: ins.monthlyPrice.small,
+      coveragePercent: ins.coveragePercent,
+      features: ins.featureList,
+      pros: ins.pros,
+      cons: ins.cons,
+      url: ins.url,
+      rank: index + 1,
+      matchScore: 50,
+      reason: ins.targetUser + 'におすすめです。',
+      recommended: index === 0,
+    }));
+
+    return NextResponse.json({
+      recommendations: defaultRecs,
+      aiAnalysis: 'ペット保険は、愛犬の医療費に備えるための大切な選択肢です。補償内容と保険料のバランスを見て、ご自身に合ったプランを選んでください。',
+      dogInfo: null,
     });
   } catch (error) {
     console.error('Insurance API error:', error);

@@ -45,9 +45,9 @@ export default function Home() {
   const freeFeatures = [
     { icon: '🚶', title: '散歩ナビ', desc: '最適なルートを提案' },
     { icon: '🏥', title: '周辺施設検索', desc: '動物病院・ペットショップ' },
-    { icon: '📅', title: 'イベント情報', desc: '犬関連イベントを検索' },
+    { icon: '📰', title: '最新ニュース', desc: 'ワンちゃんの情報' },
     { icon: '📸', title: 'SNS投稿', desc: '愛犬の写真を共有' },
-    { icon: '🐕', title: '犬種診断', desc: '相性の良い犬種を診断' },
+    { icon: '🛡️', title: 'AI保険診断', desc: 'おすすめ保険を提案' },
     { icon: '🍽️', title: 'ペット飲食店', desc: '同伴OKのお店を検索' },
   ];
 
