@@ -73,14 +73,6 @@ export default function DashboardPage() {
       iconBg: 'bg-mint-100',
     },
     {
-      href: '/community',
-      icon: '🐕',
-      title: 'ご近所',
-      description: '匿名コミュニティ',
-      bgColor: 'bg-pink-50',
-      iconBg: 'bg-pink-100',
-    },
-    {
       href: '/news',
       icon: '📰',
       title: '最新ニュース',
