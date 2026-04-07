@@ -51,11 +51,6 @@ export default function Home() {
     { icon: '🍽️', title: 'ペット飲食店', desc: '同伴OKのお店を検索' },
   ];
 
-  // プレミアム機能
-  const premiumFeatures = [
-    { icon: '🍳', title: 'AIレシピ', desc: 'AIがレシピを生成' },
-    { icon: '💊', title: '健康アドバイス', desc: 'AIが健康をサポート' },
-  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-cream-50 to-pink-50">
@@ -100,29 +95,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* プレミアム機能 */}
-            <div>
-              <h3 className="text-sm font-bold text-brown-400 mb-2 flex items-center gap-2">
-                <span className="premium-badge text-[10px]">Premium</span> プレミアム機能
-              </h3>
-              <div className="grid grid-cols-2 gap-3">
-                {premiumFeatures.map((feature) => (
-                  <Card key={feature.title} variant="feature" className="p-3 opacity-80">
-                    <div className="text-xl mb-1">{feature.icon}</div>
-                    <h4 className="font-bold text-brown-700 text-sm">{feature.title}</h4>
-                    <p className="text-xs text-brown-400">{feature.desc}</p>
-                  </Card>
-                ))}
-              </div>
-            </div>
-
-            <div className="p-4 bg-green-50 border border-green-200 rounded-xl mt-4">
-              <p className="text-sm text-green-700">
-                <span className="font-bold">基本機能はすべて無料！</span>
-                <br />
-                <span className="text-green-600">プレミアム機能のみ月額680円</span>
-              </p>
-            </div>
           </div>
 
           {/* CTAカード */}
