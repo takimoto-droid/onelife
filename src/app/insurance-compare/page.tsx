@@ -7,13 +7,154 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import {
-  generateAffiliateUrl,
-  trackAffiliateClick,
-  AFFILIATE_DISPLAY,
   DOG_BREEDS,
   VISIT_FREQUENCY_OPTIONS,
-  DogInfoForAffiliate,
 } from '@/lib/affiliate';
+
+// 保険データ
+interface InsuranceData {
+  id: string;
+  name: string;
+  company: string;
+  monthlyPrice: { small: number; medium: number; large: number };
+  coveragePercent: number;
+  seniorAcceptable: boolean;
+  diseaseAcceptable: boolean;
+  features: string[];
+  url: string;
+}
+
+const INSURANCES: InsuranceData[] = [
+  {
+    id: 'anicom',
+    name: 'どうぶつ健保ふぁみりぃ',
+    company: 'アニコム損害保険',
+    monthlyPrice: { small: 2500, medium: 3200, large: 4000 },
+    coveragePercent: 70,
+    seniorAcceptable: true,
+    diseaseAcceptable: false,
+    features: ['業界最大手', '窓口精算対応', '24時間相談'],
+    url: 'https://www.anicom-sompo.co.jp/',
+  },
+  {
+    id: 'ipet',
+    name: 'うちの子',
+    company: 'アイペット損害保険',
+    monthlyPrice: { small: 2200, medium: 2800, large: 3500 },
+    coveragePercent: 70,
+    seniorAcceptable: true,
+    diseaseAcceptable: false,
+    features: ['窓口精算対応', 'フルカバー', '保険料安定'],
+    url: 'https://www.ipet-ins.com/',
+  },
+  {
+    id: 'ps',
+    name: 'PS保険',
+    company: 'ペットメディカルサポート',
+    monthlyPrice: { small: 1500, medium: 2000, large: 2500 },
+    coveragePercent: 50,
+    seniorAcceptable: true,
+    diseaseAcceptable: true,
+    features: ['業界最安クラス', '歯科治療対象', '免責金額なし'],
+    url: 'https://pshoken.co.jp/',
+  },
+  {
+    id: 'fpc',
+    name: 'FPCフリーペットほけん',
+    company: 'FPC',
+    monthlyPrice: { small: 1200, medium: 1600, large: 2000 },
+    coveragePercent: 50,
+    seniorAcceptable: false,
+    diseaseAcceptable: false,
+    features: ['業界最安', 'シンプル', '値上がり小'],
+    url: 'https://www.fpc-pet.co.jp/',
+  },
+  {
+    id: 'petfamily',
+    name: 'げんきナンバーわんスリム',
+    company: 'ペット＆ファミリー損害保険',
+    monthlyPrice: { small: 1800, medium: 2300, large: 2800 },
+    coveragePercent: 70,
+    seniorAcceptable: true,
+    diseaseAcceptable: false,
+    features: ['シニア安心', '大手グループ', '保険料安定'],
+    url: 'https://www.petfamilyins.co.jp/',
+  },
+];
+
+// 最適な保険を選ぶ関数
+function selectBestInsurance(data: DiagnosisData): { insurance: InsuranceData; reason: string } {
+  const age = parseInt(data.age) || 0;
+  const weight = parseFloat(data.weight) || 5;
+  const hasCondition = data.hasCondition;
+  const visitFrequency = data.visitFrequency;
+
+  // サイズ判定
+  const size: 'small' | 'medium' | 'large' = weight < 10 ? 'small' : weight < 25 ? 'medium' : 'large';
+
+  // フィルタリング
+  let candidates = INSURANCES.filter(ins => {
+    if (age >= 7 && !ins.seniorAcceptable) return false;
+    if (hasCondition && !ins.diseaseAcceptable) return false;
+    return true;
+  });
+
+  if (candidates.length === 0) {
+    candidates = [INSURANCES[2]]; // PS保険（持病OK）
+  }
+
+  // スコアリング
+  let bestInsurance = candidates[0];
+  let bestScore = 0;
+  let reason = '';
+
+  for (const ins of candidates) {
+    let score = 0;
+
+    // 通院頻度が高い→補償率重視
+    if (visitFrequency === 'high' || visitFrequency === 'medium') {
+      if (ins.coveragePercent >= 70) score += 30;
+    }
+
+    // 通院頻度が低い→コスパ重視
+    if (visitFrequency === 'low' || visitFrequency === 'none') {
+      if (ins.monthlyPrice[size] <= 1800) score += 30;
+    }
+
+    // シニア犬
+    if (age >= 7 && ins.seniorAcceptable) {
+      score += 20;
+    }
+
+    // 持病あり
+    if (hasCondition && ins.diseaseAcceptable) {
+      score += 25;
+    }
+
+    // 若い犬→コスパ重視
+    if (age < 3) {
+      if (ins.monthlyPrice[size] <= 2000) score += 15;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestInsurance = ins;
+    }
+  }
+
+  // 理由生成
+  if (hasCondition) {
+    reason = `持病があっても加入しやすく、${bestInsurance.features[0]}が特徴です`;
+  } else if (age >= 7) {
+    reason = `シニア犬でも安心して加入でき、${bestInsurance.features[0]}が魅力です`;
+  } else if (visitFrequency === 'high' || visitFrequency === 'medium') {
+    reason = `通院が多めなので補償${bestInsurance.coveragePercent}%の手厚いプランがおすすめです`;
+  } else {
+    reason = `コストパフォーマンスが良く、${bestInsurance.features[0]}が特徴です`;
+  }
+
+  return { insurance: bestInsurance, reason };
+}
 
 // ================================================
 // 保険比較診断ページ（マネタイズ機能）
@@ -51,7 +192,7 @@ export default function InsuranceComparePage() {
     visitFrequency: '',
     hasCondition: false,
   });
-  const [affiliateUrl, setAffiliateUrl] = useState<string>('');
+  const [recommendedInsurance, setRecommendedInsurance] = useState<{ insurance: InsuranceData; reason: string } | null>(null);
 
   // 既存の犬情報を取得
   useEffect(() => {
@@ -86,34 +227,18 @@ export default function InsuranceComparePage() {
     return years;
   };
 
-  // 診断完了時にアフィリエイトURLを生成
+  // 診断完了時に最適な保険を選択
   const completeDiagnosis = () => {
-    const dogInfo: DogInfoForAffiliate = {
-      breed: data.breed,
-      age: parseInt(data.age) || 0,
-      weight: parseFloat(data.weight) || 0,
-      visitFrequency: data.visitFrequency,
-      hasCondition: data.hasCondition,
-    };
-
-    const url = generateAffiliateUrl(dogInfo);
-    setAffiliateUrl(url);
+    const result = selectBestInsurance(data);
+    setRecommendedInsurance(result);
     setStep('result');
   };
 
-  // 外部サイトへ遷移
-  const handleAffiliateClick = () => {
-    // トラッキング
-    trackAffiliateClick('insurance_comparison', {
-      breed: data.breed,
-      age: parseInt(data.age) || 0,
-      weight: parseFloat(data.weight) || 0,
-      visitFrequency: data.visitFrequency,
-      hasCondition: data.hasCondition,
-    });
-
-    // 新しいタブで開く
-    window.open(affiliateUrl, '_blank', 'noopener,noreferrer');
+  // 保険サイトへ遷移
+  const handleInsuranceClick = () => {
+    if (recommendedInsurance) {
+      window.open(recommendedInsurance.insurance.url, '_blank', 'noopener,noreferrer');
+    }
   };
 
   // ローディング
@@ -402,52 +527,77 @@ export default function InsuranceComparePage() {
             </div>
           </Card>
 
-          {/* メインCTAカード */}
-          <Card className="p-6 mb-6 bg-gradient-to-br from-blue-50 to-pink-50 border-2 border-blue-200">
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full shadow-soft mb-4">
-                <span className="text-3xl">🛡️</span>
+          {/* おすすめ保険カード */}
+          {recommendedInsurance && (
+            <Card className="p-6 mb-6 bg-gradient-to-br from-blue-50 to-pink-50 border-2 border-blue-200">
+              <div className="text-center mb-4">
+                <div className="inline-flex items-center gap-1 bg-yellow-400 text-yellow-900 text-sm font-bold px-4 py-1 rounded-full mb-4">
+                  <span>🥇</span> あなたに最適な保険
+                </div>
               </div>
-              <h3 className="text-xl font-bold text-brown-700 mb-2">
-                あなたの犬に合う保険をチェック
-              </h3>
-              <p className="text-brown-500 mb-4">
-                おすすめの保険を比較して、最適な保険を見つけましょう。
-              </p>
 
-              {/* メリット表示 */}
-              <div className="bg-white/80 rounded-xl p-4 mb-6">
-                <ul className="space-y-2 text-left">
-                  {AFFILIATE_DISPLAY.insurance.benefits.map((benefit, index) => (
-                    <li key={index} className="flex items-center gap-2 text-sm text-brown-600">
-                      <span className="text-green-500">✓</span>
-                      {benefit}
-                    </li>
+              {/* 保険詳細 */}
+              <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 className="text-xl font-bold text-brown-800">
+                      {recommendedInsurance.insurance.name}
+                    </h3>
+                    <p className="text-sm text-brown-500">{recommendedInsurance.insurance.company}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-blue-600">
+                      ¥{recommendedInsurance.insurance.monthlyPrice.small.toLocaleString()}〜
+                    </p>
+                    <p className="text-xs text-brown-400">/ 月</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mb-4">
+                  <span className="bg-blue-100 text-blue-700 text-sm font-medium px-3 py-1 rounded-full">
+                    補償 {recommendedInsurance.insurance.coveragePercent}%
+                  </span>
+                  {recommendedInsurance.insurance.seniorAcceptable && (
+                    <span className="bg-green-100 text-green-700 text-sm font-medium px-3 py-1 rounded-full">
+                      シニアOK
+                    </span>
+                  )}
+                </div>
+
+                {/* おすすめ理由 */}
+                <div className="p-3 bg-yellow-50 rounded-xl mb-4">
+                  <p className="text-sm text-brown-700">
+                    <span className="font-bold">💡 おすすめ理由：</span>
+                    {recommendedInsurance.reason}
+                  </p>
+                </div>
+
+                {/* 特徴 */}
+                <div className="flex flex-wrap gap-2">
+                  {recommendedInsurance.insurance.features.map((feature, i) => (
+                    <span key={i} className="bg-cream-100 text-brown-600 text-xs px-3 py-1 rounded-full">
+                      {feature}
+                    </span>
                   ))}
-                </ul>
+                </div>
               </div>
 
-              {/* 無料説明 */}
-              <p className="text-sm text-blue-600 font-medium mb-4">
-                🆓 {AFFILIATE_DISPLAY.insurance.description}
-              </p>
-
-              {/* メインCTAボタン */}
+              {/* CTAボタン */}
               <Button
-                onClick={handleAffiliateClick}
+                onClick={handleInsuranceClick}
                 className="w-full py-4 text-lg bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
               >
                 <span className="flex items-center justify-center gap-2">
-                  <span>🔍</span>
-                  {AFFILIATE_DISPLAY.insurance.ctaText}
+                  <span>🛡️</span>
+                  {recommendedInsurance.insurance.name}の公式サイトへ
                 </span>
               </Button>
 
-              <p className="text-xs text-brown-400 mt-3">
-                外部の保険比較サイトに移動します
+              <p className="text-xs text-brown-400 mt-3 text-center">
+                {recommendedInsurance.insurance.company}の公式サイトに移動します
               </p>
-            </div>
-          </Card>
+            </Card>
+          )}
 
           {/* 注意事項 */}
           <Card variant="warm" className="p-4 mb-6">
@@ -478,14 +628,15 @@ export default function InsuranceComparePage() {
               onClick={() => {
                 setStep('input');
                 setCurrentQuestion(0);
+                setRecommendedInsurance(null);
               }}
               className="flex-1"
             >
               もう一度診断する
             </Button>
-            <Link href="/insurance" className="flex-1">
+            <Link href="/dashboard" className="flex-1">
               <Button variant="outline" className="w-full">
-                保険一覧を見る
+                ホームに戻る
               </Button>
             </Link>
           </div>

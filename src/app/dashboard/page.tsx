@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { VaccineCard } from '@/components/VaccineCard';
 import { NotificationSetup } from '@/components/NotificationSetup';
-import { getDogs, getSelectedDogId, setSelectedDogId, getUser, Dog } from '@/lib/store';
+import { getDogs, getSelectedDogId, setSelectedDogId, Dog } from '@/lib/store';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -15,12 +15,10 @@ export default function DashboardPage() {
   const [selectedDogIndex, setSelectedDogIndex] = useState(0);
   const [showDogSelector, setShowDogSelector] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [isPremium, setIsPremium] = useState(true);
 
   useEffect(() => {
     // localStorageからデータを読み込み
     const loadedDogs = getDogs();
-    const user = getUser();
 
     if (loadedDogs.length === 0) {
       router.push('/onboarding');
@@ -28,7 +26,6 @@ export default function DashboardPage() {
     }
 
     setDogsState(loadedDogs);
-    setIsPremium(user.isPremium);
 
     // 選択中の犬を復元
     const savedDogId = getSelectedDogId();
@@ -65,14 +62,6 @@ export default function DashboardPage() {
   const upcomingVaccines = dog?.vaccineSchedules?.filter((v) => !v.completed) || [];
   const hasMultipleDogs = dogs.length > 1;
 
-  // プレミアム機能のクリックハンドラー
-  const handlePremiumFeatureClick = (e: React.MouseEvent, href: string, isPremiumFeature: boolean) => {
-    if (isPremiumFeature && !isPremium) {
-      e.preventDefault();
-      router.push('/premium');
-    }
-  };
-
   // メニューアイテム
   const menuItems = [
     {
@@ -82,17 +71,14 @@ export default function DashboardPage() {
       description: '動物病院管理',
       bgColor: 'bg-mint-50',
       iconBg: 'bg-mint-100',
-      isNew: true,
     },
     {
       href: '/community',
       icon: '🐕',
       title: 'ご近所',
       description: '匿名コミュニティ',
-      premium: true,
       bgColor: 'bg-pink-50',
       iconBg: 'bg-pink-100',
-      isNew: true,
     },
     {
       href: '/news',
@@ -118,7 +104,6 @@ export default function DashboardPage() {
       description: '診断&比較',
       bgColor: 'bg-blue-50',
       iconBg: 'bg-blue-100',
-      isNew: true,
     },
     {
       href: '/walk',
@@ -135,7 +120,6 @@ export default function DashboardPage() {
       description: '展示会・パピパ',
       bgColor: 'bg-lavender-50',
       iconBg: 'bg-lavender-100',
-      isNew: true,
     },
     {
       href: '/places',
@@ -154,35 +138,10 @@ export default function DashboardPage() {
       iconBg: 'bg-peach-100',
     },
     {
-      href: '/family',
-      icon: '👨‍👩‍👧',
-      title: '家族共有',
-      description: 'お世話情報シェア',
-      bgColor: 'bg-pink-50',
-      iconBg: 'bg-pink-100',
-    },
-    {
-      href: '/breed-stats',
-      icon: '📊',
-      title: '犬種分布',
-      description: '全国ランキング',
-      bgColor: 'bg-cream-100',
-      iconBg: 'bg-cream-200',
-    },
-    {
       href: '/sns',
       icon: '📸',
       title: 'SNS投稿',
       description: '投稿文生成',
-      premium: true,
-      bgColor: 'bg-pink-50',
-      iconBg: 'bg-pink-100',
-    },
-    {
-      href: '/goods',
-      icon: '🎁',
-      title: 'グッズ',
-      description: 'おすすめ情報',
       bgColor: 'bg-pink-50',
       iconBg: 'bg-pink-100',
     },
@@ -191,17 +150,14 @@ export default function DashboardPage() {
       icon: '🍳',
       title: 'AIレシピ',
       description: '手作りごはん',
-      premium: true,
       bgColor: 'bg-peach-50',
       iconBg: 'bg-peach-100',
-      isNew: true,
     },
     {
       href: '/food',
       icon: '🍖',
       title: 'フード見直し',
       description: 'AIおすすめ',
-      premium: true,
       bgColor: 'bg-peach-50',
       iconBg: 'bg-peach-100',
     },
@@ -269,9 +225,6 @@ export default function DashboardPage() {
                     {dog.birthDate && ` ・ ${calculateAge(new Date(dog.birthDate))}`}
                   </p>
                 </div>
-                {isPremium && (
-                  <span className="premium-badge">Premium</span>
-                )}
               </div>
             </button>
 
@@ -315,49 +268,21 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* デモ表示 */}
-        <div className="mb-6 p-4 bg-gradient-to-r from-lavender-50 to-pink-50 border-2 border-lavender-200 rounded-2xl">
-          <p className="text-sm text-lavender-700">
-            <span className="font-bold">デモモード</span>
-            <span className="ml-2 text-lavender-500">
-              すべての機能をお試しいただけます
-            </span>
-          </p>
-        </div>
-
         {/* メインメニュー */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
           {menuItems.map((item) => (
             <Link
               key={item.href}
-              href={item.premium && !isPremium ? '/premium' : item.href}
-              onClick={(e) => handlePremiumFeatureClick(e, item.href, !!item.premium)}
+              href={item.href}
             >
-              <div className={`${item.bgColor} rounded-3xl p-4 relative hover:-translate-y-1 transition-all duration-300 hover:shadow-card-hover border border-white/50 ${item.premium && !isPremium ? 'opacity-90' : ''}`}>
-                {item.isNew && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-gradient-to-r from-accent to-peach-400 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm">
-                    NEW
-                  </span>
-                )}
-                {/* プレミアムバッジ（非課金ユーザー用） */}
-                {item.premium && !isPremium && (
-                  <span className="absolute -top-1.5 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm flex items-center gap-1">
-                    <span>👑</span>
-                    <span>Premium</span>
-                  </span>
-                )}
+              <div className={`${item.bgColor} rounded-3xl p-4 relative hover:-translate-y-1 transition-all duration-300 hover:shadow-card-hover border border-white/50`}>
                 <div className="text-center">
                   <div className={`w-12 h-12 ${item.iconBg} rounded-2xl mx-auto mb-2 flex items-center justify-center text-2xl shadow-sm`}>
                     {item.icon}
                   </div>
-                  <div className="flex items-center justify-center gap-1 mb-1">
-                    <h3 className="font-bold text-brown-700 text-sm">
-                      {item.title}
-                    </h3>
-                    {item.premium && isPremium && (
-                      <span className="bg-gradient-premium text-brown-800 text-[8px] px-1.5 py-0.5 rounded-full font-bold">P</span>
-                    )}
-                  </div>
+                  <h3 className="font-bold text-brown-700 text-sm mb-1">
+                    {item.title}
+                  </h3>
                   <p className="text-xs text-brown-400">
                     {item.description}
                   </p>
@@ -492,9 +417,9 @@ export default function DashboardPage() {
             <span className="text-xl">📰</span>
             <span>ニュース</span>
           </Link>
-          <Link href="/family" className="bottom-nav-item">
-            <span className="text-xl">👨‍👩‍👧</span>
-            <span>家族</span>
+          <Link href="/insurance-compare" className="bottom-nav-item">
+            <span className="text-xl">🛡️</span>
+            <span>保険</span>
           </Link>
           <Link href="/settings" className="bottom-nav-item">
             <span className="text-xl">⚙️</span>
